@@ -9,10 +9,14 @@ require 'strscan'
 len=400
 st=3
 seqfile=false
+saveall=savesub=false
 opt = OptionParser.new
 opt.on('-l i',"each length") {|v| len=v.to_i }
 opt.on('-s i',"start pos") {|v| st=v.to_i }
+opt.on('-c',"check only") {|v| $check=v }
 opt.on('-q i',"sequence file") {|v| seqfile=v }
+opt.on('-S',"save sub file") {|v| savesub=v }
+opt.on('-A',"save all sub file") {|v| saveall=v }
 opt.parse!(ARGV)
 
 def getsubs(data)
@@ -112,17 +116,28 @@ def fit  n,b
   r=[128,n].min if b == 8
   r
 end
+def calcnum n
+p n
+  case n
+  when String
+    eval(n)
+  when Fixnum
+    n
+  else
+    0
+  end
+end
 def load file
   dat=[]
   dat=File.readlines(file)
   dat.map{|i|
     i=~/^# *import:/
     $& ? load($'.chomp) : i
-  }.flatten
+  }.flatten.reject{|i|i=~/^#/}
 end
 def getseq dat
   li=dat.rejectmacro
-  li.map{|i|i.split(",")}
+  li.map{|i|i.split(",").map{|i|i=~/^ *([^ ]*)/;$1.size>0 ? $1 : nil}}
 end
 def getmacro dat
   macro={}
@@ -154,29 +169,30 @@ def getfraze dat
   fraze
 end
 def getblock dat
+  p "getblock"
   blocks={}
   li=dat.selectmacro
   li.each{|i|
     i=~/^block:/
     cm=$'
     cm=~/=/
-    blocks[$`]=$'.chomp if $&
+    blocks[$`]=calcnum($') if $&
   }
   blocks
 end
-def fileldcalc d
-  d=~/((.*):)?(.*)/
-  frazename,pos=$2,$3.to_i
+def fieldcalc d
+  d=~/((.*)@)?(.*)/
+  frazename,pos=$2,$3
   [frazename,pos]
 end
-def fileldmacro d
+def fieldmacro d
   d=~/((.*):)?(.*)/
-  frazename,pos=$2,$3
-  case frazename
+  mname,pos=$2,$3
+  case mname
   when"default"
-    [frazename,pos]
+    [mname,calcnum(pos)]
   when "base"
-    [frazename,pos]
+    [mname,calcnum(pos)]
   else
     false
   end
@@ -186,7 +202,7 @@ def poscalc pos,base,hpm=4
   block=$1
   shosetsu=$3
   haku=$4
-  res=[block,shosetsu.to_i*hpm+haku] if $&
+  res=[block,calcnum(shosetsu)*hpm+calcnum(haku)] if $&
   res=[nil,pos.to_i] if ! $&
   res
 end
@@ -208,12 +224,11 @@ end
 # macro:base=baseLength
 # fraze:frazeName=filemname,startPos,length
 # block:name=2345
-# (frazeName:)pos(,size,step,times)
+# (frazeName:)pos(,size,step,times,sa)
 
 showdat wavs
 puts"#{st} #{len}"
 frazeOrg=wavs[st,len]
-music=[0]*wavs.size
 all=load(seqfile)
 sub,main=getsubs(all)
 seq=getseq(main)
@@ -225,47 +240,104 @@ base=macro["base"] ? macro["base"] : 1
 hpm=macro["haku"] ? macro["haku"] : 4
 blocks=getblock(main)
 blocks[nil]=start
-p ">>",macro,fraze.keys,blocks
-seq.each{|n_pos,size,step,tim,sa|
-  r=fileldmacro(n_pos)
-  if r
-    if r[0]=="default"
-      fraze[nil]= r[1]=="reset" ? frazeOrg : fraze[r[1]]
+p ">>",macro,fraze.keys,blocks.map{|k,v|"#{k}=>#{v}(#{v*base})"}
+exit if $check
+
+def subCalc field
+  field=~/->/
+  [$`,"sub->#{$'}"]
+end
+def isSub field
+  field=~/->/
+end
+def byvol(t,vol)
+  vol ? (t*(vol.to_i/100.0)).to_i : t
+end
+def seq2wav seq,env
+p seq.size,"start!"
+  frazeOrg,fraze,base,hpm,blocks,start,len,osize=env
+  music=[0]*osize
+  seq.each{|n_pos,size,step,tim,sa,vol|
+    r=fieldmacro(n_pos)
+    if r
+      if r[0]=="default"
+        fraze[nil]= r[1]=="reset" ? frazeOrg : fraze[r[1]]
+      end
+      r[0]=="base" ? base=r[1].to_i : 0
+      next
+    end 
+    if isSub(n_pos)
+      pos,subname=subCalc(n_pos)
+      block,pos=poscalc(pos,base,hpm)
+      frazetmp=fraze[subname]
+    else
+      fname,pos=fieldcalc(n_pos)
+      fn,reverse=fncalc(fname)
+      frazetmp=reverse ? fraze[fn].reverse : fraze[fn]
+      block,pos=poscalc(pos,base,hpm)
     end
-    r[0]=="base" ? base=r[1].to_i : 0
-    next
-  end 
-  fname,pos=fileldcalc(n_pos)
-  fn,reverse=fncalc(fname)
-  frazetmp=reverse ? fraze[fn].reverse : fraze[fn]
-  block,pos=poscalc(pos,base,hpm)
-  posb=blocks[block]+pos*base
-  size=len if ! size
-  size=size.to_i
+p ["sub",subname||fn,"block",block]
+p [n_pos,size,step,tim,sa,vol]
+    posb=(blocks[block]+pos)*base
+    size=len if ! size || size.size==0
+    size=calcnum(size)*base
 puts"#{fn} #{start}#{reverse ? "(r)" : ""}: [#{pos}] #{posb} step:#{step ? step.to_i*base : ""} t:#{tim} #{sa}"
-  if step && tim
-    step=step.to_i*base
-    tim=tim.to_i
-    sa=sa.to_i
-    tim.times{
+    if step && tim
+      step=calcnum(step)*base
+      tim=calcnum(tim)
+      sa=sa.to_i*base
+      tim.times{
+        size.times{|i|
+          music[start+posb+i]+=byvol(frazetmp[i],vol) if music[start+posb+i] && frazetmp[i]
+        }
+        posb+=step
+        step-=sa if sa
+      }
+    else
       size.times{|i|
         music[start+posb+i]+=frazetmp[i] if music[start+posb+i] && frazetmp[i]
       }
-      posb+=step
-      step-=sa if sa
-    }
-  else
-    size.times{|i|
-      music[start+posb+i]+=frazetmp[i] if music[start+posb+i] && frazetmp[i]
-    }
-  end
+    end
+  }
+  music
+end
+
+sub.keys.each{|k|
+  fraze["sub->#{k}"]=seq2wav(getseq(sub[k]),[frazeOrg,fraze,base,hpm,{nil=>0},0,len,wavs.size]).map{|i|fit(i,format.bitPerSample)}
+  p (fraze["sub->#{k}"]-[0]).size
 }
+music=seq2wav seq,[frazeOrg,fraze,base,hpm,blocks,start,len,wavs.size]
 wavs=music.map{|i|fit(i,format.bitPerSample)}
 
 
 data.data = wavs.pack(bit)
 STDERR.puts"write.."
+p wavs.size
 open(out_file, "wb"){|out|
   WavFile::write(out, format, [data])
 }
+
+if savesub
+  fraze.keys.select{|i|i=~/sub->/}.each{|k|
+  p (fraze[k]-[0]).size,fraze[k].size
+    data.data=fraze[k].pack(bit)
+    k=~/sub->/
+    STDERR.puts"write.."
+    open(out_file+"-sub#{$'}.wav", "wb"){|out|
+      WavFile::write(out, format, [data])
+    }
+  }
+end
+if saveall
+  (fraze.keys-[nil]).each{|k|
+  p (fraze[k]-[0]).size,fraze[k].size
+    data.data=fraze[k].pack(bit)
+    k=~/sub->/
+    k=$' if $&
+    STDERR.puts"write.."
+    open(out_file+"-sub#{k}.wav", "wb"){|out|
+      WavFile::write(out, format, [data])
+    }
+  }
+end
 # p main
