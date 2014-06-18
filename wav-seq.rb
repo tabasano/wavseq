@@ -25,6 +25,7 @@ def getsubs(data)
   tokens = []
   rest=[]
   sub={}
+  seq={}
   key=""
   while !s.eos?
     if s.scan(/{([^}]+)}/)
@@ -36,6 +37,11 @@ def getsubs(data)
         p 1,s[0]
     	tokens << [s[1], :sub]
         key=s[1]
+    elsif s.scan(/seq:([^{ \n]+) *\n?/)
+        p 2,s[0]
+    	tokens << [s[1], :seq]
+        k,v=s[1].split(",").map{|i|i=~/ *([^ ]*)/;$1}
+        seq[k]=File.readlines(v)
     elsif s.scan(/macro:([^{ \n]+) *\n?/)
         p 2,s[0]
     	tokens << [s[1], :macro]
@@ -51,7 +57,7 @@ def getsubs(data)
         rest<<s[0] if s[1]
     end
   end
-  [sub,rest]
+  [sub,rest,seq]
 end
 
 class Array
@@ -193,6 +199,8 @@ def fieldmacro d
     [mname,calcnum(pos)]
   when "base"
     [mname,calcnum(pos)]
+  when "subseq"
+    [mname,pos]
   else
     false
   end
@@ -230,7 +238,11 @@ showdat wavs
 puts"#{st} #{len}"
 frazeOrg=wavs[st,len]
 all=load(seqfile)
-sub,main=getsubs(all)
+sub,main,seqsub=getsubs(all)
+seqsub.each{|k,v|
+  li=v.split(",").map{|i|calcnum(i)}
+  seqsub[k]=li
+}
 seq=getseq(main)
 macro=getmacro(main)
 fraze=getfraze(main)
@@ -260,13 +272,23 @@ p seq.size,"start!"
   seq.each{|n_pos,size,step,tim,sa,vol|
     r=fieldmacro(n_pos)
     if r
-      if r[0]=="default"
+p r
+      case r[0]
+      when "default"
         fraze[nil]= r[1]=="reset" ? frazeOrg : fraze[r[1]]
+        next
+      when "base" 
+        base=r[1].to_i
+        next
+      when "subseq"
+        name,fn_pos=r[1]
+        fname,pos=fieldcalc(fn_pos)
+        fn,reverse=fncalc(fname)
+        frazetmp=reverse ? fraze[fn].reverse : fraze[fn]
+        block,pos=poscalc(pos,base,hpm)
+        pos=subseq[name].map{|i|i+pos}
       end
-      r[0]=="base" ? base=r[1].to_i : 0
-      next
-    end 
-    if isSub(n_pos)
+    elsif isSub(n_pos)
       pos,subname=subCalc(n_pos)
       block,pos=poscalc(pos,base,hpm)
       frazetmp=fraze[subname]
@@ -276,28 +298,31 @@ p seq.size,"start!"
       frazetmp=reverse ? fraze[fn].reverse : fraze[fn]
       block,pos=poscalc(pos,base,hpm)
     end
+    poss=[pos].flatten
+    poss.each{|pos|
 p ["sub",subname||fn,"block",block]
 p [n_pos,size,step,tim,sa,vol]
-    posb=(blocks[block]+pos)*base
-    size=len if ! size || size.size==0
-    size=calcnum(size)*base
+      posb=(blocks[block]+pos)*base
+      size=len if ! size || size.size==0
+      size=calcnum(size)*base
 puts"#{fn} #{start}#{reverse ? "(r)" : ""}: [#{pos}] #{posb} step:#{step ? step.to_i*base : ""} t:#{tim} #{sa}"
-    if step && tim
-      step=calcnum(step)*base
-      tim=calcnum(tim)
-      sa=sa.to_i*base
-      tim.times{
-        size.times{|i|
-          music[start+posb+i]+=byvol(frazetmp[i],vol) if music[start+posb+i] && frazetmp[i]
+      if step && tim
+        step=calcnum(step)*base
+        tim=calcnum(tim)
+        sa=sa.to_i*base
+        tim.times{
+          size.times{|i|
+            music[start+posb+i]+=byvol(frazetmp[i],vol) if music[start+posb+i] && frazetmp[i]
+          }
+          posb+=step
+          step-=sa if sa
         }
-        posb+=step
-        step-=sa if sa
-      }
-    else
-      size.times{|i|
-        music[start+posb+i]+=frazetmp[i] if music[start+posb+i] && frazetmp[i]
-      }
-    end
+      else
+        size.times{|i|
+          music[start+posb+i]+=frazetmp[i] if music[start+posb+i] && frazetmp[i]
+        }
+      end
+    }
   }
   music
 end
