@@ -8,16 +8,22 @@ require 'strscan'
 
 len=400
 st=3
+fuzzy=false
 seqfile=false
 saveall=savesub=false
 opt = OptionParser.new
 opt.on('-l i',"each length") {|v| len=v.to_i }
 opt.on('-s i',"start pos") {|v| st=v.to_i }
+opt.on('-F f',"fuzzy vol percent") {|v| fuzzy=v.to_f }
 opt.on('-c',"check only") {|v| $check=v }
 opt.on('-q i',"sequence file") {|v| seqfile=v }
 opt.on('-S',"save sub file") {|v| savesub=v }
 opt.on('-A',"save all sub file") {|v| saveall=v }
 opt.parse!(ARGV)
+
+def readsubseq file
+  File.readlines(file).reject{|i|i=~/^#/}
+end
 
 def getsubs(data)
   data=data*"" if data.class==Array
@@ -28,7 +34,7 @@ def getsubs(data)
   seq={}
   key=""
   while !s.eos?
-    if s.scan(/{([^}]+)}/)
+    if s.scan(/\{([^}]+)}/)
         p 0,s[0]
     	lines=s[1].split("\n")
         sub[key]=lines
@@ -40,8 +46,10 @@ def getsubs(data)
     elsif s.scan(/seq:([^{ \n]+) *\n?/)
         p 2,s[0]
     	tokens << [s[1], :seq]
-        k,v=s[1].split(",").map{|i|i=~/ *([^ ]*)/;$1}
-        seq[k]=File.readlines(v)
+        k,v,rate=s[1].split(",").map{|i|i=~/ *([^ ]*)/;$1}
+        rate=rate.to_f
+        seq[k]=[readsubseq(v),rate]
+p [k,v,rate]
     elsif s.scan(/macro:([^{ \n]+) *\n?/)
         p 2,s[0]
     	tokens << [s[1], :macro]
@@ -66,6 +74,13 @@ class Array
   end
   def avg
     self.inject(0){|s,i|s+i}/self.size
+  end
+  def span
+    r=[0.0]
+    (self.size-1).times{|i|
+      r<<(self[i+1]-self[i]).round(3)
+    }
+    r
   end
   def aabbcc r,ti
     tmp=[]
@@ -192,15 +207,15 @@ def fieldcalc d
   [frazename,pos]
 end
 def fieldmacro d
-  d=~/((.*):)?(.*)/
-  mname,pos=$2,$3
+  d=~/(([^:]*)\((.*)\):)?(.*)/
+  mname,seq,pos=$2,$3,$4
   case mname
   when"default"
     [mname,calcnum(pos)]
   when "base"
     [mname,calcnum(pos)]
   when "subseq"
-    [mname,pos]
+    [mname,[seq,pos]]
   else
     false
   end
@@ -238,11 +253,22 @@ showdat wavs
 puts"#{st} #{len}"
 frazeOrg=wavs[st,len]
 all=load(seqfile)
-sub,main,seqsub=getsubs(all)
-seqsub.each{|k,v|
-  li=v.split(",").map{|i|calcnum(i)}
-  seqsub[k]=li
+sub,main,subseq=getsubs(all)
+subseqtes={}
+subseqspan={}
+subseq.each{|k,val|
+  v,rate=val
+  li=v.map{|s|
+    s.split(",").map{|i|
+      (calcnum(i)*rate).to_f.round(2)
+    }
+  }.flatten
+  lii=li.map(&:to_i)
+  subseqtes[k]=lii
+  subseqspan[k]=li.span
+  subseq[k]=li
 }
+p subseq,subseqtes,subseqspan
 seq=getseq(main)
 macro=getmacro(main)
 fraze=getfraze(main)
@@ -262,17 +288,22 @@ end
 def isSub field
   field=~/->/
 end
-def byvol(t,vol)
-  vol ? (t*(vol.to_i/100.0)).to_i : t
+def byvol(t,vol,rand=false)
+  r=vol ? (t*(vol.to_i/100.0)).to_i : t
+  rate=1
+  if rand
+    rate=rand
+  end
+  r*rate
 end
 def seq2wav seq,env
 p seq.size,"start!"
-  frazeOrg,fraze,base,hpm,blocks,start,len,osize=env
+  frazeOrg,fraze,subseq,base,hpm,blocks,start,len,osize,fuzzy=env
   music=[0]*osize
   seq.each{|n_pos,size,step,tim,sa,vol|
     r=fieldmacro(n_pos)
     if r
-p r
+p ["fieldmacro",r]
       case r[0]
       when "default"
         fraze[nil]= r[1]=="reset" ? frazeOrg : fraze[r[1]]
@@ -283,6 +314,7 @@ p r
       when "subseq"
         name,fn_pos=r[1]
         fname,pos=fieldcalc(fn_pos)
+p ["subseq",name,fname,pos]
         fn,reverse=fncalc(fname)
         frazetmp=reverse ? fraze[fn].reverse : fraze[fn]
         block,pos=poscalc(pos,base,hpm)
@@ -304,21 +336,23 @@ p ["sub",subname||fn,"block",block]
 p [n_pos,size,step,tim,sa,vol]
       posb=(blocks[block]+pos)*base
       size=len if ! size || size.size==0
-      size=calcnum(size)*base
+      sizeb=calcnum(size)*base
 puts"#{fn} #{start}#{reverse ? "(r)" : ""}: [#{pos}] #{posb} step:#{step ? step.to_i*base : ""} t:#{tim} #{sa}"
       if step && tim
-        step=calcnum(step)*base
+        stepb=calcnum(step)*base
         tim=calcnum(tim)
         sa=sa.to_i*base
         tim.times{
-          size.times{|i|
-            music[start+posb+i]+=byvol(frazetmp[i],vol) if music[start+posb+i] && frazetmp[i]
+          volrate=false
+          volrate=(100-rand(fuzzy))/100.0 if fuzzy
+          sizeb.times{|i|
+            music[start+posb+i]+=byvol(frazetmp[i],vol,volrate) if music[start+posb+i] && frazetmp[i]
           }
-          posb+=step
-          step-=sa if sa
+          posb+=stepb
+          stepb-=sa if sa
         }
       else
-        size.times{|i|
+        sizeb.times{|i|
           music[start+posb+i]+=frazetmp[i] if music[start+posb+i] && frazetmp[i]
         }
       end
@@ -328,10 +362,10 @@ puts"#{fn} #{start}#{reverse ? "(r)" : ""}: [#{pos}] #{posb} step:#{step ? step.
 end
 
 sub.keys.each{|k|
-  fraze["sub->#{k}"]=seq2wav(getseq(sub[k]),[frazeOrg,fraze,base,hpm,{nil=>0},0,len,wavs.size]).map{|i|fit(i,format.bitPerSample)}
+  fraze["sub->#{k}"]=seq2wav(getseq(sub[k]),[frazeOrg,fraze,subseq,base,hpm,{nil=>0},0,len,wavs.size,false]).map{|i|fit(i,format.bitPerSample)}
   p (fraze["sub->#{k}"]-[0]).size
 }
-music=seq2wav seq,[frazeOrg,fraze,base,hpm,blocks,start,len,wavs.size]
+music=seq2wav seq,[frazeOrg,fraze,subseq,base,hpm,blocks,start,len,wavs.size,fuzzy]
 wavs=music.map{|i|fit(i,format.bitPerSample)}
 
 
