@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-
+# maximize volume
 require 'rubygems'
 require 'wav-file'
 require 'optparse'
@@ -36,6 +36,18 @@ class Array
     end
     res
   end
+  def rejectmacro
+    reject{|i|i=~/^(macro|fraze)/}
+  end
+  def selectmacro
+    self-self.rejectmacro
+  end
+end
+def getwavdat file
+  format, data = WavFile::read open(file)
+  bit = 's*' if format.bitPerSample == 16 # int16_t
+  bit = 'c*' if format.bitPerSample == 8 # signed char
+  wavs = data.data.unpack(bit)
 end
 
 if ARGV.size < 2
@@ -65,31 +77,88 @@ def fit  n,b
   r
 end
 def getseq file
-  li=File.readlines(file)
-  li.map{|i|i.split(",").map{|i|i.to_i}}
+  li=File.readlines(file).rejectmacro
+  li.map{|i|i.split(",")}
+end
+def getmacro file
+  macro={}
+  li=File.readlines(file).selectmacro
+  li.each{|i|
+    i=~/^macro:/
+    cm=$'
+    cm=~/=/
+    macro[$`]=$'.to_i if $&
+  }
+  macro
+end
+def setfraze d
+  file,st,len=d.split(",")
+  getwavdat(file)[st.to_i,st.to_i+len.to_i]
+end
+def getfraze file
+  fraze={}
+  li=File.readlines(file).selectmacro
+  li.each{|i|
+    i=~/^fraze:/
+    cm=$'
+    cm=~/=/
+    fraze[$`]=setfraze($') if $&
+  }
+  fraze
+end
+def fileldcalc d
+  d=~/((.*):)?(.*)/
+  frazename,pos=$2,$3.to_i
+  [frazename,pos]
+end
+def fileldmacro d
+  d=~/((.*):)?(.*)/
+  frazename,pos=$2,$3
+  frazename=="default" ? pos : false
 end
 def showdat wavs
   puts "wavs size: #{wavs.size}"
   puts "wavs range: #{wavs.min} #{wavs.max}"
 end
+##### macro
+# macro:start=1234
+# macro:base=baseLength
+# fraze:frazeName=filemname,startPos,length
+# (frazeName:)pos(,size,step,times)
+
 showdat wavs
 puts"#{st} #{len}"
-fraze=wavs[st,len]
+frazeOrg=wavs[st,len]
 music=[0]*wavs.size
 seq=getseq(seqfile)
-seq.each{|pos,size,step,tim,sa|
+macro=getmacro(seqfile)
+fraze=getfraze(seqfile)
+p macro,fraze.keys
+fraze[nil]=frazeOrg
+start=macro["start"] ? macro["start"] : 0
+seq.each{|field1,size,step,tim,sa|
+  r=fileldmacro(field1)
+  if r
+    fraze[nil]=r=="reset" ? frazeOrg : fraze[r]
+    next
+  end 
+  fn,pos=fileldcalc(field1)
   size=len if ! size
+  size=size.to_i
   if step && tim
+    step=step.to_i
+    tim=tim.to_i
+    sa=sa.to_i
     tim.times{
       size.times{|i|
-        music[pos+i]+=fraze[i] if music[pos+i] && fraze[i]
+        music[start+pos+i]+=fraze[fn][i] if music[start+pos+i] && fraze[fn][i]
       }
       pos+=step
       step-=sa if sa
     }
   else
     size.times{|i|
-      music[pos+i]+=fraze[i] if music[pos+i] && fraze[i]
+      music[start+pos+i]+=fraze[fn][i] if music[start+pos+i] && fraze[fn][i]
     }
   end
 }
