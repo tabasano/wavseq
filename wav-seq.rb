@@ -7,12 +7,14 @@ require 'strscan'
 
 
 len=400
+outlen=0
 st=3
 fuzzy=false
 seqfile=false
 saveall=savesub=false
 opt = OptionParser.new
 opt.on('-l i',"each length") {|v| len=v.to_i }
+opt.on('-L i',"output length ( sec.)") {|v| outlen=v.to_f }
 opt.on('-s i',"start pos") {|v| st=v.to_i }
 opt.on('-F f',"fuzzy vol percent") {|v| fuzzy=v.to_f }
 opt.on('-c',"check only") {|v| $check=v }
@@ -21,6 +23,8 @@ opt.on('-S',"save sub file") {|v| savesub=v }
 opt.on('-A',"save all sub file") {|v| saveall=v }
 opt.parse!(ARGV)
 
+# sub-sequence file is made by sequence-record.rb
+#  ... or simply csv integer values
 def readsubseq file
   File.readlines(file).reject{|i|i=~/^#/}
 end
@@ -104,15 +108,45 @@ class Array
     self-self.rejectmacro
   end
 end
+class WavRaw
+  def initialize wav,bps
+    @wav=wav
+    @bit=16
+    @orgbit=bps
+    case @orgbit
+    when 8
+      tr8
+    when 16
+    else
+      false
+    end
+  end
+  def tr8
+    @wav=@wav.map{|w|(w-128)*128}
+  end
+  def rt8
+    @wav=@wav.map{|w|w/256-128}.map{|i|fit(i,8)}
+  end
+  def get
+    case @orgbit
+    when 8
+      rt8
+    when 16
+      @wav
+    else
+      false
+    end
+  end
+end
 def getwavdat file
   format, data = WavFile::read open(file)
   bit = 's*' if format.bitPerSample == 16 # int16_t
-  bit = 'c*' if format.bitPerSample == 8 # signed char
+  bit = 'C*' if format.bitPerSample == 8 # unsigned char
   wavs = data.data.unpack(bit)
 end
 
 if ARGV.size < 2
-  puts "ruby #{$0} input.wav output.wav"
+  puts "ruby #{$0} input.wav output.wav -q sequence-file"
   exit 1
 end
 
@@ -124,7 +158,7 @@ format, data = WavFile::read open(in_file)
 puts format.to_s
 
 bit = 's*' if format.bitPerSample == 16 # int16_t
-bit = 'c*' if format.bitPerSample == 8 # signed char
+bit = 'C*' if format.bitPerSample == 8 # unsigned char
 wavs = data.data.unpack(bit)
 
 #ビット数は 8bit と 16bit
@@ -365,7 +399,10 @@ sub.keys.each{|k|
   fraze["sub->#{k}"]=seq2wav(getseq(sub[k]),[frazeOrg,fraze,subseq,base,hpm,{nil=>0},0,len,wavs.size,false]).map{|i|fit(i,format.bitPerSample)}
   p (fraze["sub->#{k}"]-[0]).size
 }
-music=seq2wav seq,[frazeOrg,fraze,subseq,base,hpm,blocks,start,len,wavs.size,fuzzy]
+oneSecLen=format.channel*format.hz
+outlen=outlen*oneSecLen
+outlen=wavs.size if outlen==0
+music=seq2wav seq,[frazeOrg,fraze,subseq,base,hpm,blocks,start,len,outlen,fuzzy]
 wavs=music.map{|i|fit(i,format.bitPerSample)}
 
 
