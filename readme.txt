@@ -5,3 +5,4 @@ sequence-play.rb
 wav-seq.rb
  wav‚Éwav‚Ì’f•Ğ‚ğ‘«‚µ‚Ä‚¢‚­B
  8bit‚Í•Û—¯
+ 8bit‚Íunsigned...
