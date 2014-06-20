@@ -1,8 +1,10 @@
 sequence-record.rb
- ƒGƒ“ƒ^[ƒL[‚ÅƒV[ƒPƒ“ƒXEƒf[ƒ^‚ğì‚éB
+  ã‚¨ãƒ³ã‚¿ãƒ¼ã‚­ãƒ¼ã§ã‚·ãƒ¼ã‚±ãƒ³ã‚¹ãƒ»ãƒ‡ãƒ¼ã‚¿ã‚’ä½œã‚‹ã€‚
 sequence-play.rb
- Ä¶‚·‚éB
+  å†ç”Ÿã™ã‚‹ã€‚
 wav-seq.rb
- wav‚Éwav‚Ì’f•Ğ‚ğ‘«‚µ‚Ä‚¢‚­B
- 8bit‚Í•Û—¯
- 8bit‚Íunsigned...
+  wav(pcm)ã«wavã®æ–­ç‰‡ã‚’è¶³ã—ã¦ã„ãã€‚
+  8bitã¯ä¿ç•™
+  8bitã¯unsigned...
+midi-simple-make.rb
+  midi fileä½œæˆã€‚
