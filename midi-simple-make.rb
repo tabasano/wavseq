@@ -43,7 +43,11 @@ d_start="
 #00 00 00 1c # データ長: 28[byte] (>> ..  <<)
 
 d_dsize=""
-# >>
+
+d_tempo="
+00 FF 51 03  07 A1 20 #bpm=120, 四分音符の長さをマイクロ秒で3byte
+"
+
 d_onenote={
 "p"=>"
 00 90 3C 40 # 0拍後, オン:ch0, key:3C(ド), vel:40
@@ -78,14 +82,24 @@ d_trackend="
 "
 
 def hint
-  puts "usage: #{$0} 'dddd dr3 dddd r4 drdrdrdr dddd dr3' outfile.mid"
+  puts "usage: #{$0} 'dddd dr3 dddd r4 drdrdrdr dddd dr3' outfile.mid bpm"
   puts "    d=sound, r=rest, num=length, blank ignored"
 end
-
-rundata,ofile = ARGV
+def makebpm bpm
+  d="000000"+(60_000_000/bpm.to_f).to_i.to_s(16)
+  d[-6..-1]
+end
+rundata,ofile,bpm = ARGV
 (hint;exit) if ! rundata
 
-d_data=makefraze(d_onenote,d_rest,rundata)+d_last
+bpm=120 if ! bpm
+d_bpm=makebpm(bpm)
+
+d_tempo="
+00 FF 51 03 #{d_bpm} # 四分音符の長さをマイクロ秒で3byte
+"
+
+d_data = d_tempo + makefraze(d_onenote,d_rest,rundata) + d_last
 d_dsize=sizemake(d_data)
 #p d_dsize
 alla=[d_head,d_start,d_dsize,d_data,d_trackend]
