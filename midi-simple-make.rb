@@ -38,7 +38,7 @@ def varlen(v)
     return [v2,v1]
   end
 end
-def deltaTimeHex(v)
+def varlenHex(v)
   b=[varlen(v)]
   b=b.flatten
   c=b[0..-2].map{|i| i | 0x80 }
@@ -47,7 +47,12 @@ def deltaTimeHex(v)
   r.each{|i|
     res=res*0x100+i
   }
-  format("%0#{b.size}x",res)
+  format("%0#{b.size*2}x",res)
+end
+def txt2hex t
+  r=t.split('').map{|i|format"%02x",i.ord}
+  size=r.size
+  [r*" ",varlenHex(size)]
 end
 
 array = []
@@ -60,7 +65,7 @@ d_head="
 01 E0       # 1 拍の分解能 480:
 "
 
-delta=deltaTimeHex(480)
+delta=varlenHex(480)
 p "deltaTime: 0x#{delta}"
 d_start="
 4D 54 72 6B # トラック 1 開始
@@ -69,6 +74,11 @@ d_start="
 
 d_dsize=""
 
+comment="by midi-simple-make.rb"
+commenthex,len=txt2hex(comment)
+d_comment="
+00 FF 01 #{len} #{commenthex}
+"
 d_tempo="
 00 FF 51 03  07 A1 20 #bpm=120, 四分音符の長さをマイクロ秒で3byte
 "
@@ -124,7 +134,7 @@ d_tempo="
 00 FF 51 03 #{d_bpm} # 四分音符の長さをマイクロ秒で3byte
 "
 
-d_data = d_tempo + makefraze(d_onenote,d_rest,rundata) + d_last
+d_data = d_comment + d_tempo + makefraze(d_onenote,d_rest,rundata) + d_last
 d_dsize=sizemake(d_data)
 #p d_dsize
 alla=[d_head,d_start,d_dsize,d_data,d_trackend]
