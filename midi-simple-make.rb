@@ -28,6 +28,28 @@ def makefraze on,off,rundata
   }
   r*"\n# onoff ==== \n"
 end
+def varlen(v)
+  if v < 0x80
+    return v
+  else
+    v1 = v & 0b01111111
+    v2=(v-v1)>>7
+    v2 =varlen(v2)
+    return [v2,v1]
+  end
+end
+def deltaTimeHex(v)
+  b=[varlen(v)]
+  b=b.flatten
+  c=b[0..-2].map{|i| i | 0x80 }
+  r=[c,b[-1]].flatten
+  res=0
+  r.each{|i|
+    res=res*0x100+i
+  }
+  format("%0#{b.size}x",res)
+end
+
 array = []
 
 d_head="
@@ -35,8 +57,11 @@ d_head="
 00 00 00 06 # データ長:6[byte]
 00 01       # フォーマット:1
 00 01       # トラック数:1
-00 02       # 1 拍の分解能:
+01 E0       # 1 拍の分解能 480:
 "
+
+delta=deltaTimeHex(480)
+p "deltaTime: 0x#{delta}"
 d_start="
 4D 54 72 6B # トラック 1 開始
 "
@@ -51,31 +76,31 @@ d_tempo="
 d_onenote={
 "p"=>"
 00 90 3C 40 # 0拍後, オン:ch0, key:3C(ド), vel:40
-01 80 3C 00 # 1拍後, オフ:ch0, key:3C
+#{delta} 80 3C 00 # 1拍後, オフ:ch0, key:3C
 ",
 "P"=>"
 00 90 3D 40 # 0拍後, オン:ch0, key:3C(ド), vel:40
-01 80 3D 00 # 1拍後, オフ:ch0, key:3C
+#{delta} 80 3D 00 # 1拍後, オフ:ch0, key:3C
 ",
 "d"=>"
 00 99 3C 40 # 0拍後, オン:ch10(rythm track), key:3C(ド), vel:40
-01 89 3C 00 # 1拍後, オフ:ch10, key:3C
+#{delta} 89 3C 00 # 1拍後, オフ:ch10, key:3C
 ",
 "e"=>"
 00 99 40 40 # 0拍後, オン:ch10, key:40(ミ), vel:40
-01 89 4C 00 # 1拍後, オフ:ch10, key:3C
+#{delta} 89 4C 00 # 1拍後, オフ:ch10, key:3C
 ",
 "f"=>"
 00 99 43 40 # 0拍後, オン:ch10, key:43(ソ), vel:40
-01 89 43 00 # 1拍後, オフ:ch10, key:3C
+#{delta} 89 43 00 # 1拍後, オフ:ch10, key:3C
 "}
 
 d_rest="
-01  89 3C 00 # 1拍後, オフ:ch10, key:3C
+#{delta}  89 3C 00 # 1拍後, オフ:ch10, key:3C
 "
 d_last=
 "
-01  89 3C 00 # 1拍後, オフ:ch10, key:3C
+#{delta}  89 3C 00 # 1拍後, オフ:ch10, key:3C
 "
 d_trackend="
 00 FF 2F 00 # トラック 1 終了
