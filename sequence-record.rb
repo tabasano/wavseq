@@ -1,12 +1,13 @@
 tmp="seq-byseqrec.txt"
 tmp=ARGV.shift
-ajustlevel=ARGV.shift
-ajustpercent=ARGV.shift
+adjustlevel=ARGV.shift
+adjustpercent=ARGV.shift
 
 def hint
-  puts "usage: #{$0} outputfile (ajust-level ajust-percent)"
+  puts "usage: #{$0} outputfile (adjust-level adjust-percent)"
   puts "  make sequence data by series of enter keys. first 3 enters are for making minimum unit span only."
-  puts "  ajust-parameters for quantize"
+  puts "  adjust-parameters for quantize"
+  puts "  'q' = quit ( recording end. )"
 end
 
 (hint;exit) if ! tmp
@@ -20,13 +21,13 @@ while 1
 end
 class Array
   def unit
-    @unit=((self[2]-self[0])/2/480).round(4)
+    @unit=(self[2]-self[0])/2/480.round(5)
   end
-  def seq
+  def seq unit=@unit
     start=self[3]
     r=[]
     (size-3).times{|i|
-      r<<((self[i+3]-start)/@unit).round(0)
+      r<<((self[i+3]-start)/unit).round(0)
     }
     r
   end
@@ -37,7 +38,7 @@ class Array
     }
     r
   end
-  def ajust level, rate
+  def adjust level, rate
     level=(level*4.8).to_i
     mid=level/2.0
     self.map{|i|
@@ -49,9 +50,10 @@ class Array
 end
 unit=ti.unit
 p ti,ti.unit,seq=ti.seq,seq.span
-ajustpercent=ajustpercent ? ajustpercent.to_i : 100
-if ajustlevel
-  seq=seq.ajust(ajustlevel.to_i, ajustpercent) 
-  p seq
+adjustpercent=adjustpercent ? adjustpercent.to_i : 100
+if adjustlevel
+  seq=seq.adjust(adjustlevel.to_i, adjustpercent) 
+  puts "adjust."
+  p seq,seq.span
 end
 open(tmp,"w"){|f|f.puts "# unit=#{unit}",seq*","}

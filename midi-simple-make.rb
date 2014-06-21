@@ -54,24 +54,43 @@ def txt2hex t
   size=r.size
   [r*" ",varlenHex(size)]
 end
-
+def oneNote len=480,key=0x3C,velocity=40,ch=0
+  ch=[ch,0x0f].min
+  velocity=[velocity,0x7f].min
+  key=[key,0x7f].min
+  key=format("%02x",key)
+  ch=format("%01x",ch)
+  velocity=format("%02x",velocity)
+  delta=varlenHex(len)
+  str="
+    00 9#{ch} #{key} #{velocity} # 0拍後, soundオン...
+    #{delta} 80 #{key} 00 # delta後, soundオフ
+  "
+end
+def header format,track,size
+  format=[format,0xff].min
+  track=[track,0xff].min
+  size=[size,0xffff].min
+  format=format("%02x",format)
+  track=format("%02x",track)
+  size=format("%04x",size)
+  "
+    4D 54 68 64  # ヘッダ
+    00 00 00 06  # データ長:6[byte]
+    00 #{format} # フォーマット
+    00 #{track}  # トラック数
+    #{size}      # 1 拍の分解能
+  "
+end
 array = []
 
-d_head="
-4D 54 68 64 # ヘッダ
-00 00 00 06 # データ長:6[byte]
-00 01       # フォーマット:1
-00 01       # トラック数:1
-01 E0       # 1 拍の分解能 480:
-"
+d_head=header(1,1,480)
 
 delta=varlenHex(480)
 p "deltaTime: 0x#{delta}"
 d_start="
 4D 54 72 6B # トラック 1 開始
 "
-#00 00 00 1c # データ長: 28[byte] (>> ..  <<)
-
 d_dsize=""
 
 comment="by midi-simple-make.rb"
@@ -83,27 +102,13 @@ d_tempo="
 00 FF 51 03  07 A1 20 #bpm=120, 四分音符の長さをマイクロ秒で3byte
 "
 
-d_onenote={
-"p"=>"
-00 90 3C 40 # 0拍後, オン:ch0, key:3C(ド), vel:40
-#{delta} 80 3C 00 # 1拍後, オフ:ch0, key:3C
-",
-"P"=>"
-00 90 3D 40 # 0拍後, オン:ch0, key:3C(ド), vel:40
-#{delta} 80 3D 00 # 1拍後, オフ:ch0, key:3C
-",
-"d"=>"
-00 99 3C 40 # 0拍後, オン:ch10(rythm track), key:3C(ド), vel:40
-#{delta} 89 3C 00 # 1拍後, オフ:ch10, key:3C
-",
-"e"=>"
-00 99 40 40 # 0拍後, オン:ch10, key:40(ミ), vel:40
-#{delta} 89 4C 00 # 1拍後, オフ:ch10, key:3C
-",
-"f"=>"
-00 99 43 40 # 0拍後, オン:ch10, key:43(ソ), vel:40
-#{delta} 89 43 00 # 1拍後, オフ:ch10, key:3C
-"}
+notes={
+  "p"=>oneNote(480,0x3C,0x40,0),
+  "P"=>oneNote(480,0x3D,0x40,0),
+  "d"=>oneNote(480,0x3C,0x40,9),
+  "e"=>oneNote(480,0x40,0x40,9),
+  "f"=>oneNote(480,0x43,0x40,9)
+}
 
 d_rest="
 #{delta}  89 3C 00 # 1拍後, オフ:ch10, key:3C
@@ -134,7 +139,7 @@ d_tempo="
 00 FF 51 03 #{d_bpm} # 四分音符の長さをマイクロ秒で3byte
 "
 
-d_data = d_comment + d_tempo + makefraze(d_onenote,d_rest,rundata) + d_last
+d_data = d_comment + d_tempo + makefraze(notes,d_rest,rundata) + d_last
 d_dsize=sizemake(d_data)
 #p d_dsize
 alla=[d_head,d_start,d_dsize,d_data,d_trackend]
