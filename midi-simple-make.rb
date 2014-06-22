@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 class String
   def trim
-    d=split("\n").map{|i|i=~/#.*/;$& ? $`.chomp : i.chomp}*" "
+    d=split("\n").map{|i|i.sub(/#.*/){}.chomp}*" "
 #    p d
     d
   end
@@ -68,29 +68,36 @@ module Mid
       #{delta} 80 #{key} 00 # delta後, soundオフ
     "
   end
-  def self.note key,ch=0
-    self.oneNote(480,key,40,ch)
+  def self.notekey key
+    @set||=[480,40,0]
+    len,velocity,ch=@set
+    if key.class==Fixnum
+      self.oneNote(len,@basekey+key,velocity,ch)
+    else
+      key,ch=key
+      self.oneNote(len,@basekey+key,velocity,ch)
+    end
   end
   def self.notes c
     @rythmtrack||=9
     @notes||={
-      "c"=>note(0x3C),
-      "C"=>note(0x3C+1),
-      "d"=>note(0x3C+2),
-      "D"=>note(0x3C+3),
-      "e"=>note(0x3C+4),
-      "f"=>note(0x3C+5),
-      "F"=>note(0x3C+6),
-      "g"=>note(0x3C+7),
-      "G"=>note(0x3C+8),
-      "a"=>note(0x3C+9),
-      "A"=>note(0x3C+10),
-      "b"=>note(0x3C+11),
-      "t"=>note(0x3C,@rythmtrack),
-      "s"=>note(0x40,@rythmtrack),
-      "u"=>note(0x43,@rythmtrack)
+      "c"=>0,
+      "C"=>1,
+      "d"=>2,
+      "D"=>3,
+      "e"=>4,
+      "f"=>5,
+      "F"=>6,
+      "g"=>7,
+      "G"=>8,
+      "a"=>9,
+      "A"=>10,
+      "b"=>11,
+      "t"=>[0,@rythmtrack],
+      "s"=>[3,@rythmtrack],
+      "u"=>[6,@rythmtrack]
     }
-    @notes[c]
+    notekey(@notes[c])
   end
   def self.rest len=480
     delta=varlenHex(len)
@@ -100,8 +107,13 @@ module Mid
   end
   def self.makefraze rundata
     r=[]
-    rundata.scan(/[0-9]+|[a-zA-Z]/).each{|i|
+    @basekey||=0x3C
+    rundata.scan(/[0-9]+|[-+a-zA-Z]/).each{|i|
       case i
+      when /-/
+        @basekey-=12
+      when /\+/
+        @basekey+=12
       when /[0-9]+/
         (i.to_i-1).times{r<<r[-1]}
       when "r"
@@ -144,7 +156,7 @@ d_trackend="
 
 def hint
   puts "usage: #{$0} 'dddd dr3 dddd r4 drdrdrdr dddd dr3' outfile.mid bpm"
-  puts "    d=sound, r=rest, num=length, blank ignored"
+  puts "    abcdefg=sound, +-=octave change, r=rest, num=length, blank ignored"
 end
 def makebpm bpm
   d="000000"+(60_000_000/bpm.to_f).to_i.to_s(16)
