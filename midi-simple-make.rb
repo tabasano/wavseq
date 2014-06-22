@@ -58,22 +58,22 @@ module Mid
       #{tbase}      # 1 拍の分解能
     "
   end
-  def self.oneNote len=@tbase,key=@basekey,velocity=0x40,ch=0
-    ch=[ch,0x0f].min
-    velocity=[velocity,0x7f].min
-    key=[key,0x7f].min
-    key=format("%02x",key)
-    ch=format("%01x",ch)
-    velocity=format("%02x",velocity)
+  def self.oneNote len=@tbase,key=@basekey,velocity=@velocity,ch=@ch
+p len,key,velocity,ch
+    @ch=[ch,0x0f].min
+    @velocity=[velocity,0x7f].min
+    @key=[key,0x7f].min
+    key=format("%02x",@key)
+    ch=format("%01x",@ch)
+    vel=format("%02x",@velocity)
     delta=varlenHex(len)
     str="
-      00 9#{ch} #{key} #{velocity} # 0拍後, soundオン...
+      00 9#{ch} #{key} #{vel} # 0拍後, soundオン...
       #{delta} 8#{ch} #{key} 00 # delta後, soundオフ
     "
   end
   def self.notekey key
-    @set||=[@tbase,40,0]
-    len,velocity,ch=@set
+    len,velocity,ch=[@tbase,@velocity,0]
     if key.class==Fixnum
       self.oneNote(len,@basekey+key,velocity,ch)
     else
@@ -121,14 +121,26 @@ module Mid
   end
   def self.makefraze rundata
     @h=[]
+    @ch=0
+    @velocity=0x40
     @basekey||=0x3C
-    rundata.scan(/[0-9]+|[-+a-zA-Z><]/).each{|i|
+    rundata.scan(/v[0-9]+|[<>][0-9]*|[0-9]+|[-+a-zA-Z]/).each{|i|
       case i
-      when /</
-        @bpm=@bpm/1.25
+      when /v([0-9]+)/
+        @velocity=$1.to_i
+      when /<(.*)/
+        rate=1.25
+        if $1.size>0
+          rate=$1.to_i/100.0
+        end
+        @bpm=@bpm/rate
         @h<<self.tempo(@bpm)
-      when />/
-        @bpm=@bpm*1.25
+      when />(.*)/
+        rate=1.25
+        if $1.size>0
+          rate=$1.to_i/100.0
+        end
+        @bpm=@bpm*rate
         @h<<self.tempo(@bpm)
       when /-/
         @basekey-=12
@@ -146,6 +158,7 @@ module Mid
     @h*"\n# onoff ==== \n"
   end
   def self.dumpHex
+    @h
   end
 end
 
@@ -175,19 +188,22 @@ d_trackend="
 "
 
 def hint
-  puts "usage: #{$0} 'dddd dr3 dddd r4 drdrdrdr dddd dr3' outfile.mid bpm"
-  puts "    abcdefg=sound, +-=octave change, r=rest, num=length, blank ignored"
+  puts "usage: #{$0} \"dddd dr3 dddd r4 drdrdrdr dddd dr3\" outfile.mid bpm"
+  puts "    abcdefg=sound, +-=octave change, r=rest, num=length, ><=tempo up-down(percent),"
+  puts "    v=velocity set(0-127) , blank ignored"
 end
 rundata,ofile,bpm = ARGV
 (hint;exit) if ! rundata
 
 bpm=120 if ! bpm
+bpm=bpm.to_f
 d_tempo=Mid.tempo(bpm)
 
 d_data = d_comment + d_tempo + Mid.makefraze(rundata) + d_last
 d_dsize=sizemake(d_data)
 #p d_dsize
 alla=[d_head,d_start,d_dsize,d_data,d_trackend]
+puts alla if $DEBUG
 all=alla.map(&:trim)*""
 array=[all.split.join]
 #puts alla,all,array
