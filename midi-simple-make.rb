@@ -59,7 +59,6 @@ module Mid
     "
   end
   def self.oneNote len=@tbase,key=@basekey,velocity=@velocity,ch=@ch
-p len,key,velocity,ch
     @ch=[ch,0x0f].min
     @velocity=[velocity,0x7f].min
     @key=[key,0x7f].min
@@ -119,13 +118,24 @@ p len,key,velocity,ch
     d="000000"+(60_000_000/bpm.to_f).to_i.to_s(16)
     d[-6..-1]
   end
+  def self.ProgramChange ch,inst
+    ch=[ch,0x0f].min
+    inst=[inst,0xff].min
+    ch=format("%01x",ch)
+    inst=format("%02x",inst)
+    "00 C#{ch} #{inst}\n"
+  end
   def self.makefraze rundata
     @h=[]
     @ch=0
     @velocity=0x40
     @basekey||=0x3C
-    rundata.scan(/v[0-9]+|[<>][0-9]*|[0-9]+|[-+a-zA-Z]/).each{|i|
+    rundata.scan(/p[0-9]+:[0-9]+|&\([^)]+\)|v[0-9]+|[<>][0-9]*|[0-9]+|[-+a-zA-Z]/).each{|i|
       case i
+      when /p([0-9]+):([0-9]+)/
+        @h<<self.ProgramChange($1.to_i,$2.to_i)
+      when /&\((.+)\)/
+        @h<<$1
       when /v([0-9]+)/
         @velocity=$1.to_i
       when /<(.*)/
@@ -191,6 +201,8 @@ def hint
   puts "usage: #{$0} \"dddd dr3 dddd r4 drdrdrdr dddd dr3\" outfile.mid bpm"
   puts "    abcdefg=sound, +-=octave change, r=rest, num=length, ><=tempo up-down(percent),"
   puts "    v=velocity set(0-127) , blank ignored"
+  puts "    &(00 00) =set hex data"
+  puts "    p0:11 =ProgramChange channel:instrument"
 end
 rundata,ofile,bpm = ARGV
 (hint;exit) if ! rundata
