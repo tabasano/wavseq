@@ -199,7 +199,8 @@ module Mid
       @programList=false
     else
       li=File.readlines(file).select{|i|i=~/^[[:digit:]]/}.map{|i|
-        [i.split[0].to_i,i]
+        # zero base
+        [i.split[0].to_i-1,i]
       }
       @programList=li.size>0 ? li : false
     end
@@ -243,6 +244,7 @@ def hint
   puts "    v=velocity set(0-127) , blank ignored"
   puts "    &(00 00) =set hex data directly"
   puts "    (p:0,11) =ProgramChange channel 0, instrument 11"
+  puts "    (p:0,organ) =ProgramChange channel 0, instrument ?(search word like 'organ' from list if exist)"
   puts "    (key:-4) =transpose -4 except rythmChannel"
 end
 rundata,ofile,bpm = ARGV

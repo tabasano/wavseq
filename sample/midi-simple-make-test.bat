@@ -1,0 +1,1 @@
+midi-simple-make.rb "stuu v120 stuu v40 stuu v80 stuu c-bA+r c2C2 dDef >120 FgGa (p:organ) cbAr cstt <120 cstt CC<200CC< (p:0,12)(p:22)(p:1,23)(p:guitar) cdef &(#test) ccdc (key:-4) ccdc stuu (key:+4) ccdc st<u<u v12d<v23d<v45d<v79d<v110d<126d(p:0,0)v70c" oneNoteTes.mid 300 
