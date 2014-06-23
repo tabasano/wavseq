@@ -115,6 +115,7 @@ module Mid
     "
   end
   def self.tempo bpm
+    @bpmStart=bpm if ! @bpm
     @bpm=bpm
     d_bpm=self.makebpm(@bpm)
     "
@@ -165,6 +166,11 @@ module Mid
         @h<<$1
       when /v([0-9]+)/
         @velocity=$1.to_i
+      when /\(tempo:reset\)/
+        @h<<self.tempo(@bpmStart)
+      when /\(tempo:(.*)\)/
+        bpm=$1.to_i
+        @h<<self.tempo(bpm) if @bpm>0
       when /<(.*)/
         rate=1.25
         if $1.size>0
@@ -209,6 +215,45 @@ module Mid
     @h
   end
 end
+def repCalc line
+  a=line.scan(/\[|\]|\.END|\.DS|\.DC|\.toCODA|\.CODA|./)
+  hs={}
+  a.each_with_index{|d,i|hs[i]=d}
+  hs=hs.invert
+  res=[]
+  done=[]
+  dsflag=dcflag=false
+  counter=0
+  repcount=0
+  rep=[]
+  while true
+    current=a[counter]
+# puts "#{counter}: #{current}, #{rep},done: #{done}"
+    break if ! current
+    res<<current
+    if current=~/^\[/ && ! dsflag && ! done.member?(counter)
+      repcount+=1
+      rep<<counter
+      done<<counter
+    end
+    if current=~/^\]/ && ! dsflag && ! done.member?(counter)
+      done<<counter
+      counter=rep.shift+1
+    else
+      counter+=1
+    end
+    if current==".DS" || current==".DC"
+      counter=0
+      dsflag=true
+    elsif current==".toCODA" && dsflag
+      counter=hs[".CODA"]
+    elsif current==".END" && (dsflag || dcflag)
+      break
+    end
+  end
+  (res-[".CODA",".DS",".DC",".END",".toCODA","[","]"])*""
+end
+
 file="midi-programChange-list.txt"
 Mid.loadProgramChange(file)
 
@@ -246,10 +291,13 @@ def hint
   puts "    (p:0,11) =ProgramChange channel 0, instrument 11"
   puts "    (p:0,organ) =ProgramChange channel 0, instrument ?(search word like 'organ' from list if exist)"
   puts "    (key:-4) =transpose -4 except rythmChannel"
+  puts "    [...] =repeat 2 times"
+  puts "    (tempo:120) =tempo set"
 end
 rundata,ofile,bpm = ARGV
 (hint;exit) if ! rundata
 
+rundata=repCalc(rundata)
 bpm=120 if ! bpm
 bpm=bpm.to_f
 d_tempo=Mid.tempo(bpm)
