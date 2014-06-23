@@ -132,6 +132,11 @@ module Mid
     inst=format("%02x",inst)
     "00 C#{ch} #{inst}\n"
   end
+  def self.programGet p
+    return 0 if not @programList
+    r=@programList.select{|num,line|line=~/#{p}/i}
+    r.size>0 ? r[0][0] : 0
+  end
   def self.makefraze rundata
     @h=[]
     @ch=0
@@ -148,8 +153,14 @@ module Mid
         @basekey+=tr
       when /\(key:reset\)/
         @basekey=@basekeyOrg
-      when /\(p:([[:digit:]]+),([[:digit:]]+)\)/
-        @h<<self.ProgramChange($1.to_i,$2.to_i)
+      when /\(p:(([[:digit:]]+),)?(([[:digit:]]+)|([[:alnum:]]+))\)/
+        channel=$1 ? $2.to_i : 0
+        if $5
+          instrument=self.programGet($5)
+        else
+          instrument=$4.to_i
+        end
+        @h<<self.ProgramChange(channel,instrument)
       when /&\((.+)\)/
         @h<<$1
       when /v([0-9]+)/
@@ -183,10 +194,22 @@ module Mid
     }
     @h*"\n# onoff ==== \n"
   end
+  def self.loadProgramChange file
+    if not File.exist?(file)
+      @programList=false
+    else
+      li=File.readlines(file).select{|i|i=~/^[[:digit:]]/}.map{|i|
+        [i.split[0].to_i,i]
+      }
+      @programList=li.size>0 ? li : false
+    end
+  end
   def self.dumpHex
     @h
   end
 end
+file="midi-programChange-list.txt"
+Mid.loadProgramChange(file)
 
 array = []
 
