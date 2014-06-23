@@ -36,7 +36,10 @@ def varlenHex(v)
   format("%0#{b.size*2}x",res)
 end
 def txt2hex t
-  r=t.split('').map{|i|format"%02x",i.ord}
+  r=[]
+  t.each_byte{|i|
+    r<<format("%02x",i)
+  }
   size=r.size
   [r*" ",varlenHex(size)]
 end
@@ -74,14 +77,18 @@ module Mid
   def self.notekey key
     len,velocity,ch=[@tbase,@velocity,0]
     if key.class==Fixnum
-      self.oneNote(len,@basekey+key,velocity,ch)
     else
       key,ch=key
-      self.oneNote(len,@basekey+key,velocity,ch)
     end
+    if ch==@rythmChannel
+      key=key+@basekeyRythm
+    else
+      key=key+@basekey
+    end
+    self.oneNote(len,key,velocity,ch)
   end
   def self.notes c
-    @rythmtrack||=9
+    @rythmChannel||=9
     @notes||={
       "c"=>0,
       "C"=>1,
@@ -95,9 +102,9 @@ module Mid
       "a"=>9,
       "A"=>10,
       "b"=>11,
-      "t"=>[0,@rythmtrack],
-      "s"=>[3,@rythmtrack],
-      "u"=>[6,@rythmtrack]
+      "t"=>[0,@rythmChannel],
+      "s"=>[3,@rythmChannel],
+      "u"=>[6,@rythmChannel]
     }
     notekey(@notes[c])
   end
@@ -130,9 +137,18 @@ module Mid
     @ch=0
     @velocity=0x40
     @basekey||=0x3C
-    rundata.scan(/p[0-9]+:[0-9]+|&\([^)]+\)|v[0-9]+|[<>][0-9]*|[0-9]+|[-+a-zA-Z]/).each{|i|
+    @basekeyRythm=@basekeyOrg=@basekey
+    cmd=rundata.scan(/&\([^)]+\)|\([^:]*:[^)]*\)|v[[:digit:]]+|[<>][[:digit:]]*|[[:digit:]]+|[-+[:alpha:]]/)
+    p cmd if $DEBUG
+    cmd.each{|i|
       case i
-      when /p([0-9]+):([0-9]+)/
+      when /\(key:(-?)\+?([[:digit:]]+)\)/
+        tr=$2.to_i
+        tr*=-1 if $1=="-"
+        @basekey+=tr
+      when /\(key:reset\)/
+        @basekey=@basekeyOrg
+      when /\(p:([[:digit:]]+),([[:digit:]]+)\)/
         @h<<self.ProgramChange($1.to_i,$2.to_i)
       when /&\((.+)\)/
         @h<<$1
@@ -199,10 +215,12 @@ d_trackend="
 
 def hint
   puts "usage: #{$0} \"dddd dr3 dddd r4 drdrdrdr dddd dr3\" outfile.mid bpm"
+  puts "    syntax..."
   puts "    abcdefg=sound, +-=octave change, r=rest, num=length, ><=tempo up-down(percent),"
   puts "    v=velocity set(0-127) , blank ignored"
-  puts "    &(00 00) =set hex data"
-  puts "    p0:11 =ProgramChange channel:instrument"
+  puts "    &(00 00) =set hex data directly"
+  puts "    (p:0,11) =ProgramChange channel 0, instrument 11"
+  puts "    (key:-4) =transpose -4 except rythmChannel"
 end
 rundata,ofile,bpm = ARGV
 (hint;exit) if ! rundata
