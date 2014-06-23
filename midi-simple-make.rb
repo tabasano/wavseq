@@ -46,6 +46,7 @@ end
 
 module Mid
   def self.header format,track,tbase=480
+    # @tbase設定のため最初に呼ばなければならない
     format=[format,0xff].min
     track=[track,0xff].min
     tbase=[tbase,0x7fff].min
@@ -75,7 +76,7 @@ module Mid
     "
   end
   def self.notekey key
-    len,velocity,ch=[@tbase,@velocity,0]
+    len,velocity,ch=[@tbase,@velocity,@ch]
     if key.class==Fixnum
     else
       key,ch=key
@@ -168,6 +169,8 @@ module Mid
         @velocity=$1.to_i
       when /\(tempo:reset\)/
         @h<<self.tempo(@bpmStart)
+      when /\(ch:(.*)\)/
+        @ch=$1.to_i
       when /\(tempo:(.*)\)/
         bpm=$1.to_i
         @h<<self.tempo(bpm) if @bpm>0
@@ -210,6 +213,16 @@ module Mid
       }
       @programList=li.size>0 ? li : false
     end
+  end
+  def self.trackMake data
+    start="
+      4D 54 72 6B # MTrk
+    "
+    dsize=sizemake(data)
+    trackend="
+      00 FF 2F 00 # end
+    "
+    [start,dsize,data,trackend]
   end
   def self.dumpHex
     @h
@@ -260,14 +273,8 @@ Mid.loadProgramChange(file)
 array = []
 
 tbase=480
-d_head=Mid.header(1,1,tbase)
-
 delta=varlenHex(tbase)
 #p "deltaTime: 0x#{delta}"
-d_start="
-4D 54 72 6B # トラック 1 開始
-"
-d_dsize=""
 
 comment="by midi-simple-make.rb"
 commenthex,len=txt2hex(comment)
@@ -277,9 +284,6 @@ d_comment="
 d_last=
 "
 #{delta}  89 3C 00 # 1拍後, オフ:ch10, key:3C
-"
-d_trackend="
-00 FF 2F 00 # トラック 1 終了
 "
 
 def hint
@@ -294,18 +298,21 @@ def hint
   puts "    [...] =repeat 2 times"
   puts "    (tempo:120) =tempo set"
 end
-rundata,ofile,bpm = ARGV
-(hint;exit) if ! rundata
+data,ofile,bpm = ARGV
+(hint;exit) if ! data
 
-rundata=repCalc(rundata)
+rundatas=data.split('|||').map{|track| repCalc(track) }
+tracknum=rundatas.size
 bpm=120 if ! bpm
 bpm=bpm.to_f
-d_tempo=Mid.tempo(bpm)
 
-d_data = d_comment + d_tempo + Mid.makefraze(rundata) + d_last
-d_dsize=sizemake(d_data)
-#p d_dsize
-alla=[d_head,d_start,d_dsize,d_data,d_trackend]
+d_header=Mid.header(1,tracknum,tbase) #format,tracknum,division
+tracks=[]
+tracks<<d_comment + Mid.tempo(bpm) + Mid.makefraze(rundatas[0]) + d_last
+rundatas[1..-1].each{|track|
+  tracks<< Mid.makefraze(track) + d_last
+}
+alla=[d_header]+tracks.map{|t|Mid.trackMake(t)}.flatten
 puts alla if $DEBUG
 all=alla.map(&:trim)*""
 array=[all.split.join]
