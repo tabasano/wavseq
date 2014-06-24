@@ -63,11 +63,11 @@ module Mid
     "
   end
   def self.oneNote len=@tbase,key=@basekey,velocity=@velocity,ch=@ch
-    @ch=[ch,0x0f].min
+    ch=[ch,0x0f].min
     @velocity=[velocity,0x7f].min
     @key=[key,0x7f].min
     key=format("%02x",@key)
-    ch=format("%01x",@ch)
+    ch=format("%01x",ch)
     vel=format("%02x",@velocity)
     delta=varlenHex(len)
     str="
@@ -229,7 +229,7 @@ module Mid
   end
 end
 def repCalc line
-  a=line.scan(/\[|\]|\.END|\.DS|\.DC|\.toCODA|\.CODA|./)
+  a=line.scan(/\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|./)
   hs={}
   a.each_with_index{|d,i|hs[i]=d}
   hs=hs.invert
@@ -238,33 +238,53 @@ def repCalc line
   dsflag=dcflag=false
   counter=0
   repcount=0
+  pointDS=0
   rep=[]
   while true
-    current=a[counter]
-# puts "#{counter}: #{current}, #{rep},done: #{done}"
+    countertmp=counter
+    counter+=1 # next
+    current=a[countertmp]
+    puts "#{countertmp}: #{current}, #{rep},done: #{done}" if $DEBUG
     break if ! current
     res<<current
-    if current=~/^\[/ && ! dsflag && ! done.member?(counter)
-      repcount+=1
-      rep<<counter
-      done<<counter
-    end
-    if current=~/^\]/ && ! dsflag && ! done.member?(counter)
-      done<<counter
-      counter=rep.shift+1
-    else
-      counter+=1
-    end
-    if current==".DS" || current==".DC"
+    case current
+    when /^\[/
+      if ! dsflag && ! done.member?(countertmp)
+        repcount+=1
+        rep<<countertmp
+        done<<countertmp
+      end
+    when /^\]/
+      if ! dsflag && ! done.member?(countertmp)
+        done<<countertmp
+        counter=rep.shift+1
+      end
+    when ".DS"
+      counter=pointDS
+      dsflag=true
+    when ".DC"
       counter=0
       dsflag=true
-    elsif current==".toCODA" && dsflag
-      counter=hs[".CODA"]
-    elsif current==".END" && (dsflag || dcflag)
-      break
+    when ".SKIP"
+      if done.member?(countertmp)
+         counter=done[-1]
+      else
+        done<<countertmp
+      end
+    when ".toCODA"
+      if dsflag
+        counter=hs[".CODA"]
+      end
+    when ".FINE"
+      if (dsflag || dcflag)
+        break
+      end
+    when ".$"
+      pointDS=countertmp
+    else
     end
   end
-  (res-[".CODA",".DS",".DC",".END",".toCODA","[","]"])*""
+  (res-[".CODA",".DS",".DC",".FINE",".toCODA",".$",".SKIP","[","]"])*""
 end
 
 file="midi-programChange-list.txt"
@@ -287,16 +307,24 @@ d_last=
 "
 
 def hint
-  puts "usage: #{$0} \"dddd dr3 dddd r4 drdrdrdr dddd dr3\" outfile.mid bpm"
-  puts "    syntax..."
-  puts "    abcdefg=sound, +-=octave change, r=rest, num=length, ><=tempo up-down(percent),"
-  puts "    v=velocity set(0-127) , blank ignored"
-  puts "    &(00 00) =set hex data directly"
-  puts "    (p:0,11) =ProgramChange channel 0, instrument 11"
-  puts "    (p:0,organ) =ProgramChange channel 0, instrument ?(search word like 'organ' from list if exist)"
-  puts "    (key:-4) =transpose -4 except rythmChannel"
-  puts "    [...] =repeat 2 times"
-  puts "    (tempo:120) =tempo set"
+  puts <<EOF
+usage: #{$0} \"dddd dr3 dddd r4 drdrdrdr dddd dr3\" outfile.mid bpm
+
+syntax: ...( will be changed time after time)
+    abcdefg=sound, +-=octave change, r=rest, num=length, ><=tempo up-down(percent),
+    v=velocity set(0-127) , blank ignored
+    &(00 00) =set hex data directly
+    (p:0,11) =ProgramChange channel 0, instrument 11
+    (p:0,organ) =ProgramChange channel 0, instrument ?(search word like 'organ' from list if exist)
+    (key:-4) =transpose -4 except rythmChannel
+    [...] =repeat 2 times
+    (tempo:120) =tempo set
+    (ch:1) =this track's channel set
+    ||| = track separater
+    .DC .DS .toCODA .CODA .FINE =coda mark etc.
+    .SKIP =skip mark on over second time
+    .$ =DS point
+EOF
 end
 data,ofile,bpm = ARGV
 (hint;exit) if ! data
