@@ -25,7 +25,7 @@ def varlen(v)
   end
 end
 def varlenHex(v)
-  b=[varlen(v)]
+  b=[varlen(v.to_i)]
   b=b.flatten
   c=b[0..-2].map{|i| i | 0x80 }
   r=[c,b[-1]].flatten
@@ -166,14 +166,17 @@ module Mid
     @basekey||=0x3C
     @basekeyRythm=@basekeyOrg=@basekey
     wait=[]
-    cmd=rundata.scan(/&\([^)]+\)|\([^:]*:[^)]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|[[:digit:]]+|[-+[:alpha:]]/)
+    cmd=rundata.scan(/&\([^)]+\)|\([^:]*:[^)]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|[[:digit:]]+\.[[:digit:]]+|[[:digit:]]+|[-+[:alpha:]]/)
     cmd<<" " # dummy
     p cmd if $DEBUG
     cmd.each{|i|
       if wait.size>0
         t=1
-        i=~/^[[:digit:]]+/
-        t=$&.to_i if $&
+        i=~/^[[:digit:]]+(\.[[:digit:]]+)?/
+        if $&
+          t=$&.to_i
+          t=$&.to_f if $1
+        end
         wait.each{|m,c|
           case m
           when :percussion
