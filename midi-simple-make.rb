@@ -157,6 +157,7 @@ module Mid
     @basekeyRythm=@basekeyOrg=@basekey
     wait=[]
     cmd=rundata.scan(/&\([^)]+\)|\([^:]*:[^)]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|[[:digit:]]+|[-+[:alpha:]]/)
+    cmd<<" " # dummy
     p cmd if $DEBUG
     cmd.each{|i|
       if wait.size>0
@@ -298,13 +299,13 @@ def repCalc line
     res<<current
     case current
     when /^\[/
-      if ! dsflag && ! done.member?(countertmp)
+      if ! done.member?(countertmp)
         repcount+=1
         rep<<countertmp
         done<<countertmp
       end
     when /^\]/
-      if ! dsflag && ! done.member?(countertmp)
+      if ! done.member?(countertmp)
         done<<countertmp
         counter=rep.shift+1
       end
