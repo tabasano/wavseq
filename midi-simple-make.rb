@@ -132,6 +132,16 @@ module Mid
     d="000000"+(60_000_000/bpm.to_f).to_i.to_s(16)
     d[-6..-1]
   end
+  def self.controlChange v
+    v=~/(.*),(.*)/
+    n,v=$1.to_i,$2.to_i
+    ch=@ch
+    v=[0,[v,0x7f].min].max
+    ch=format("%01x",ch)
+    n=format("%02x",n)
+    data=format("%02x",v)
+    "00 B#{ch} #{n} #{data}\n"
+  end
   def self.ProgramChange ch,inst
     ch=[ch,0x0f].min
     inst=[inst,0xff].min
@@ -206,6 +216,12 @@ module Mid
         @h<<self.tempo(@bpmStart)
       when /\(ch:(.*)\)/
         @ch=$1.to_i
+      when /\(cc:(.*)\)/
+        @h<<self.controlChange($1)
+      when /\(pan:(<|>)(.*)\)/
+        pan=$2.to_i
+        pan=$1==">" ? 64+pan : 64-pan
+        @h<<self.controlChange("10,#{pan}")
       when /\(tempo:(.*)\)/
         bpm=$1.to_i
         @h<<self.tempo(bpm) if @bpm>0
@@ -371,6 +387,8 @@ syntax: ...( will be changed time after time)
     [...] =repeat 2 times
     (tempo:120) =tempo set
     (ch:1) =this track's channel set
+    (cc:10,64) =controlChange number10 value 64
+    (pan:>64)  =panpot right+. ( pan:>0  set center )
     ||| = track separater
     .DC .DS .toCODA .CODA .FINE =coda mark etc.
     .SKIP =skip mark on over second time
