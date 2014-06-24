@@ -88,6 +88,9 @@ module Mid
     end
     self.oneNote(len,key,velocity,ch)
   end
+  def self.percussionNote key
+    self.oneNote(@tbase,key,@velocity,@rythmChannel)
+  end
   def self.notes c
     @rythmChannel||=9
     @notes||={
@@ -139,13 +142,18 @@ module Mid
     r=@programList.select{|num,line|line=~/#{p}/i}
     r.size>0 ? r[0][0] : 0
   end
+  def self.percussionGet p
+    return @snare if not @percussionList
+    r=@percussionList.select{|num,line|line=~/#{p}/i}
+    r.size>0 ? r[0][0] : @snare
+  end
   def self.makefraze rundata
     @h=[]
     @ch=0
     @velocity=0x40
     @basekey||=0x3C
     @basekeyRythm=@basekeyOrg=@basekey
-    cmd=rundata.scan(/&\([^)]+\)|\([^:]*:[^)]*\)|v[[:digit:]]+|[<>][[:digit:]]*|[[:digit:]]+|[-+[:alpha:]]/)
+    cmd=rundata.scan(/&\([^)]+\)|\([^:]*:[^)]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|[[:digit:]]+|[-+[:alpha:]]/)
     p cmd if $DEBUG
     cmd.each{|i|
       case i
@@ -165,6 +173,13 @@ module Mid
         @h<<self.ProgramChange(channel,instrument)
       when /&\((.+)\)/
         @h<<$1
+      when /_(([[:digit:]]+)|([[:alnum:]]+))!/
+        if $2
+          perc=$2.to_i
+        else
+          perc=self.percussionGet($3)
+        end
+        @h<<self.percussionNote(perc)
       when /v([0-9]+)/
         @velocity=$1.to_i
       when /\(tempo:reset\)/
@@ -214,6 +229,19 @@ module Mid
       @programList=li.size>0 ? li : false
     end
   end
+  def self.loadPercussionMap file
+    @snare=35
+    if not File.exist?(file)
+      @percussionList=false
+    else
+      li=File.readlines(file).select{|i|i=~/^[[:digit:]]/}.map{|i|
+        # zero base
+        [i.split[0].to_i,i]
+      }
+      @percussionList=li.size>0 ? li : false
+      @snare=self.percussionGet("snare")
+    end
+  end
   def self.trackMake data
     start="
       4D 54 72 6B # MTrk
@@ -228,6 +256,8 @@ module Mid
     @h
   end
 end
+
+# repeat block analysis: no relation with MIDI format
 def repCalc line
   a=line.scan(/\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|./)
   hs={}
@@ -288,8 +318,9 @@ def repCalc line
 end
 
 file="midi-programChange-list.txt"
+pfile="midi-percussion-map.txt"
 Mid.loadProgramChange(file)
-
+Mid.loadPercussionMap(pfile)
 array = []
 
 tbase=480
@@ -324,6 +355,7 @@ syntax: ...( will be changed time after time)
     .DC .DS .toCODA .CODA .FINE =coda mark etc.
     .SKIP =skip mark on over second time
     .$ =DS point
+    _snare! =percussion sound ( search word like 'snare' from percussion list if exist )
 EOF
 end
 data,ofile,bpm = ARGV
