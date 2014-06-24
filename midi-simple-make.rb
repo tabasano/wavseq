@@ -75,8 +75,9 @@ module Mid
       #{delta} 8#{ch} #{key} 00 # delta後, soundオフ
     "
   end
-  def self.notekey key
+  def self.notekey key,length=false
     len,velocity,ch=[@tbase,@velocity,@ch]
+    len=len*length if length
     if key.class==Fixnum
     else
       key,ch=key
@@ -88,10 +89,10 @@ module Mid
     end
     self.oneNote(len,key,velocity,ch)
   end
-  def self.percussionNote key
-    self.oneNote(@tbase,key,@velocity,@rythmChannel)
+  def self.percussionNote key,len=1
+    self.oneNote(@tbase*len,key,@velocity,@rythmChannel)
   end
-  def self.notes c
+  def self.notes c,l=false
     @rythmChannel||=9
     @notes||={
       "c"=>0,
@@ -110,9 +111,10 @@ module Mid
       "s"=>[3,@rythmChannel],
       "u"=>[6,@rythmChannel]
     }
-    notekey(@notes[c])
+    notekey(@notes[c],l)
   end
-  def self.rest len=@tbase
+  def self.rest len=1
+    len=@tbase*len
     delta=varlenHex(len)
     "
       #{delta}  89 3C 00 # 1拍後, オフ:ch10, key:3C
@@ -153,9 +155,26 @@ module Mid
     @velocity=0x40
     @basekey||=0x3C
     @basekeyRythm=@basekeyOrg=@basekey
+    wait=[]
     cmd=rundata.scan(/&\([^)]+\)|\([^:]*:[^)]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|[[:digit:]]+|[-+[:alpha:]]/)
     p cmd if $DEBUG
     cmd.each{|i|
+      if wait.size>0
+        t=1
+        i=~/^[[:digit:]]+/
+        t=$&.to_i if $&
+        wait.each{|m,c|
+          case m
+          when :percussion
+            @h<<self.percussionNote(c,t)
+          when :sound
+            @h<<self.notes(c,t)
+          when :rest
+            @h<<self.rest(t)
+          end
+        }
+        wait=[]
+      end
       case i
       when /\(key:(-?)\+?([[:digit:]]+)\)/
         tr=$2.to_i
@@ -179,7 +198,7 @@ module Mid
         else
           perc=self.percussionGet($3)
         end
-        @h<<self.percussionNote(perc)
+        wait<<[:percussion,perc]
       when /v([0-9]+)/
         @velocity=$1.to_i
       when /\(tempo:reset\)/
@@ -208,12 +227,12 @@ module Mid
       when /\+/
         @basekey+=12
       when /[0-9]+/
-        (i.to_i-1).times{@h<<@h[-1]}
+        # (i.to_i-1).times{@h<<@h[-1]}
       when "r"
-        @h<<self.rest
+        wait<<[:rest,i]
       when " "
       else
-        @h<<self.notes(i)
+        wait<<[:sound,i]
       end
     }
     @h*"\n# onoff ==== \n"
@@ -323,7 +342,7 @@ Mid.loadProgramChange(file)
 Mid.loadPercussionMap(pfile)
 array = []
 
-tbase=480
+tbase=480 # division
 delta=varlenHex(tbase)
 #p "deltaTime: 0x#{delta}"
 
@@ -363,10 +382,11 @@ data,ofile,bpm = ARGV
 
 rundatas=data.split('|||').map{|track| repCalc(track) }
 tracknum=rundatas.size
+format=1
 bpm=120 if ! bpm
 bpm=bpm.to_f
 
-d_header=Mid.header(1,tracknum,tbase) #format,tracknum,division
+d_header=Mid.header(format,tracknum,tbase) 
 tracks=[]
 tracks<<d_comment + Mid.tempo(bpm) + Mid.makefraze(rundatas[0]) + d_last
 rundatas[1..-1].each{|track|
