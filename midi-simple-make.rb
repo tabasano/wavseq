@@ -24,7 +24,12 @@ def varlen(v)
     return [v2,v1]
   end
 end
+def hex2digit d
+  d=d.to_i(16) if d.class==String && d=~/^0(x|X)/
+  d
+end
 def varlenHex(v)
+  v=hex2digit(v)
   b=[varlen(v.to_i)]
   b=b.flatten
   c=b[0..-2].map{|i| i | 0x80 }
@@ -43,6 +48,15 @@ def txt2hex t
   size=r.size
   [r*" ",varlenHex(size)]
 end
+def bendHex d
+  c=d.to_i+8192
+  c=[[c,0].max,16383].min
+  a=c>>7
+  b=c & 0b01111111
+  r=[a,b,b*0x100+a]
+  format("%04x ",r[2])
+end
+
 module MidiRead
   def self.msplit s,dat
     li=s.split('')
@@ -71,15 +85,19 @@ module MidiRead
     @head=false
     @tracks=false
     d=""
-    open(file,"rb"){|f|
-      d=f.read
-    }
-    head=self.head(d)
-    tracks=self.tracks(d)
-    if tracknum
-      tracknum<tracks.size ? tracks[tracknum-1] : tracks[0]
+    if File.exist?(file)
+      open(file,"rb"){|f|
+        d=f.read
+      }
+      @head=self.head(d)
+      @tracks=self.tracks(d)
     else
-      [head,tracks]
+      STDERR.puts" can't read file #{file}"
+    end
+    if tracknum
+      tracknum<tracks.size ? @tracks[tracknum-1] : @tracks[0]
+    else
+      [@head,@tracks]
     end
   end
   def self.readtrack file,num=false
@@ -92,6 +110,20 @@ module MidiRead
   end
 end
 
+def rawHexPart d
+  li=d.scan(/\$delta\([^)]*\)|\$bend\([^)]*\)|./)
+  res=[]
+  li.map{|i|
+    case i
+    when /\$delta\(([^)]*)\)/
+      varlenHex($1)
+    when /\$bend\(([^)]*)\)/
+      bendHex($1)
+    else
+      i
+    end
+  }*""
+end
 module MidiHex
   def self.header format,track,tbase=480
     # @tbase設定のため最初に呼ばなければならない
@@ -207,6 +239,10 @@ module MidiHex
     r=@percussionList.select{|num,line|line=~/#{p}/i}
     r.size>0 ? r[0][0] : @snare
   end
+  def self.bend ch,depth,len=0
+    delta=varlenHex(len)
+    "#{delta} e#{format"%01x",ch} #{bendHex(depth)}\n"
+  end
   def self.makefraze rundata
     return "" if not rundata
     @h=[]
@@ -253,8 +289,13 @@ module MidiHex
           instrument=$4.to_i
         end
         @h<<self.ProgramChange(channel,instrument)
+      when /\(bend:(([[:digit:]]+),)?(-?[[:digit:]]+)\)/
+        channel=$1 ? $2.to_i : @ch
+        depth=$3.to_i
+        @h<<self.bend(channel,depth)
       when /&\((.+)\)/
-        @h<<$1
+        raw=rawHexPart($1)
+        @h<<raw
       when /_(([[:digit:]]+)|([[:alnum:]]+))!/
         if $2
           perc=$2.to_i
@@ -362,7 +403,7 @@ def repCalc line
     countertmp=counter
     counter+=1 # next
     current=a[countertmp]
-    puts "#{countertmp}: #{current}, #{rep},done: #{done}" if $DEBUG
+    puts "#{countertmp}: #{current}, #{rep},done: #{done*","}" if $DEBUG
     break if ! current
     res<<current
     case current
@@ -410,7 +451,7 @@ def loadCalc d
     num=$3 ? $3.to_i : false
     [:raw,MidiRead.readtrack(file,num)]
   else
-    [:seq,d]
+    [:seq,rawHexPart(d)]
   end
 end
 def hint
@@ -420,7 +461,7 @@ usage: #{$0} \"dddd dr3 dddd r4 drdrdrdr dddd dr3\" outfile.mid bpm
 syntax: ...( will be changed time after time)
     abcdefg=sound, +-=octave change, r=rest, num=length, ><=tempo up-down(percent),
     v=velocity set(0-127) , blank ignored
-    &(00 00) =set hex data directly
+    &(00 00) =set hex data directly. This can include '$delta(240)' '$bend(8191)' for deltaTime data making etc..
     (p:0,11) =ProgramChange channel 0, instrument 11
     (p:0,organ) =ProgramChange channel 0, instrument ?(search word like 'organ' from list if exist)
     (key:-4) =transpose -4 except rythmChannel
@@ -429,17 +470,18 @@ syntax: ...( will be changed time after time)
     (ch:1) =this track's channel set
     (cc:10,64) =controlChange number10 value 64
     (pan:>64)  =panpot right+. ( pan:>0  set center )
+    (bend:100) =pitch bend 100
     ||| = track separater
     .DC .DS .toCODA .CODA .FINE =coda mark etc.
     .SKIP =skip mark on over second time
     .$ =DS point
     _snare! =percussion sound ( search word like 'snare' from percussion list if exist )
-    (loadf:filename.mid,2) =simply load existing midi file, track 2. Track must be this command only seperated by '|||' now.
+    (loadf:filename.mid,2) =simply load existing midi file, track 2. Track must be this only seperated by '|||'.
 EOF
 end
 
 data,ofile,bpm = ARGV
-(hint;exit) if ! data
+(hint;exit) if (! data || ! ofile)
 
 file="midi-programChange-list.txt"
 pfile="midi-percussion-map.txt"
