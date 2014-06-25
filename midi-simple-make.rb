@@ -43,8 +43,56 @@ def txt2hex t
   size=r.size
   [r*" ",varlenHex(size)]
 end
+module MidiRead
+  def self.msplit s,dat
+    li=s.split('')
+    dat=dat.split('')
+    block={}
+    num=0
+    li.size.times{|i|
+      num+=1 if li[i,4]==dat
+      block[num] ? block[num]+=li[i] : block[num]=li[i]
+    }
+    block.keys.sort.map{|i|block[i]}
+  end
+  def self.head d
+    return @head if @head
+    r=self.msplit(d,'MTrk')
+    @head,@tracks=r[0],r[1..-1]
+    @head
+  end
+  def self.tracks d
+    return @tracks if @tracks
+    r=self.msplit(d,'MTrk')
+    @head,@tracks=r[0],r[1..-1]
+    @tracks
+  end
+  def self.read file,tracknum=false
+    @head=false
+    @tracks=false
+    d=""
+    open(file,"rb"){|f|
+      d=f.read
+    }
+    head=self.head(d)
+    tracks=self.tracks(d)
+    if tracknum
+      tracknum<tracks.size ? tracks[tracknum-1] : tracks[0]
+    else
+      [head,tracks]
+    end
+  end
+  def self.readtrack file,num=false
+    self.read file
+    if num
+      @tracks[num]
+    else
+      @tracks
+    end
+  end
+end
 
-module Mid
+module MidiHex
   def self.header format,track,tbase=480
     # @tbase設定のため最初に呼ばなければならない
     format=[format,0xff].min
@@ -160,6 +208,7 @@ module Mid
     r.size>0 ? r[0][0] : @snare
   end
   def self.makefraze rundata
+    return "" if not rundata
     @h=[]
     @ch=0
     @velocity=0x40
@@ -355,27 +404,15 @@ def repCalc line
   end
   (res-[".CODA",".DS",".DC",".FINE",".toCODA",".$",".SKIP","[","]"])*""
 end
-
-file="midi-programChange-list.txt"
-pfile="midi-percussion-map.txt"
-Mid.loadProgramChange(file)
-Mid.loadPercussionMap(pfile)
-array = []
-
-tbase=480 # division
-delta=varlenHex(tbase)
-#p "deltaTime: 0x#{delta}"
-
-comment="by midi-simple-make.rb"
-commenthex,len=txt2hex(comment)
-d_comment="
-00 FF 01 #{len} #{commenthex}
-"
-d_last=
-"
-#{delta}  89 3C 00 # 1拍後, オフ:ch10, key:3C
-"
-
+def loadCalc d
+  if d=~/\(loadf:(.+)(,(.+))?\)/
+    file=$1
+    num=$3 ? $3.to_i : false
+    [:raw,MidiRead.readtrack(file,num)]
+  else
+    [:seq,d]
+  end
+end
 def hint
   puts <<EOF
 usage: #{$0} \"dddd dr3 dddd r4 drdrdrdr dddd dr3\" outfile.mid bpm
@@ -397,24 +434,59 @@ syntax: ...( will be changed time after time)
     .SKIP =skip mark on over second time
     .$ =DS point
     _snare! =percussion sound ( search word like 'snare' from percussion list if exist )
+    (loadf:filename.mid,2) =simply load existing midi file, track 2. Track must be this command only seperated by '|||' now.
 EOF
 end
+
 data,ofile,bpm = ARGV
 (hint;exit) if ! data
 
-rundatas=data.split('|||').map{|track| repCalc(track) }
-tracknum=rundatas.size
+file="midi-programChange-list.txt"
+pfile="midi-percussion-map.txt"
+mx=MidiHex
+mx.loadProgramChange(file)
+mx.loadPercussionMap(pfile)
+array = []
+
+tbase=480 # division
+delta=varlenHex(tbase)
+#p "deltaTime: 0x#{delta}"
+
+comment="by midi-simple-make.rb"
+commenthex,len=txt2hex(comment)
+d_comment="
+00 FF 01 #{len} #{commenthex}
+"
+d_last=
+"
+#{delta}  89 3C 00 # 1拍後, オフ:ch10, key:3C
+"
+rundatas=[]
+rawdatas=[]
+tracks=data.split('|||')
+tracks.map{|track| repCalc(track) }.each{|t|
+  r=loadCalc(t)
+  case r[0]
+  when :raw
+    rawdatas<<r[1]
+  when :seq
+    rundatas<<r[1]
+  end
+}
+rawdatas.flatten!
+tracknum=rawdatas.size+rundatas.size
+tracknum=tracks.size
 format=1
 bpm=120 if ! bpm
 bpm=bpm.to_f
 
-d_header=Mid.header(format,tracknum,tbase) 
+d_header=mx.header(format,tracknum,tbase) 
 tracks=[]
-tracks<<d_comment + Mid.tempo(bpm) + Mid.makefraze(rundatas[0]) + d_last
+tracks<<d_comment + mx.tempo(bpm) + mx.makefraze(rundatas[0]) + d_last
 rundatas[1..-1].each{|track|
-  tracks<< Mid.makefraze(track) + d_last
+  tracks<< mx.makefraze(track) + d_last
 }
-alla=[d_header]+tracks.map{|t|Mid.trackMake(t)}.flatten
+alla=[d_header]+tracks.map{|t|mx.trackMake(t)}.flatten
 puts alla if $DEBUG
 all=alla.map(&:trim)*""
 array=[all.split.join]
@@ -422,4 +494,9 @@ array=[all.split.join]
 binary = array.pack( "H*" )
 #p binary.unpack("H*")
 exit if ! ofile
-open(ofile,"wb"){|f|f.write binary}
+open(ofile,"wb"){|f|
+  f.write binary
+  rawdatas.each{|i|
+    f.write i
+  }
+}
