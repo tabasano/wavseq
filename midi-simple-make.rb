@@ -11,6 +11,7 @@ opt.on('-i file',"infile") {|v| infile=v }
 opt.on('-o file',"outfile") {|v| outfile=v }
 opt.on('-d d',"data string") {|v| data=v }
 opt.on('-t b',"bpm") {|v| bpm=v.to_f }
+opt.on('-T w',"programChange test like instrument name '...'") {|v| $test=v }
 opt.parse!(ARGV)
 
 class String
@@ -169,6 +170,9 @@ module MidiHex
       #{delta} 8#{ch} #{key} 00 # delta後, soundオフ
     "
   end
+  def self.byKey key,len=@tbase
+    self.oneNote(len,key)
+  end
   def self.notekey key,length=false
     len,velocity,ch=[@tbase,@velocity,@ch]
     len=len*length if length
@@ -243,10 +247,15 @@ module MidiHex
     inst=format("%02x",inst)
     "00 C#{ch} #{inst}\n"
   end
-  def self.programGet p
+  def self.programGet p,num=false
     return 0 if not @programList
     r=@programList.select{|num,line|line=~/#{p}/i}
-    r.size>0 ? r[0][0] : 0
+    num=[num,r.size].min if num
+    if num && r.size>0
+      r[num-1][0]
+    else
+      r.size>0 ? r[0][0] : 0
+    end
   end
   def self.percussionGet p
     return @snare if not @percussionList
@@ -295,10 +304,12 @@ module MidiHex
         @basekey+=tr
       when /\(key:reset\)/
         @basekey=@basekeyOrg
-      when /\(p:(([[:digit:]]+),)?(([[:digit:]]+)|([[:alnum:]]+))\)/
+      when /\(p:(([[:digit:]]+),)?(([[:digit:]]+)|([[:alnum:]]+)(,([[:digit:]]))?)\)/
         channel=$1 ? $2.to_i : 0
+        subNo=false
         if $5
-          instrument=self.programGet($5)
+          subNo=$7.to_i if $7
+          instrument=self.programGet($5,subNo)
         else
           instrument=$4.to_i
         end
@@ -332,6 +343,9 @@ module MidiHex
       when /\(tempo:(.*)\)/
         bpm=$1.to_i
         @h<<self.tempo(bpm) if @bpm>0
+      when /\(x:(.*)\)/
+        key=$1.to_i
+        @h<<self.byKey(key)
       when /<(.*)/
         rate=1.25
         if $1.size>0
@@ -361,29 +375,49 @@ module MidiHex
     }
     @h*"\n# onoff ==== \n"
   end
+  def self.loadMap file, base=0
+    if not File.exist?(file)
+      map=false
+    else
+      category=""
+     li=File.readlines(file).map{|i|
+          i=i.toutf8
+          # zero base
+          # category name plus
+          if i=~/^[[:digit:]]+/
+            [i.split[0].to_i-base,"#{i.chomp.toutf8} #{category}"]
+          else
+            category=i.chomp.toutf8 if i.chomp.size>0
+            false
+          end
+        }-[false]
+      map=li.size>0 ? li : false
+    end
+  end
   def self.loadProgramChange file
     if not File.exist?(file)
       @programList=false
     else
-      li=File.readlines(file).select{|i|i=~/^[[:digit:]]/}.map{|i|
-        # zero base
-        [i.split[0].to_i-1,i.toutf8]
-      }
-      @programList=li.size>0 ? li : false
+      @programList=self.loadMap(file,1)
     end
+    p @programList if $DEBUG
+  end
+  def self.test
+    key=$test
+    p key
+    d=@programList.select{|i,v|v=~/#{key}/i}.map{|i,d|"(p:#{i})cdef"}*""
+    perc=[*0..127].map{|i|"(x:#{i})"}*""
+    d=d+"(ch:9)"+perc
   end
   def self.loadPercussionMap file
     @snare=35
     if not File.exist?(file)
       @percussionList=false
     else
-      li=File.readlines(file).select{|i|i=~/^[[:digit:]]/}.map{|i|
-        # zero base
-        [i.split[0].to_i,i.toutf8]
-      }
-      @percussionList=li.size>0 ? li : false
+      @percussionList=self.loadMap(file,0)
       @snare=self.percussionGet("snare")
     end
+    p @percussionList if $DEBUG
   end
   def self.trackMake data
     start="
@@ -510,6 +544,7 @@ pfile="midi-percussion-map.txt"
 mx=MidiHex
 mx.loadProgramChange(file)
 mx.loadPercussionMap(pfile)
+data=mx.test if $test
 
 tbase=480 # division
 delta=varlenHex(tbase)
