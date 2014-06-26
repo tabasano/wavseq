@@ -1,4 +1,18 @@
 #!/usr/bin/ruby
+require 'kconv'
+require 'optparse'
+
+infile=false
+outfile=false
+data=false
+bpm=120
+opt = OptionParser.new
+opt.on('-i file',"infile") {|v| infile=v }
+opt.on('-o file',"outfile") {|v| outfile=v }
+opt.on('-d d',"data string") {|v| data=v }
+opt.on('-t b',"bpm") {|v| bpm=v.to_f }
+opt.parse!(ARGV)
+
 class String
   def trim
     d=split("\n").map{|i|i.sub(/#.*/){}.chomp}*" "
@@ -353,7 +367,7 @@ module MidiHex
     else
       li=File.readlines(file).select{|i|i=~/^[[:digit:]]/}.map{|i|
         # zero base
-        [i.split[0].to_i-1,i]
+        [i.split[0].to_i-1,i.toutf8]
       }
       @programList=li.size>0 ? li : false
     end
@@ -365,7 +379,7 @@ module MidiHex
     else
       li=File.readlines(file).select{|i|i=~/^[[:digit:]]/}.map{|i|
         # zero base
-        [i.split[0].to_i,i]
+        [i.split[0].to_i,i.toutf8]
       }
       @percussionList=li.size>0 ? li : false
       @snare=self.percussionGet("snare")
@@ -455,40 +469,47 @@ def loadCalc d
   end
 end
 def hint
+  cmd=File.basename($0)
   puts <<EOF
-usage: #{$0} \"dddd dr3 dddd r4 drdrdrdr dddd dr3\" outfile.mid bpm
+usage: #{cmd} -d \"dddd dr3 dddd r4 drdrdrdr dddd dr3\" -o outfile.mid -t bpm
+       #{cmd} -i infile.txt  -o outfile.mid -b bpm
 
 syntax: ...( will be changed time after time)
     abcdefg=sound, +-=octave change, r=rest, num=length, ><=tempo up-down(percent),
     v=velocity set(0-127) , blank ignored
-    &(00 00) =set hex data directly. This can include '$delta(240)' '$bend(8191)' for deltaTime data making etc..
+    &(00 00) =set hex data directly. This can include '$delta(240)' for deltaTime data making etc..
     (p:0,11) =ProgramChange channel 0, instrument 11
     (p:0,organ) =ProgramChange channel 0, instrument ?(search word like 'organ' from list if exist)
+        map text must start with instrument number
     (key:-4) =transpose -4 except rythmChannel
-    [...] =repeat 2 times
+    [...] =repeat 2 times for first time
     (tempo:120) =tempo set
     (ch:1) =this track's channel set
     (cc:10,64) =controlChange number10 value 64
-    (pan:>64)  =panpot right+. ( pan:>0  set center )
+    (pan:>64)  =panpot right 64. ( pan:>0  set center )
     (bend:100) =pitch bend 100
     ||| = track separater
     .DC .DS .toCODA .CODA .FINE =coda mark etc.
     .SKIP =skip mark on over second time
     .$ =DS point
-    _snare! =percussion sound ( search word like 'snare' from percussion list if exist )
-    (loadf:filename.mid,2) =simply load existing midi file, track 2. Track must be this only seperated by '|||'.
+    _snare! =percussion sound ( search word like 'snare' (can use tone number) from percussion list if exist )
+        map text must start with tone number
+    (loadf:filename.mid,2) =load filename.mid, track 2. Track must be this only and seperated by '|||'.
 EOF
 end
 
-data,ofile,bpm = ARGV
-(hint;exit) if (! data || ! ofile)
+data=ARGV.shift if ! data
+outfile=ARGV.shift if ! outfile
+data=File.read(infile).trim if infile && File.exist?(infile)
 
+(hint;exit) if (! data || ! outfile)
+
+data=data.toutf8
 file="midi-programChange-list.txt"
 pfile="midi-percussion-map.txt"
 mx=MidiHex
 mx.loadProgramChange(file)
 mx.loadPercussionMap(pfile)
-array = []
 
 tbase=480 # division
 delta=varlenHex(tbase)
@@ -519,8 +540,6 @@ rawdatas.flatten!
 tracknum=rawdatas.size+rundatas.size
 tracknum=tracks.size
 format=1
-bpm=120 if ! bpm
-bpm=bpm.to_f
 
 d_header=mx.header(format,tracknum,tbase) 
 tracks=[]
@@ -534,9 +553,9 @@ all=alla.map(&:trim)*""
 array=[all.split.join]
 #puts alla,all,array
 binary = array.pack( "H*" )
-#p binary.unpack("H*")
-exit if ! ofile
-open(ofile,"wb"){|f|
+
+# save data. data = MIDI-header + seq-made MIDI-tracks + loaded extra MIDI-tracks.
+open(outfile,"wb"){|f|
   f.write binary
   rawdatas.each{|i|
     f.write i
