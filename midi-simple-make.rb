@@ -255,10 +255,14 @@ module MidiHex
     delta=varlenHex(len)
     "#{delta} C#{ch} #{inst}\n"
   end
-  def self.GMsystemOn len=0
+  # GM,GS,XG wakeup command need over 50milisec. ?
+  # if not, midi player may hung up.
+  def self.GMsystemOn len=0,mode=1
+    # GM1,GM2
+    m=mode==2 ? 3 : 1
     delta=varlenHex(len)
     "
-      #{delta} F0 7E 7F 09 01 F7 # GM1
+      #{delta} F0 7E 7F 09 0#{m} F7 # GM
     "
   end
   def self.XGsystemOn len=0
@@ -466,11 +470,11 @@ module MidiHex
     p key
     mode=1 if ! mode
     case mode
-    when 1
+    when 1 || "gm"
       d=@programList.select{|i,v|v=~/#{key}/i}.map{|i,data|"(p:#{i})#{cycle}"}*""
       perc=[*0..127].map{|i|"(x:#{i})"}*""
       d+"(ch:9)"+perc
-    when 2
+    when 2 || "xg"
       d=@programList.select{|i,v|v=~/#{key}/i}.map{|i,data|
         [0,1,18,32,33,34,40,41,45,64,65,70,71,97,98].map{|lsb|
           [0].map{|msb|
@@ -479,7 +483,32 @@ module MidiHex
           }*""
         }*""
       }*""
-      d="(xg:on)r14"+d
+      lsb=0
+      msb=127
+      scaleAll=[*0..127].map{|i|"(x:#{i})"}*""
+      perc0=[0].map{|i| "(bspc:#{msb},#{lsb},#{i},4) #{scaleAll}"}*""
+      scale=[*28..50,53,56,57,59,62,63,64,70,75,78,79].map{|i|"(x:#{i})"}*""
+      perc=[*1..48].map{|i| "(bspc:#{msb},#{lsb},#{i},4) #{scale}"}*""
+      msb=126
+      scale=[*36..42,*52..62,*68..73,*84..91].map{|i|"(x:#{i})"}*""
+      perc2=[*0..1].map{|i| "(bspc:#{msb},#{lsb},#{i},4) #{scale}"}*""
+      d="(xg:on)r14"+d+"(ch:9)"+perc+perc2+perc0
+    when 3 || "gs"
+      mapnum=3
+      d=@programList.select{|i,v|v=~/#{key}/i}.map{|i,data|
+        [mapnum].map{|lsb|
+          msbs=[0,8,16,24,32]
+          msbs=[0] if i>63
+          msbs=[*0..5] if i>121
+          msbs.map{|msb|
+            #msb*=8
+            "(bspc:#{msb},#{lsb},#{i},4) #{cycle}"
+          }*""
+        }*""
+      }*""
+      perc=[*0..127].map{|i|"(x:#{i})"}*""
+      perc=[*0..127].map{|i| "(p:#{i})#{perc}"}*""
+      d="(gs:reset)r14"+d+"(ch:9)"+perc
     else
     end
   end
