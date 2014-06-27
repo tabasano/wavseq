@@ -8,3 +8,5 @@ wav-seq.rb
   8bitはunsigned...
 midi-simple-make.rb
   midi file作成。
+  midiは環境によってだいぶ聞こえるものが変わってきます。
+  windowsではmid radio player6が良いようです。
