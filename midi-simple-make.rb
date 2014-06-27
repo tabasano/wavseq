@@ -4,7 +4,7 @@ require 'optparse'
 
 infile=false
 outfile=false
-data=false
+data=""
 bpm=120
 opt = OptionParser.new
 opt.on('-i file',"infile") {|v| infile=v }
@@ -606,11 +606,9 @@ syntax: ...( will be changed time after time)
 EOF
 end
 
-data=ARGV.shift if ! data
-outfile=ARGV.shift if ! outfile
 data=File.read(infile).trim if infile && File.exist?(infile)
 
-(hint;exit) if (! data || ! outfile)
+(hint;exit) if (! data || ! outfile ) && ! $test
 
 data=data.toutf8
 file="midi-programChange-list.txt"
