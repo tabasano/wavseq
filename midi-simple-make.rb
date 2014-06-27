@@ -12,6 +12,8 @@ opt.on('-o file',"outfile") {|v| outfile=v }
 opt.on('-d d',"data string") {|v| data=v }
 opt.on('-t b',"bpm") {|v| bpm=v.to_f }
 opt.on('-T w',"programChange test like instrument name '...'") {|v| $test=v }
+opt.on('-c d',"data for test") {|v| $testdata=v }
+opt.on('-m i',"mode of test") {|v| $testmode=v.to_i }
 opt.parse!(ARGV)
 
 class String
@@ -140,8 +142,30 @@ def rawHexPart d
   }*""
 end
 module MidiHex
-  def self.header format,track,tbase=480
-    # @tbase設定のため最初に呼ばなければならない
+  # 設定のため最初に呼ばなければならない
+  def self.prepare tbase=480
+    @tbase=tbase
+    @rythmChannel||=9
+    @notes||={
+      "c"=>0,
+      "C"=>1,
+      "d"=>2,
+      "D"=>3,
+      "e"=>4,
+      "f"=>5,
+      "F"=>6,
+      "g"=>7,
+      "G"=>8,
+      "a"=>9,
+      "A"=>10,
+      "b"=>11,
+      "t"=>[0,@rythmChannel],
+      "s"=>[3,@rythmChannel],
+      "u"=>[6,@rythmChannel]
+    }
+
+  end
+  def self.header format,track,tbase=@tbase
     format=[format,0xff].min
     track=[track,0xff].min
     tbase=[tbase,0x7fff].min
@@ -191,24 +215,6 @@ module MidiHex
     self.oneNote(@tbase*len,key,@velocity,@rythmChannel)
   end
   def self.notes c,l=false
-    @rythmChannel||=9
-    @notes||={
-      "c"=>0,
-      "C"=>1,
-      "d"=>2,
-      "D"=>3,
-      "e"=>4,
-      "f"=>5,
-      "F"=>6,
-      "g"=>7,
-      "G"=>8,
-      "a"=>9,
-      "A"=>10,
-      "b"=>11,
-      "t"=>[0,@rythmChannel],
-      "s"=>[3,@rythmChannel],
-      "u"=>[6,@rythmChannel]
-    }
     notekey(@notes[c],l)
   end
   def self.rest len=1
@@ -218,12 +224,13 @@ module MidiHex
       #{delta}  89 3C 00 # 1拍後, オフ:ch10, key:3C
     "
   end
-  def self.tempo bpm
+  def self.tempo bpm, len=0
+    delta=varlenHex(len)
     @bpmStart=bpm if ! @bpm
     @bpm=bpm
     d_bpm=self.makebpm(@bpm)
     "
-      00 FF 51 03 #{d_bpm} # 四分音符の長さをマイクロ秒で3byte
+      #{delta} FF 51 03 #{d_bpm} # 四分音符の長さをマイクロ秒で3byte
     "
   end
   def self.makebpm bpm
@@ -240,12 +247,53 @@ module MidiHex
     data=format("%02x",v)
     "00 B#{ch} #{n} #{data}\n"
   end
-  def self.ProgramChange ch,inst
+  def self.ProgramChange ch,inst,len=0
     ch=[ch,0x0f].min
     inst=[inst,0xff].min
     ch=format("%01x",ch)
     inst=format("%02x",inst)
-    "00 C#{ch} #{inst}\n"
+    delta=varlenHex(len)
+    "#{delta} C#{ch} #{inst}\n"
+  end
+  def self.GMsystemOn len=0
+    delta=varlenHex(len)
+    "
+      #{delta} F0 7E 7F 09 01 F7 # GM1
+    "
+  end
+  def self.XGsystemOn len=0
+    delta=varlenHex(len)
+    "
+      #{delta} F0 43 10 4C 00 00 7E 00 F7 # XG
+    "
+  end
+  def self.GSreset len=0
+    delta=varlenHex(len)
+    " #{delta} F0 41 10 42 12 40 00 7F 00 41 F7 # GS \n"
+  end
+  def self.bankSelect d
+    d=~/([^,]*),([^,]*)(,(.*))?/
+    msb,lsb=$1.to_i,$2.to_i
+    msb=[msb,0x7f].min
+    lsb=[lsb,0x7f].min
+    len=$4.to_i
+    msb=format("%02x",msb)
+    lsb=format("%02x",lsb)
+    ch=@ch
+    ch=format("%01x",ch)
+    delta=varlenHex(len)
+    "
+      #{delta} B#{ch} 00 #{msb} # BankSelect MSB
+      #{delta} B#{ch} 20 #{lsb} # BankSelect LSB
+    "
+  end
+  def self.bankSelectPC d
+    d=~/(([^,]*),([^,]*)),([^,]*)(,(.*))?/
+    len=$6.to_i
+    inst=$4.to_i ##
+    bs=self.bankSelect("#{$1},#{len}")
+    pc=self.ProgramChange(@ch,inst,len)
+    bs+pc
   end
   def self.programGet p,num=false
     return 0 if not @programList
@@ -336,6 +384,16 @@ module MidiHex
         @ch=$1.to_i
       when /\(cc:(.*)\)/
         @h<<self.controlChange($1)
+      when /\(bs:(.*)\)/
+        @h<<self.bankSelect($1)
+      when /\(bspc:(.*)\)/
+        @h<<self.bankSelectPC($1)
+      when /\(gs:reset\)/
+        @h<<self.GSreset
+      when /\(gm:on\)/
+        @h<<self.GMsystemOn(120)
+      when /\(xg:on\)/
+        @h<<self.XGsystemOn(120)
       when /\(pan:(<|>)(.*)\)/
         pan=$2.to_i
         pan=$1==">" ? 64+pan : 64-pan
@@ -402,12 +460,28 @@ module MidiHex
     end
     p @programList if $DEBUG
   end
-  def self.test
+  def self.test cycle,mode=1
+    cycle="cdef" if ! cycle
     key=$test
     p key
-    d=@programList.select{|i,v|v=~/#{key}/i}.map{|i,d|"(p:#{i})cdef"}*""
-    perc=[*0..127].map{|i|"(x:#{i})"}*""
-    d=d+"(ch:9)"+perc
+    mode=1 if ! mode
+    case mode
+    when 1
+      d=@programList.select{|i,v|v=~/#{key}/i}.map{|i,data|"(p:#{i})#{cycle}"}*""
+      perc=[*0..127].map{|i|"(x:#{i})"}*""
+      d+"(ch:9)"+perc
+    when 2
+      d=@programList.select{|i,v|v=~/#{key}/i}.map{|i,data|
+        [0,1,18,32,33,34,40,41,45,64,65,70,71,97,98].map{|lsb|
+          [0].map{|msb|
+            #msb*=8
+            "(bspc:#{msb},#{lsb},#{i},4) #{cycle}"
+          }*""
+        }*""
+      }*""
+      d="(xg:on)r14"+d
+    else
+    end
   end
   def self.loadPercussionMap file
     @snare=35
@@ -541,19 +615,19 @@ data=File.read(infile).trim if infile && File.exist?(infile)
 data=data.toutf8
 file="midi-programChange-list.txt"
 pfile="midi-percussion-map.txt"
-mx=MidiHex
-mx.loadProgramChange(file)
-mx.loadPercussionMap(pfile)
-data=mx.test if $test
 
 tbase=480 # division
 delta=varlenHex(tbase)
-#p "deltaTime: 0x#{delta}"
+mx=MidiHex
+mx.prepare(tbase)
+mx.loadProgramChange(file)
+mx.loadPercussionMap(pfile)
+data=mx.test($testdata,$testmode) if $test
 
 comment="by midi-simple-make.rb"
 commenthex,len=txt2hex(comment)
 d_comment="
-00 FF 01 #{len} #{commenthex}
+#{delta} FF 01 #{len} #{commenthex}
 "
 d_last=
 "
@@ -578,7 +652,7 @@ format=1
 
 d_header=mx.header(format,tracknum,tbase) 
 tracks=[]
-tracks<<d_comment + mx.tempo(bpm) + mx.makefraze(rundatas[0]) + d_last
+tracks<< d_comment + mx.tempo(bpm) + mx.makefraze(rundatas[0]) + d_last
 rundatas[1..-1].each{|track|
   tracks<< mx.makefraze(track) + d_last
 }
