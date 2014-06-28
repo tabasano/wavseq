@@ -1,25 +1,35 @@
--- (p:bas)
-c2r-g+ cc2-g+ c2r-g+ cc2-g+ c2r-g+ cc2-g
+(p:bas)
+-- -b0.1+ c2r-g+ cc2-g+ c2r-g+ cc2-g+ c2r-g+ cc2-g
 
 |||
 
 (p:vio)
-rrrr eefe eefe eefe  eefe eefe eefe eefe 
+r0.1 rrrr eefe eefe eefe  eefe eefe eefe eefe 
 
 |||
 
 (p:horn)
-rrrr g2er g2er g2er g2er g2er g2er g2er
+r0.1 rrrr g2er g2er g2er g2er g2er g2er g2er
 
 |||
 (p:tru)
-+ rrrr ggcr ggcr ggcr  ggcr ggcr ggcr ggcr
+r0.1 + rrrr ggcr ggcr ggcr  ggcr ggcr ggcr ggcr
 
 |||
 
-rrrr rrrr rr_hat!0.34_hat!0.66_cymb! _bass!r_bass!r _bass!_bass!_snare!r _bass!rrr _bass!_bass!_snare!r _bass!rrr 
+r0.1 rrrr rrrr rr_hat!0.34_hat!0.66_cymb! _bass!r_bass!r _bass!_bass!_snare!r _bass!rrr _bass!_bass!_snare!r _bass!rrr 
 
 |||
 
 (p:flu)
-rrrr rrrr rrrr ++ e1.5f0.5 e0.7r0.3c d2.3r0.2e0.5r0.5 -b0.25a0.25g3.7
+r0.1 rrrr rrrr rrrr ++ e1.5f0.5 e0.7r0.3c (v45)d2.3r0.2e0.5r0.5 (v104) -b0.25a0.25(v56)g3.7
+|||
+
+r0.9rrr rrrr rr_hat!0.34_hat!0.66_cymb! _bass!r_bass!r _bass!_bass!_snare!r _bass!rrr _bass!_bass!_snare!r _bass!rrr 
+|||
+
+r0.8rrr rrrr rr_hat!0.34_hat!0.66_cymb! _bass!r_bass!r _bass!_bass!_snare!r _bass!rrr _bass!_bass!_snare!r _bass!rrr 
+
+|||
++(v100)
+rrrr rrrr rrrr rrrr cdef edc1.5r0.5 efga gfe0.6r0.4r crcr crcr cdefe1.2d r0.5 < rr -b0.2a2.5 (v50) r1.5 >>b+>cd>>>eF>g>>G0.2<<<<<<<<<r15_clap!
