@@ -194,7 +194,8 @@ module MidiHex
       #{delta} 8#{ch} #{key} 00 # delta後, soundオフ
     "
   end
-  def self.byKey key,len=@tbase
+  def self.byKey key,len
+    len=len*@tbase
     self.oneNote(len,key)
   end
   def self.notekey key,length=false
@@ -341,6 +342,8 @@ module MidiHex
           case m
           when :percussion
             @h<<self.percussionNote(c,t)
+          when :rawsound
+            @h<<self.byKey(c,t)
           when :sound
             @h<<self.notes(c,t)
           when :rest
@@ -407,7 +410,7 @@ module MidiHex
         @h<<self.tempo(bpm) if @bpm>0
       when /\(x:(.*)\)/
         key=$1.to_i
-        @h<<self.byKey(key)
+        wait<<[:rawsound,key]
       when /<(.*)/
         rate=1.25
         if $1.size>0
@@ -464,10 +467,36 @@ module MidiHex
     end
     p @programList if $DEBUG
   end
+  def self.testGs cycle,key,scaleAll,intro,mapnum=3
+    d=@programList.select{|i,v|v=~/#{key}/i}.map{|i,data|
+      [mapnum].map{|lsb|
+        msbs=[0,8,16,24,32]
+        msbs=[0] if i>63
+        msbs=[*0..5] if i>121
+        msbs.map{|msb|
+          #msb*=8
+          "(bspc:#{msb},#{lsb},#{i},4) #{cycle}"
+        }*""
+      }*""
+    }*""
+    scale=mapnum<4 ? [*25..87].map{|i|"(x:#{i})"}*"" : scaleAll
+    lsb=mapnum
+    ps=[1,2,3,9,10,11,12,17,25,26,27,28,29,30,31,33,41,49,50,51,53,54,57,58,59,128].map{|i|i-1}
+    perc=ps.map{|p|
+      [0,8,16,24,25,32,40,48,56,127].map{|msb|
+        "(bspc:#{msb},#{lsb},#{p},4) #{intro} #{scale}"
+      }*""
+    }*""
+    d="(gs:reset)r14"+d+"(ch:9)"+perc
+  end
   def self.test cycle,mode=1
     cycle="cdef" if ! cycle
     key=$test
     p key
+    scaleAll=[*0..127].map{|i|"(x:#{i})"}*""
+    s,k,h,l,o,c,cc=@gmSnare,@gmKick,@gmHiTom,@LoTom,@gmOpenH,@gmCloseH,@gmCrashCym
+    intro="(x:#{k})0.2(x:#{cc})0.8(x:#{k})(x:#{s})(x:#{s})(x:#{c})(x:#{c})(x:#{o})(x:#{c})\
+        >>(x:#{k})0.34(x:#{k})0.33(x:#{s})0.33<(x:#{k})0.34<(x:#{k})0.33(x:#{s})0.33(x:#{h})(x:#{l})"
     mode=1 if ! mode
     case mode
     when 1 || "gm"
@@ -485,35 +514,22 @@ module MidiHex
       }*""
       lsb=0
       msb=127
-      scaleAll=[*0..127].map{|i|"(x:#{i})"}*""
-      perc0=[0].map{|i| "(bspc:#{msb},#{lsb},#{i},4) #{scaleAll}"}*""
+      perc0=[0].map{|p| "(bspc:#{msb},#{lsb},#{p},4) #{scaleAll}"}*""
       scale=[*28..50,53,56,57,59,62,63,64,70,75,78,79].map{|i|"(x:#{i})"}*""
-      perc=[*1..48].map{|i| "(bspc:#{msb},#{lsb},#{i},4) #{scale}"}*""
+      perc=[*1..48].map{|p| "(bspc:#{msb},#{lsb},#{p},4) #{intro} #{scale}"}*""
       msb=126
       scale=[*36..42,*52..62,*68..73,*84..91].map{|i|"(x:#{i})"}*""
-      perc2=[*0..1].map{|i| "(bspc:#{msb},#{lsb},#{i},4) #{scale}"}*""
+      perc2=[*0..1].map{|p| "(bspc:#{msb},#{lsb},#{p},4) #{intro} #{scale}"}*""
       d="(xg:on)r14"+d+"(ch:9)"+perc+perc2+perc0
     when 3 || "gs"
-      mapnum=3
-      d=@programList.select{|i,v|v=~/#{key}/i}.map{|i,data|
-        [mapnum].map{|lsb|
-          msbs=[0,8,16,24,32]
-          msbs=[0] if i>63
-          msbs=[*0..5] if i>121
-          msbs.map{|msb|
-            #msb*=8
-            "(bspc:#{msb},#{lsb},#{i},4) #{cycle}"
-          }*""
-        }*""
-      }*""
-      perc=[*0..127].map{|i|"(x:#{i})"}*""
-      perc=[*0..127].map{|i| "(p:#{i})#{perc}"}*""
-      d="(gs:reset)r14"+d+"(ch:9)"+perc
+      mapnum=3 # 0,1(sc-55),2(sc-88),3(sc-88pro),4(sc-8850)
+      self.testGs(cycle,key,scaleAll,intro,mapnum)
     else
     end
   end
   def self.loadPercussionMap file
     @snare=35
+    @gmSnare,@gmKick,@gmHiTom,@LoTom,@gmOpenH,@gmCloseH,@gmCrashCym=38,35,50,45,46,42,49
     if not File.exist?(file)
       @percussionList=false
     else
