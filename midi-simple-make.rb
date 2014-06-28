@@ -143,7 +143,7 @@ def rawHexPart d
 end
 module MidiHex
   # 設定のため最初に呼ばなければならない
-  def self.prepare tbase=480
+  def self.prepare tbase=480,vel=0x40
     @tbase=tbase
     @rythmChannel||=9
     @notes||={
@@ -163,7 +163,11 @@ module MidiHex
       "s"=>[3,@rythmChannel],
       "u"=>[6,@rythmChannel]
     }
-
+    @ch=0
+    @velocity=vel
+    @velocityOrg=vel
+    @basekey||=0x3C
+    @basekeyRythm=@basekeyOrg=@basekey
   end
   def self.header format,track,tbase=@tbase
     format=[format,0xff].min
@@ -322,10 +326,6 @@ module MidiHex
   def self.makefraze rundata
     return "" if not rundata
     @h=[]
-    @ch=0
-    @velocity=0x40
-    @basekey||=0x3C
-    @basekeyRythm=@basekeyOrg=@basekey
     wait=[]
     cmd=rundata.scan(/&\([^)]+\)|\([^:]*:[^)]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|[[:digit:]]+\.[[:digit:]]+|[[:digit:]]+|[-+[:alpha:]]/)
     cmd<<" " # dummy
@@ -487,7 +487,7 @@ module MidiHex
         "(bspc:#{msb},#{lsb},#{p},4) #{intro} #{scale}"
       }*""
     }*""
-    d="(gs:reset)r14"+d+"(ch:9)"+perc
+    d="(gs:reset)r14 "+d+"(ch:9)"+perc
   end
   def self.test cycle,mode=1
     cycle="cdef" if ! cycle
@@ -499,13 +499,14 @@ module MidiHex
     scaleAll=(inGM.map{|i|"(x:#{i})"}+outGM.map{|i|"(x:#{i})0.2"})*""
     s,k,h,l,o,c,cc=@gmSnare,@gmKick,@gmHiTom,@gmLoTom,@gmOpenH,@gmCloseH,@gmCrashCym
     intro="(x:#{k})0.2(x:#{cc})0.8(x:#{k})(x:#{s})(x:#{s})(x:#{c})(x:#{c})(x:#{o})(x:#{c})
-        >>(x:#{k})0.34(x:#{k})0.33(x:#{s})0.33<(x:#{k})0.34<(x:#{k})0.33(x:#{s})0.33(x:#{h})(x:#{l})"
+        v64(x:#{h})0.68(x:#{l})0.66(x:#{l})0.66
+        v42(x:#{o})0.34v32(x:#{c})0.33(x:#{c})0.33 v20(x:#{o})0.12(x:#{c})0.11(x:#{c})0.11v92(x:#{o})0.66v64"
     mode=1 if ! mode
     case mode
     when 1 || "gm"
       d=@programList.select{|i,v|v=~/#{key}/i}.map{|i,data|"(p:#{i})#{cycle}"}*""
-      perc=[*0..127].map{|i|"(x:#{i})"}*""
-      d+"(ch:9)"+perc
+      perc=scaleAll
+      "(gm:on)r14 "+d+"(ch:9)"+intro+perc
     when 2 || "xg"
       d=@programList.select{|i,v|v=~/#{key}/i}.map{|i,data|
         [0,1,18,32,33,34,40,41,45,64,65,70,71,97,98].map{|lsb|
@@ -523,7 +524,7 @@ module MidiHex
       msb=126
       scale=[*36..42,*52..62,*68..73,*84..91].map{|i|"(x:#{i})"}*""
       perc2=[*0..1].map{|p| "(bspc:#{msb},#{lsb},#{p},4) #{intro} #{scale}"}*""
-      d="(xg:on)r14"+d+"(ch:9)"+perc+perc2+perc0
+      d="(xg:on)r14 "+d+"(ch:9)"+perc+perc2+perc0
     when 3 || "gs"
       mapnum=3 # 0,1(sc-55),2(sc-88),3(sc-88pro),4(sc-8850)
       self.testGs(cycle,key,scaleAll,intro,mapnum)
@@ -665,7 +666,7 @@ pfile="midi-percussion-map.txt"
 tbase=480 # division
 delta=varlenHex(tbase)
 mx=MidiHex
-mx.prepare(tbase)
+mx.prepare(tbase,0x40)
 mx.loadProgramChange(file)
 mx.loadPercussionMap(pfile)
 data=mx.test($testdata,$testmode) if $test
