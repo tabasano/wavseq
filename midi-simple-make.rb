@@ -10,6 +10,7 @@ opt = OptionParser.new
 opt.on('-i file',"infile") {|v| infile=v }
 opt.on('-o file',"outfile") {|v| outfile=v }
 opt.on('-d d',"data string") {|v| data=v }
+opt.on('-D',"debug") {|v| $DEBUG=v }
 opt.on('-t b',"bpm") {|v| bpm=v.to_f }
 opt.on('-T w',"programChange test like instrument name '...'") {|v| $test=v }
 opt.on('-c d',"data for test") {|v| $testdata=v }
@@ -145,8 +146,8 @@ module MidiHex
   # 設定のため最初に呼ばなければならない
   def self.prepare tbase=480,vel=0x40
     @tbase=tbase
-    @rythmChannel||=9
-    @notes||={
+    @rythmChannel=9
+    @notes={
       "c"=>0,
       "C"=>1,
       "d"=>2,
@@ -166,8 +167,13 @@ module MidiHex
     @ch=0
     @velocity=vel
     @velocityOrg=vel
-    @basekey||=0x3C
+    @basekey=0x3C
     @basekeyRythm=@basekeyOrg=@basekey
+    @prepareSet=[@tbase,@ch,@velocity,@basekey]
+  end
+  def self.trackPrepare tc=0
+    @tbase,@ch,@velocity,@basekey=@prepareSet
+    @ch=tc
   end
   def self.header format,track,tbase=@tbase
     format=[format,0xff].min
@@ -323,8 +329,9 @@ module MidiHex
     delta=varlenHex(len)
     "#{delta} e#{format"%01x",ch} #{bendHex(depth)}\n"
   end
-  def self.makefraze rundata
+  def self.makefraze rundata,tc
     return "" if not rundata
+    self.trackPrepare(tc)
     @h=[]
     wait=[]
     cmd=rundata.scan(/&\([^)]+\)|\([^:]*:[^)]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|[[:digit:]]+\.[[:digit:]]+|[[:digit:]]+|[-+[:alpha:]]/)
@@ -360,7 +367,7 @@ module MidiHex
       when /\(key:reset\)/
         @basekey=@basekeyOrg
       when /\(p:(([[:digit:]]+),)?(([[:digit:]]+)|([[:alnum:]]+)(,([[:digit:]]))?)\)/
-        channel=$1 ? $2.to_i : 0
+        channel=$1 ? $2.to_i : @ch
         subNo=false
         if $5
           subNo=$7.to_i if $7
@@ -699,9 +706,12 @@ format=1
 
 d_header=mx.header(format,tracknum,tbase) 
 tracks=[]
-tracks<< d_comment + mx.tempo(bpm) + mx.makefraze(rundatas[0]) + d_last
+# remember starting position check if data exist before sound
+tc=0
+tracks<< d_comment + mx.tempo(bpm) + mx.makefraze(rundatas[0],tc) + d_last
 rundatas[1..-1].each{|track|
-  tracks<< mx.makefraze(track) + d_last
+  tc+=1
+  tracks<< mx.rest + mx.makefraze(track,tc) + d_last
 }
 alla=[d_header]+tracks.map{|t|mx.trackMake(t)}.flatten
 puts alla if $DEBUG
