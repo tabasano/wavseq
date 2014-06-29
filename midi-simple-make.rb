@@ -424,7 +424,6 @@ module MidiHex
           rate=$1.to_i/100.0
         end
         @bpm=@bpm/rate
-p "<",rate,@bpm
         @h<<self.tempo(@bpm)
       when />(.*)/
         rate=1.25
@@ -432,7 +431,6 @@ p "<",rate,@bpm
           rate=$1.to_i/100.0
         end
         @bpm=@bpm*rate
-p ">",rate,@bpm
         @h<<self.tempo(@bpm)
       when /-/
         @basekey-=12
@@ -565,12 +563,25 @@ p ">",rate,@bpm
     @h
   end
 end
-
+def macroCalc data
+  macro={}
+  s=data.scan(/[^ ]+ *:=[^ ]+|./)
+  data=s.map{|i|
+    case i
+    when /( *[^ ]+) *:=([^ ]+)/
+      macro[$1]=$2
+      ""
+    else
+      i
+    end
+  }*""
+  [macro,data]
+end
 # repeat block analysis: no relation with MIDI format
-def repCalc line
+def repCalc line,macro
   # nesting not supprted
   line.gsub!(/\[([^\[\]]*)\] *([[:digit:]]+)/){$1*$2.to_i}
-  a=line.scan(/\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|./)
+  a=line.scan(/\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ]+|./)
   hs={}
   a.each_with_index{|d,i|hs[i]=d}
   hs=hs.invert
@@ -587,7 +598,6 @@ def repCalc line
     current=a[countertmp]
     puts "#{countertmp}: #{current}, #{rep},done: #{done*","}" if $DEBUG
     break if ! current
-    res<<current
     case current
     when /^\[/
       if ! done.member?(countertmp)
@@ -620,10 +630,16 @@ def repCalc line
       if (dsflag || dcflag)
         break
       end
+    when /^\$\{([^ \{\}]+)\}/
+      current=macro[$1]
+    when /^\$([^ ]+)/
+      current=macro[$1]
     when ".$"
       pointDS=countertmp
     else
+      current=macro.keys.member?(current) ? macro[current] : current
     end
+    res<<current
   end
   (res-[".CODA",".DS",".DC",".FINE",".toCODA",".$",".SKIP","[","]"])*""
 end
@@ -693,16 +709,22 @@ d_last=
 "
 rundatas=[]
 rawdatas=[]
+macro={}
 tracks=data.split('|||')
-tracks.map{|track| repCalc(track) }.each{|t|
-  r=loadCalc(t)
-  case r[0]
-  when :raw
-    rawdatas<<r[1]
-  when :seq
-    rundatas<<r[1]
-  end
+tracks.map{|track|
+    m,track=macroCalc(track)
+    macro.merge!(m)
+    repCalc(track,macro)
+  }.each{|t|
+    r=loadCalc(t)
+    case r[0]
+    when :raw
+      rawdatas<<r[1]
+    when :seq
+      rundatas<<r[1]
+    end
 }
+p macro if$DEBUG
 rawdatas.flatten!
 tracknum=rawdatas.size+rundatas.size
 tracknum=tracks.size
