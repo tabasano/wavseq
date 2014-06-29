@@ -1,0 +1,47 @@
+W:=c2r-g+
+
+(p:bas)
+
+-- -b0.1+ [W cc2-g+] 3 -F0.5
+
+|||
+
+(p:vio)
+r0.1 rrrr [eefe]7
+
+|||
+
+(p:horn)
+r0.1 rrrr [g2er ]7
+
+|||
+P:=ggcr
+
+(p:tru)
+r0.1 + rrrr [P]6
+
+|||
+
+(p:flu)
+r0.1 rrrr rrrr rrrr ++ e1.5f0.5 e0.7r0.3c (v45)d2.3r0.2e0.5r0.5 (v104) -b0.25a0.25(v56)g3.7
+
+|||
++(v100)
+rrrr rrrr rrrr rrrr cdef edc1.5r0.5 efga gfe0.6r0.4r crcr crcr cdefe1.2d r0.5 < rr -b0.2a2.5 (v50) r1.5 >>b+>cd>>>eF>g>>G0.2<<<<<<<<<r15_clap!
+
+|||
+
+B:=_bass!
+H:=_hat!
+S:=_snqre!
+C:=_cymb!
+DRum:=rrrr rrrr rr H0.34 H0.66 C Br_Br
+DRum2:= [BB ${S} r $B rrr ] 2
+
+r0.1 $DRum $DRum2
+|||
+
+r0.2 ${DRum} r0.1 $DRum2
+|||
+
+r0.3 $DRum r0.2 $DRum2 (p:heli)c4
