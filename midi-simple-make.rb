@@ -201,7 +201,7 @@ module MidiHex
     delta=varlenHex(len)
     str="
       00 9#{ch} #{key} #{vel} # 0拍後, soundオン...
-      #{delta} 8#{ch} #{key} 00 # delta後, soundオフ
+      #{delta} 8#{ch} #{key} 00 # #{len}tick後, soundオフ
     "
   end
   def self.byKey key,len
@@ -232,7 +232,7 @@ module MidiHex
     len=@tbase*len
     delta=varlenHex(len)
     "
-      #{delta}  89 3C 00 # 1拍後, オフ:ch10, key:3C
+      #{delta}  89 3C 00 # #{len}tick後, オフ:ch10, key:3C
     "
   end
   def self.tempo bpm, len=0
@@ -241,7 +241,7 @@ module MidiHex
     @bpm=bpm
     d_bpm=self.makebpm(@bpm)
     "
-      #{delta} FF 51 03 #{d_bpm} # 四分音符の長さをマイクロ秒で3byte
+      #{delta} FF 51 03 #{d_bpm} # 四分音符の長さ (bpm: #{@bpm}) マイクロ秒で3byte
     "
   end
   def self.makebpm bpm
@@ -563,6 +563,45 @@ module MidiHex
     @h
   end
 end
+def multiplet d,dep=3
+  d=~/\/(([[:digit:].]+):)?(.*)\//
+  i=$3
+  rate=$2 ? $2.to_f : 1
+  r=i.scan(/\(x:[^\]]+\)|[[:digit:]\.]+|_[^!]+!|./)
+  wait=[]
+  notes=[]
+  r.each{|i|
+    case i
+    when /\(x:[^\]]+\)/
+      wait<<1
+      notes<<i
+    when /[[:digit:]]+/
+      wait[-1]*=i.to_f
+    when " "
+    else
+      wait<<1
+      notes<<i
+    end
+  }
+  sum=wait.inject{|s,i|s+i}
+  ls=wait.map{|i|i*1.0/sum*rate}.map{|i|i.round(dep)}
+  er=rate-ls.inject{|s,i|s+i}
+  if er.abs>0.0001
+    if er>0
+      ls[0]+=er
+      ls[0]=ls[0].round(dep+1)
+    else
+      ls[-1]+=er
+      ls[-1]=ls[-1].round(dep+1)
+    end
+  end
+  result=[]
+  notes.size.times{|i|
+    result<<notes[i]<<ls[i]
+  }
+  p "multiplet: ",ls.inject{|s,i|s+i} if $DEBUG
+  result*""
+end
 def macroCalc data
   macro={}
   s=data.scan(/[^ ]+ *:=[^ ]+|./)
@@ -581,7 +620,14 @@ end
 def repCalc line,macro
   # nesting not supprted
   line.gsub!(/\[([^\[\]]*)\] *([[:digit:]]+)/){$1*$2.to_i}
-  a=line.scan(/\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ]+|./)
+  a=line.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ]+|./)
+  a=a.map{|i|
+    if i=~/^\/[^\/]+\//
+      multiplet(i)
+    else
+      i
+    end
+  }
   hs={}
   a.each_with_index{|d,i|hs[i]=d}
   hs=hs.invert
@@ -659,7 +705,8 @@ usage: #{cmd} -d \"dddd dr3 dddd r4 drdrdrdr dddd dr3\" -o outfile.mid -t bpm
        #{cmd} -i infile.txt  -o outfile.mid -b bpm
 
 syntax: ...( will be changed time after time)
-    abcdefg=sound, +-=octave change, r=rest, num=length, ><=tempo up-down(percent),
+    abcdefg=sound; capital letters are sharps 
+    +-=octave change, r=rest, num=length, ><=tempo up-down(percent),
     v=velocity set(0-127) , blank ignored
     &(00 00) =set hex data directly. This can include '$delta(240)' for deltaTime data making etc..
     (p:0,11) =ProgramChange channel 0, instrument 11
@@ -667,6 +714,8 @@ syntax: ...( will be changed time after time)
         map text must start with instrument number
     (key:-4) =transpose -4 except rythmChannel
     [...] =repeat 2 times for first time
+    [...]3 =3 times
+    /3:abcd/ =(triplet etc.) 'abcd' notes in 3 beats measure
     (tempo:120) =tempo set
     (ch:1) =this track's channel set
     (cc:10,64) =controlChange number10 value 64
@@ -679,6 +728,7 @@ syntax: ...( will be changed time after time)
     _snare! =percussion sound ( search word like 'snare' (can use tone number) from percussion list if exist )
         map text must start with tone number
     (loadf:filename.mid,2) =load filename.mid, track 2. Track must be this only and seperated by '|||'.
+    compile order is : track seperate => macro set => repeat check => sound data make
 EOF
 end
 
