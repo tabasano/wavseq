@@ -18,17 +18,18 @@ opt.on('-m i',"mode of test") {|v| $testmode=v.to_i }
 opt.parse!(ARGV)
 
 class String
-  def trim
-    d=split("\n").map{|i|i.sub(/#.*/){}.chomp}*" "
+  def trim ofs=""
+    d=split("\n").map{|i|i.sub(/#.*/){}.chomp}*ofs
 #    p d
     d
   end
 end
-def sizemake d
+def sizeHex d
   d=d.trim.split.join
   i=(d.size+8)/2
 #  p [d,i,i.to_s(16)]
-  ("00000000"+i.to_s(16))[-8..-1]
+  #("00000000"+i.to_s(16))[-8..-1]
+  format("%08x",i)+"  # size: #{i}"
 end
 # 可変長数値表現
 # 7bitずつに区切り最後以外のbyteは先頭bitを立てる
@@ -442,7 +443,11 @@ module MidiHex
         wait<<[:rest,i]
       when " "
       else
-        wait<<[:sound,i]
+        if @notes.keys.member?(i)
+          wait<<[:sound,i]
+        else
+          STDERR.print"?"
+        end
       end
     }
     @h*"\n# onoff ==== \n"
@@ -526,14 +531,14 @@ module MidiHex
       lsb=0
       msb=127
       perc0=[0].map{|p| "(bspc:#{msb},#{lsb},#{p},4) #{scaleAll}"}*""
-      scale=[*28..50,53,56,57,59,62,63,64,70,75,78,79].map{|i|"(x:#{i})"}*"" # main unique sound maybe
+      scale=([*28..79]-[51,52,54,55,58,60,61,65,66,67,68,69,71,72,73,74]).map{|i|"(x:#{i})"}*"" # main unique sound maybe
       perc=[*1..48].map{|p| "(bspc:#{msb},#{lsb},#{p},4) #{intro} #{scaleAll}"}*""
       msb=126
-      scale=[*36..42,*52..62,*68..73,*84..91].map{|i|"(x:#{i})"}*""
+      scale=([*36..42]+[*52..62]+[*68..73]+[*84..91]).map{|i|"(x:#{i})"}*""
       perc2=[*0..1].map{|p| "(bspc:#{msb},#{lsb},#{p},4) #{intro} #{scale}"}*""
       d="(xg:on)r14 "+d+"(ch:9)"+perc+perc2+perc0
     when 3 || "gs"
-      mapnum=3 # 0,1(sc-55),2(sc-88),3(sc-88pro),4(sc-8850)
+      mapnum=3 # 0(gm),1(sc-55),2(sc-88),3(sc-88pro),4(sc-8850)
       self.testGs(cycle,key,scaleAll,intro,mapnum)
     else
     end
@@ -553,7 +558,7 @@ module MidiHex
     start="
       4D 54 72 6B # MTrk
     "
-    dsize=sizemake(data)
+    dsize=sizeHex(data)
     trackend="
       00 FF 2F 00 # end
     "
@@ -597,17 +602,18 @@ def multiplet d,dep=3
   end
   result=[]
   notes.size.times{|i|
-    result<<notes[i]<<ls[i]
+    result<<notes[i]
+    result<<ls[i]
   }
   p "multiplet: ",ls.inject{|s,i|s+i} if $DEBUG
   result*""
 end
-def macroCalc data
+def macroDef data
   macro={}
-  s=data.scan(/[^ ]+ *:=[^ ]+|./)
+  s=data.scan(/[^ ;]+ *:=[^;]+|./)
   data=s.map{|i|
     case i
-    when /( *[^ ]+) *:=([^ ]+)/
+    when /( *[^ ;]+) *:=([^;]+)/
       macro[$1]=$2
       ""
     else
@@ -616,11 +622,25 @@ def macroCalc data
   }*""
   [macro,data]
 end
+def nestsearch d,macro
+  a=d.scan(/\[[^\[\]]*\] *[[:digit:]]+/)!=[]
+  r=d.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;]+|;|./).map{|i|
+    case i
+    when /^\$/
+      $'
+    else
+      i
+    end
+  }
+  b=(macro.keys-r).size<macro.keys.size
+  p "nest? #{a} #{b}",r,macro if $DEBUG
+  a||b
+end
 # repeat block analysis: no relation with MIDI format
 def repCalc line,macro
   # nesting not supprted
   line.gsub!(/\[([^\[\]]*)\] *([[:digit:]]+)/){$1*$2.to_i}
-  a=line.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ]+|./)
+  a=line.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;]+|./)
   a=a.map{|i|
     if i=~/^\/[^\/]+\//
       multiplet(i)
@@ -678,16 +698,20 @@ def repCalc line,macro
       end
     when /^\$\{([^ \{\}]+)\}/
       current=macro[$1]
-    when /^\$([^ ]+)/
+    when /^\$([^ ;]+)/
       current=macro[$1]
     when ".$"
       pointDS=countertmp
+    when ";"
+      current=""
     else
       current=macro.keys.member?(current) ? macro[current] : current
     end
     res<<current
   end
-  (res-[".CODA",".DS",".DC",".FINE",".toCODA",".$",".SKIP","[","]"])*""
+  res=(res-[".CODA",".DS",".DC",".FINE",".toCODA",".$",".SKIP","[","]"])*""
+  res=repCalc(res,macro) while macro.keys.size>0 && nestsearch(res,macro)
+  res
 end
 def loadCalc d
   if d=~/\(loadf:(.+)(,(.+))?\)/
@@ -728,11 +752,12 @@ syntax: ...( will be changed time after time)
     _snare! =percussion sound ( search word like 'snare' (can use tone number) from percussion list if exist )
         map text must start with tone number
     (loadf:filename.mid,2) =load filename.mid, track 2. Track must be this only and seperated by '|||'.
+    W:=abc  =macro definition. One Charactor macro can be used. When macro name is long, use prefix '$'.
     compile order is : track seperate => macro set => repeat check => sound data make
 EOF
 end
 
-data=File.read(infile).trim if infile && File.exist?(infile)
+data=File.read(infile).trim(" ;") if infile && File.exist?(infile)
 
 (hint;exit) if (! data || ! outfile ) && ! $test
 
@@ -762,7 +787,7 @@ rawdatas=[]
 macro={}
 tracks=data.split('|||')
 tracks.map{|track|
-    m,track=macroCalc(track)
+    m,track=macroDef(track)
     macro.merge!(m)
     repCalc(track,macro)
   }.each{|t|
