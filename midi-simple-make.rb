@@ -424,6 +424,7 @@ module MidiHex
           rate=$1.to_i/100.0
         end
         @bpm=@bpm/rate
+p "<",rate,@bpm
         @h<<self.tempo(@bpm)
       when />(.*)/
         rate=1.25
@@ -431,6 +432,7 @@ module MidiHex
           rate=$1.to_i/100.0
         end
         @bpm=@bpm*rate
+p ">",rate,@bpm
         @h<<self.tempo(@bpm)
       when /-/
         @basekey-=12
@@ -566,6 +568,8 @@ end
 
 # repeat block analysis: no relation with MIDI format
 def repCalc line
+  # nesting not supprted
+  line.gsub!(/\[([^\[\]]*)\] *([[:digit:]]+)/){$1*$2.to_i}
   a=line.scan(/\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|./)
   hs={}
   a.each_with_index{|d,i|hs[i]=d}

@@ -1,23 +1,23 @@
 (p:bas)
--- -b0.1+ c2r-g+ cc2-g+ c2r-g+ cc2-g+ c2r-g+ cc2-g
+-- -b0.1+ [c2r-g+ cc2-g+] 3 -F0.5
 
 |||
 
 (p:vio)
-r0.1 rrrr eefe eefe eefe  eefe eefe eefe eefe 
+r0.1 rrrr [eefe]7
 
 |||
 
 (p:horn)
-r0.1 rrrr g2er g2er g2er g2er g2er g2er g2er
+r0.1 rrrr [g2er ]7
 
 |||
 (p:tru)
-r0.1 + rrrr ggcr ggcr ggcr  ggcr ggcr ggcr ggcr
+r0.1 + rrrr [ggcr]6
 
 |||
 
-r0.1 rrrr rrrr rr_hat!0.34_hat!0.66_cymb! _bass!r_bass!r _bass!_bass!_snare!r _bass!rrr _bass!_bass!_snare!r _bass!rrr 
+r0.1 rrrr rrrr rr_hat!0.34_hat!0.66_cymb! _bass!r_bass!r [_bass!_bass!_snare!r _bass!rrr ] 2
 
 |||
 
