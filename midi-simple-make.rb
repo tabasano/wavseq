@@ -168,6 +168,7 @@ module MidiHex
     @ch=0
     @velocity=vel
     @velocityOrg=vel
+    @accentPlus=10
     @basekey=0x3C
     @basekeyRythm=@basekeyOrg=@basekey
     @prepareSet=[@tbase,@ch,@velocity,@basekey]
@@ -194,23 +195,26 @@ module MidiHex
   end
   def self.oneNote len=@tbase,key=@basekey,velocity=@velocity,ch=@ch
     ch=[ch,0x0f].min
-    @velocity=[velocity,0x7f].min
+    velocity=[velocity,0x7f].min
     @key=[key,0x7f].min
     key=format("%02x",@key)
     ch=format("%01x",ch)
-    vel=format("%02x",@velocity)
+    vel=format("%02x",velocity)
     delta=varlenHex(len)
     str="
-      00 9#{ch} #{key} #{vel} # 0拍後, soundオン...
-      #{delta} 8#{ch} #{key} 00 # #{len}tick後, soundオフ
+      00 9#{ch} #{key} #{vel} # 0拍後, soundオン velocity #{velocity}
+      #{delta} 8#{ch} #{key} 00 # #{len.to_i}(#{len.round(2)})tick後, soundオフ
     "
   end
-  def self.byKey key,len
+  def self.byKey key,len,accent=false
     len=len*@tbase
-    self.oneNote(len,key)
+    vel=@velocity
+    vel+=@accentPlus
+    self.oneNote(len,key,vel)
   end
-  def self.notekey key,length=false
+  def self.notekey key,length=false,accent=false
     len,velocity,ch=[@tbase,@velocity,@ch]
+    velocity+=@accentPlus if accent
     len=len*length if length
     if key.class==Fixnum
     else
@@ -223,17 +227,19 @@ module MidiHex
     end
     self.oneNote(len,key,velocity,ch)
   end
-  def self.percussionNote key,len=1
-    self.oneNote(@tbase*len,key,@velocity,@rythmChannel)
+  def self.percussionNote key,len=1,accent=false
+    vel=@velocity
+    vel+=@accentPlus if accent
+    self.oneNote(@tbase*len,key,vel,@rythmChannel)
   end
-  def self.notes c,l=false
-    notekey(@notes[c],l)
+  def self.notes c,l=false,accent=false
+    notekey(@notes[c],l,accent)
   end
   def self.rest len=1
     len=@tbase*len
     delta=varlenHex(len)
     "
-      #{delta}  89 3C 00 # #{len}tick後, オフ:ch10, key:3C
+      #{delta}  89 3C 00 # #{len.to_i}(#{len.round(2)})tick後, オフ:ch10, key:3C
     "
   end
   def self.tempo bpm, len=0
@@ -335,9 +341,10 @@ module MidiHex
     self.trackPrepare(tc)
     @h=[]
     wait=[]
-    cmd=rundata.scan(/&\([^)]+\)|\([^:]*:[^)]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|[[:digit:]]+\.[[:digit:]]+|[[:digit:]]+|[-+[:alpha:]]/)
+    accent=false
+    cmd=rundata.scan(/&\([^)]+\)|\([^:]*:[^)]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|[[:digit:]]+\.[[:digit:]]+|[[:digit:]]+|[-+[:alpha:]]|\^|./)
     cmd<<" " # dummy
-    p cmd if $DEBUG
+    p "make start: ",cmd if $DEBUG
     cmd.each{|i|
       if wait.size>0
         t=1
@@ -349,16 +356,17 @@ module MidiHex
         wait.each{|m,c|
           case m
           when :percussion
-            @h<<self.percussionNote(c,t)
+            @h<<self.percussionNote(c,t,accent)
           when :rawsound
-            @h<<self.byKey(c,t)
+            @h<<self.byKey(c,t,accent)
           when :sound
-            @h<<self.notes(c,t)
+            @h<<self.notes(c,t,accent)
           when :rest
             @h<<self.rest(t)
           end
         }
         wait=[]
+        accent=false
       end
       case i
       when /\(key:(-?)\+?([[:digit:]]+)\)/
@@ -439,6 +447,9 @@ module MidiHex
         @basekey+=12
       when /[0-9]+/
         # (i.to_i-1).times{@h<<@h[-1]}
+      when "^"
+        p "accent" if $DEBUG
+        accent=true
       when "r"
         wait<<[:rest,i]
       when " "
@@ -446,7 +457,7 @@ module MidiHex
         if @notes.keys.member?(i)
           wait<<[:sound,i]
         else
-          STDERR.print"?"
+          STDERR.puts "[#{i}] undefined note?" if $DEBUG
         end
       end
     }
@@ -569,10 +580,11 @@ module MidiHex
   end
 end
 def multiplet d,dep=3
-  d=~/\/(([[:digit:].]+):)?(.*)\//
+  d=~/\/(([[:digit:].]*):)?(.*)\//
   i=$3
   rate=$2 ? $2.to_f : 1
-  r=i.scan(/\(x:[^\]]+\)|[[:digit:]\.]+|_[^!]+!|./)
+  rate=1 if rate==0
+  r=i.scan(/\^?\(x:[^\]]+\)|[[:digit:]\.]+|\^?_[^!]+!|\^?./)
   wait=[]
   notes=[]
   r.each{|i|
@@ -582,7 +594,7 @@ def multiplet d,dep=3
       notes<<i
     when /[[:digit:]]+/
       wait[-1]*=i.to_f
-    when " "
+    when / /
     else
       wait<<1
       notes<<i
@@ -610,11 +622,11 @@ def multiplet d,dep=3
 end
 def macroDef data
   macro={}
-  s=data.scan(/[^ ;]+ *:=[^;]+|./)
+  s=data.scan(/macro +[^ ;]+ *:=[^;]+|[^ ;]+ *:=[^;]+|./)
   data=s.map{|i|
     case i
-    when /( *[^ ;]+) *:=([^;]+)/
-      macro[$1]=$2
+    when /(macro +)?( *[^ ;]+) *:=([^;]+)/
+      macro[$2]=$3
       ""
     else
       i
@@ -711,7 +723,8 @@ def repCalc line,macro
   end
   res=(res-[".CODA",".DS",".DC",".FINE",".toCODA",".$",".SKIP","[","]"])*""
   res=repCalc(res,macro) while macro.keys.size>0 && nestsearch(res,macro)
-  res
+  # 空白
+  res.split.join 
 end
 def loadCalc d
   if d=~/\(loadf:(.+)(,(.+))?\)/

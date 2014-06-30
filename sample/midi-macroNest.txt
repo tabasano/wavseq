@@ -1,4 +1,4 @@
-W:=c2r-g+
+macro W:=c2r-g+
 
 (p:bas)
 
@@ -31,12 +31,12 @@ rrrr rrrr rrrr rrrr cdef edc1.5r0.5 efga gfe0.6r0.4r crcr crcr cdefe1.2d r0.5 < 
 
 |||
 
-B:=_bass!
-H:=_hat!
-S:=_snqre!
-C:=_cymb!
-DRum:=rrrr rrrr rr H0.34 H0.66 C Br_Br
-DRum2:= [BB ${S} r $B rrr ] 2
+macro B:=_bass!
+macro H:=_hat!
+macro S:=_snqre!
+macro C:=_cymb!
+macro DRum:=rrrr rrrr rr /HH2/ C BrBr
+macro DRum2:= [BB ${S} r $B rrr ] 2
 
 r0.1 $DRum $DRum2
 |||
