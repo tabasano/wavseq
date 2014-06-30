@@ -17,6 +17,18 @@ opt.on('-c d',"data for test") {|v| $testdata=v }
 opt.on('-m i',"mode of test") {|v| $testmode=v.to_i }
 opt.parse!(ARGV)
 
+1.round(2) rescue (
+class Float
+  def round n
+    self.*(10**n).to_i.to_f/(10**n)
+  end
+end
+class Fixnum
+  def round n
+    self.*(10**n).to_i.to_f/(10**n)
+  end
+end
+)
 class String
   def trim ofs=""
     d=split("\n").map{|i|i.sub(/#.*/){}.chomp}*ofs
