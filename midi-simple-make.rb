@@ -214,7 +214,7 @@ module MidiHex
     vel=format("%02x",velocity)
     delta=varlenHex(len)
     str="
-      00 9#{ch} #{key} #{vel} # 0拍後, soundオン velocity #{velocity}
+      00 9#{ch} #{key} #{vel} # 0拍後, soundオン note #{@key} velocity #{velocity}
       #{delta} 8#{ch} #{key} 00 # #{len.to_i}(#{len.round(2)})tick後, soundオフ
     "
   end
@@ -331,13 +331,20 @@ module MidiHex
   end
   def self.programGet p,num=false
     return 0 if not @programList
-    r=@programList.select{|num,line|line=~/#{p}/i}
+    if p=~/\?/
+      r=[@programList[rand(@programList.size)]]
+p "random: ",r,num
+    else
+      r=@programList.select{|num,line|line=~/#{p}/i}
+    end
     num=[num,r.size].min if num
     if num && r.size>0
-      r[num-1][0]
+      res=r[num-1][0]
     else
-      r.size>0 ? r[0][0] : 0
+      res=r.size>0 ? r[0][0] : 0
     end
+p res
+    res
   end
   def self.percussionGet p
     return @snare if not @percussionList
@@ -387,7 +394,7 @@ module MidiHex
         @basekey+=tr
       when /\(key:reset\)/
         @basekey=@basekeyOrg
-      when /\(p:(([[:digit:]]+),)?(([[:digit:]]+)|([[:alnum:]]+)(,([[:digit:]]))?)\)/
+      when /\(p:(([[:digit:]]+),)?(([[:digit:]]+)|([\?[:alnum:]]+)(,([[:digit:]]))?)\)/
         channel=$1 ? $2.to_i : @ch
         subNo=false
         if $5
@@ -596,7 +603,7 @@ def multiplet d,dep=3
   i=$3
   rate=$2 ? $2.to_f : 1
   rate=1 if rate==0
-  r=i.scan(/\^?\(x:[^\]]+\)|[[:digit:]\.]+|\^?_[^!]+!|\^?./)
+  r=i.scan(/\^?\(x:[^\]]+\)|[[:digit:]\.]+|\^?_[^!]+!|[-+^]?./)
   wait=[]
   notes=[]
   r.each{|i|
@@ -652,13 +659,16 @@ def nestsearch d,macro
     case i
     when /^\$/
       $'
+    when /\/[^\/]+\//
+      true
     else
       i
     end
   }
   b=(macro.keys-r).size<macro.keys.size
-  p "nest? #{a} #{b}",r,macro if $DEBUG
-  a||b
+  c=r.member?(true)
+  p "nest? #{a} #{b} #{c}",r,macro if $DEBUG
+  a||b||c
 end
 # repeat block analysis: no relation with MIDI format
 def repCalc line,macro
@@ -834,9 +844,12 @@ d_header=mx.header(format,tracknum,tbase)
 tracks=[]
 # remember starting position check if data exist before sound
 tc=0
+chmax=15
 tracks<< d_comment + mx.tempo(bpm) + mx.makefraze(rundatas[0],tc) + d_last
 rundatas[1..-1].each{|track|
   tc+=1
+  tc+=1 if tc==9 # drum kit channel
+  tc=chmax if tc>chmax
   tracks<< mx.rest + mx.makefraze(track,tc) + d_last
 }
 alla=[d_header]+tracks.map{|t|mx.trackMake(t)}.flatten
