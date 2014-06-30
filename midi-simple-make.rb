@@ -333,7 +333,7 @@ module MidiHex
     return 0 if not @programList
     if p=~/\?/
       r=[@programList[rand(@programList.size)]]
-p "random: ",r,num
+      p "random: ",r if $DEBUG
     else
       r=@programList.select{|num,line|line=~/#{p}/i}
     end
@@ -343,7 +343,6 @@ p "random: ",r,num
     else
       res=r.size>0 ? r[0][0] : 0
     end
-p res
     res
   end
   def self.percussionGet p
