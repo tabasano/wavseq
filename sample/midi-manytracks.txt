@@ -1,0 +1,143 @@
+# track 1
+macro pre:=r4
+
+(p:?)
+v90
++
+$pre c2de gfec defa grer ffec ffec ffec dr-gr
+
+
+|||
+# track 2
+(p:bass)
+-
+$pre c2-b2 a2g2 d2cr b3r a3r g3r drFr gr-g2
+
+
+|||
+# track 3
+
+H:=_hat!
+S:=_snare!
+B:=_bas!
+O:=_open!
+C:=_close!
+
+$pre Br/2:SCOC/ Br/2:SCOC/ Br/2:SCOC/ Br/2:SCOC/ Br/2:SCOC/ rrrr Br/2:SCOC/ BrBH 
+
+|||
+# track 4
+F1:=/4:crc-b+c-b+c-b/ +cr
+HA:=$F1 rr (key:-1) $F1 rr (key:-6) $F1 rr (key:+2) $F1 (key:+5) /2:grab/ Cdef D2e2 /4:frer drcr/ /4:-baGgfeDe/ f8 
+
+(p:harpsi)
+++
+v25
+(pan:>100)
+$pre r0.2  $HA
+
+|||
+# track 5
+
+(p:harpsi)
++
+(pan:>75)
+v40
+$pre r0.1 $HA
+
+|||
+# track 6
+
+(p:harpsi)
+(pan:>55)
+$pre  $HA
+
+|||
+# track 7
+(p:org)
+v20 
+++
+(pan:<30)
+$pre c8 -b8 a8 b8
+|||
+# track 8
+(p:org)
+v30 
++
+(pan:<30)
+$pre c8 -b7r a8 b7r
+|||
+# track 9
+(p:org)
+v40 
+(pan:<30)
+$pre c8 -b7r a8 b7r
+|||
+# track 10
+(p:org)
+(pan:<30)
+-
+$pre c8 -b7r a8 b7r
+|||
+# track 11
+(p:org)
+(pan:<30)
+-
+$pre e8 e7r f8 d7r
+|||
+# track 12
+STR:=/8:grgrgrgr grgrgrgr/ /8:grgrgrgr grgrgrgr/ /8:grgrgrgr grgrgrgr/ /8:grgrgrgr grgrgrgr/ 
+
+(p:string)
+(pan:<40)
+$pre $STR
+
+|||
+# track 13
+
+(p:string)
+(pan:<50)
+v40
+$pre (key:-12) $STR
+|||
+# track 14
+
+(p:string)
+(pan:<60)
+v35
+$pre (key:-12) $STR
+|||
+# track 15
+
+(p:string)
+(pan:<70)
+v30
+$pre (key:-12) $STR
+|||
+# track 16
+
+#(p:string)
+(pan:<80)
+v25
+$pre (key:-12) $STR
+|||
+# track 17
+
+#(p:?)
+(pan:<90)
+v20
+$pre (key:-12) $STR
+|||
+# track 18
+
+#(p:?)
+(pan:<100)
+v15
+$pre (key:-12) $STR
+|||
+# track 19
+
+#(p:?)
+(pan:<110)
+v40
+$pre r0.02 (key:-3) $STR
