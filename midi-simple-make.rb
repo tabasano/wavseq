@@ -14,18 +14,20 @@ opt.on('-D',"debug") {|v| $DEBUG=v }
 opt.on('-t b',"bpm") {|v| bpm=v.to_f }
 opt.on('-T w',"programChange test like instrument name '...'") {|v| $test=v }
 opt.on('-c d',"data for test") {|v| $testdata=v }
-opt.on('-m i',"mode of test") {|v| $testmode=v.to_i }
+opt.on('-m i',"mode of test/ 1:GM 2:XG 3:GS ") {|v| $testmode=v.to_i }
 opt.parse!(ARGV)
 
 1.round(2) rescue (
 class Float
   def round n
-    self.*(10**n).to_i.to_f/(10**n)
+    c=10**(n+1)
+    (((self*c).to_i+5)/10).to_f/(10**n)
   end
 end
 class Fixnum
   def round n
-    self.*(10**n).to_i.to_f/(10**n)
+    c=10**(n+1)
+    (((self*c).to_i+5)/10).to_f/(10**n)
   end
 end
 )
@@ -159,6 +161,7 @@ module MidiHex
   # 設定のため最初に呼ばなければならない
   def self.prepare tbase=480,vel=0x40
     @tbase=tbase
+    @nowtime=0
     @rythmChannel=9
     @notes={
       "c"=>0,
@@ -213,9 +216,10 @@ module MidiHex
     ch=format("%01x",ch)
     vel=format("%02x",velocity)
     delta=varlenHex(len)
+    @nowtime+=len
     str="
       00 9#{ch} #{key} #{vel} # 0拍後, soundオン note #{@key} velocity #{velocity}
-      #{delta} 8#{ch} #{key} 00 # #{len.to_i}(#{len.round(2)})tick後, soundオフ
+      #{delta} 8#{ch} #{key} 00 # #{len.to_i}(#{len.round(2)})tick後, soundオフ [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]
     "
   end
   def self.byKey key,len,accent=false
@@ -250,6 +254,7 @@ module MidiHex
   def self.rest len=1
     len=@tbase*len
     delta=varlenHex(len)
+    @nowtime+=len
     "
       #{delta}  89 3C 00 # #{len.to_i}(#{len.round(2)})tick後, オフ:ch10, key:3C
     "
@@ -259,6 +264,7 @@ module MidiHex
     @bpmStart=bpm if ! @bpm
     @bpm=bpm
     d_bpm=self.makebpm(@bpm)
+    @nowtime+=len
     "
       #{delta} FF 51 03 #{d_bpm} # 四分音符の長さ (bpm: #{@bpm}) マイクロ秒で3byte
     "
@@ -280,10 +286,11 @@ module MidiHex
   def self.ProgramChange ch,inst,len=0
     ch=[ch,0x0f].min
     inst=[inst,0xff].min
-    ch=format("%01x",ch)
-    inst=format("%02x",inst)
+    chx=format("%01x",ch)
+    instx=format("%02x",inst)
     delta=varlenHex(len)
-    "#{delta} C#{ch} #{inst}\n"
+    @nowtime+=len
+    "#{delta} C#{chx} #{instx} # program change ch#{ch} #{inst} [#{@programList[inst][1]}]\n"
   end
   # GM,GS,XG wakeup command need over 50milisec. ?
   # if not, midi player may hung up.
@@ -291,18 +298,21 @@ module MidiHex
     # GM1,GM2
     m=mode==2 ? 3 : 1
     delta=varlenHex(len)
+    @nowtime+=len
     "
       #{delta} F0 7E 7F 09 0#{m} F7 # GM
     "
   end
   def self.XGsystemOn len=0
     delta=varlenHex(len)
+    @nowtime+=len
     "
       #{delta} F0 43 10 4C 00 00 7E 00 F7 # XG
     "
   end
   def self.GSreset len=0
     delta=varlenHex(len)
+    @nowtime+=len
     " #{delta} F0 41 10 42 12 40 00 7F 00 41 F7 # GS \n"
   end
   def self.bankSelect d
@@ -316,6 +326,8 @@ module MidiHex
     ch=@ch
     ch=format("%01x",ch)
     delta=varlenHex(len)
+    @nowtime+=len
+    @nowtime+=len
     "
       #{delta} B#{ch} 00 #{msb} # BankSelect MSB
       #{delta} B#{ch} 20 #{lsb} # BankSelect LSB
@@ -336,6 +348,7 @@ module MidiHex
       p "random: ",r if $DEBUG
     else
       r=@programList.select{|num,line|line=~/#{p}/i}
+      puts "no instrument name like '#{p}' in list" if $DEBUG && r.size==0
     end
     num=[num,r.size].min if num
     if num && r.size>0
@@ -348,10 +361,12 @@ module MidiHex
   def self.percussionGet p
     return @snare if not @percussionList
     r=@percussionList.select{|num,line|line=~/#{p}/i}
+    puts "no percussion name like '#{p}' in list" if $DEBUG && r.size==0
     r.size>0 ? r[0][0] : @snare
   end
   def self.bend ch,depth,len=0
     delta=varlenHex(len)
+    @nowtime+=len
     "#{delta} e#{format"%01x",ch} #{bendHex(depth)}\n"
   end
   def self.makefraze rundata,tc
@@ -359,6 +374,7 @@ module MidiHex
     self.trackPrepare(tc)
     @h=[]
     wait=[]
+    @nowtime=0
     accent=false
     cmd=rundata.scan(/&\([^)]+\)|\([^:]*:[^)]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|[[:digit:]]+\.[[:digit:]]+|[[:digit:]]+|[-+[:alpha:]]|\^|./)
     cmd<<" " # dummy
