@@ -1,0 +1,15 @@
+R:=/cdefg/ /cde/
+O:=c0.4c0.6d
+RR:=$R $R $R r
+(pan:>40)
+c $RR c [$RR c $RR c $RR c]40 r c r cdefg r2r         /cdr/ rr c
+|||
+RR:=$O $O $O r
+(pan:<40)
+(p:flu)
+e $RR e [$RR e $RR e $RR e]40 r e r efgcr e2r         r /cer/ r c
+|||
+H:=/0.3:bagfedcb/ /1.7:agfedcbagfedcdcfefdfefdfdfdfdfdrrrrrrrrrrrrrrrrrrrrrrrrrr/
+RR:=$H $H $H r
+(p:harpsi)
+g $RR g [$RR g $RR g $RR g]40 r g r gab+cr r2g        rr /cdg/ c

@@ -63,7 +63,7 @@ def hex2digit d
 end
 def varlenHex(v)
   v=hex2digit(v)
-  b=[varlen(v.to_i)]
+  b=[varlen(v.round)]
   b=b.flatten
   c=b[0..-2].map{|i| i | 0x80 }
   r=[c,b[-1]].flatten
@@ -229,7 +229,6 @@ module MidiHex
     "
   end
   def self.byKey key,len,accent=false
-    len=len*@tbase
     vel=@velocity
     vel+=@accentPlus
     self.oneNote(len,key,vel)
@@ -237,7 +236,7 @@ module MidiHex
   def self.notekey key,length=false,accent=false
     len,velocity,ch=[@tbase,@velocity,@ch]
     velocity+=@accentPlus if accent
-    len=len*length if length
+    len=length if length
     if key.class==Fixnum
     else
       key,ch=key
@@ -249,7 +248,7 @@ module MidiHex
     end
     self.oneNote(len,key,velocity,ch)
   end
-  def self.percussionNote key,len=1,accent=false
+  def self.percussionNote key,len=@tbase,accent=false
     vel=@velocity
     vel+=@accentPlus if accent
     self.oneNote(@tbase*len,key,vel,@rythmChannel)
@@ -257,8 +256,7 @@ module MidiHex
   def self.notes c,l=false,accent=false
     notekey(@notes[c],l,accent)
   end
-  def self.rest len=1
-    len=@tbase*len
+  def self.rest len=@tbase
     delta=varlenHex(len)
     @nowtime+=len
     "
@@ -382,16 +380,19 @@ module MidiHex
     wait=[]
     @nowtime=0
     accent=false
-    cmd=rundata.scan(/&\([^)]+\)|\([^:]*:[^)]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|[[:digit:]]+\.[[:digit:]]+|[[:digit:]]+|[-+[:alpha:]]|\^|./)
+    cmd=rundata.scan(/&\([^)]+\)|\([^:]*:[^)]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|[[:digit:]]+\.[[:digit:]]+|\*?[[:digit:]]+|[-+[:alpha:]]|\^|./)
     cmd<<" " # dummy
     p "make start: ",cmd if $DEBUG
     cmd.each{|i|
       if wait.size>0
-        t=1
-        i=~/^[[:digit:]]+(\.[[:digit:]]+)?/
+        t=@tbase
+        i=~/^(\*)?([[:digit:]]+)(\.[[:digit:]]+)?/
         if $&
-          t=$&.to_i
-          t=$&.to_f if $1
+          t=$2.to_i
+          if ! $1
+            t=$&.to_f if $3
+            t*=@tbase
+          end
         end
         wait.each{|m,c|
           case m
@@ -620,11 +621,12 @@ module MidiHex
     @h
   end
 end
-def multiplet d,dep=7
+def multiplet d,tbase
   d=~/\/(([[:digit:].]*):)?(.*)\//
   i=$3
   rate=$2 ? $2.to_f : 1
   rate=1 if rate==0
+  total=tbase*rate
   r=i.scan(/\^?\(x:[^\]]+\)|[[:digit:]\.]+|\^?_[^!]+!|[-+^]?./)
   wait=[]
   notes=[]
@@ -642,21 +644,23 @@ def multiplet d,dep=7
     end
   }
   sum=wait.inject{|s,i|s+i}
-  ls=wait.map{|i|i*1.0/sum*rate} # .map{|i|i.round(dep)}
-  er=rate-ls.inject{|s,i|s+i}
+  ls=wait.map{|i|(i*1.0/sum*total).round} # .map{|i|i.round(dep)}
+  er=(total-ls.inject{|s,i|s+i}).to_i
   if er>0
-    ls[0]+=er
-#    ls[0]=ls[0].round(dep+1)
+    er.times{|i|
+      ls[i]+=1
+    }
   else
-    ls[-1]+=er
-#    ls[-1]=ls[-1].round(dep+1)
+    (-er).times{|i|
+      ls[-1-i]-=1
+    }
   end
   result=[]
   notes.size.times{|i|
     result<<notes[i]
-    result<<ls[i]
+    result<<"*#{ls[i]}"
   }
-  p "multiplet: ",ls.inject{|s,i|s+i} if $DEBUG
+  p "multiplet: ",total,ls.inject{|s,i|s+i} if $DEBUG
   result*""
 end
 def macroDef data
@@ -691,13 +695,13 @@ def nestsearch d,macro
   a||b||c
 end
 # repeat block analysis: no relation with MIDI format
-def repCalc line,macro
+def repCalc line,macro,tbase
   # nesting not supprted
   line.gsub!(/\[([^\[\]]*)\] *([[:digit:]]+)/){$1*$2.to_i}
   a=line.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;]+|./)
   a=a.map{|i|
     if i=~/^\/[^\/]+\//
-      multiplet(i)
+      multiplet(i,tbase)
     else
       i
     end
@@ -764,7 +768,7 @@ def repCalc line,macro
     res<<current
   end
   res=(res-[".CODA",".DS",".DC",".FINE",".toCODA",".$",".SKIP","[","]"])*""
-  res=repCalc(res,macro) while macro.keys.size>0 && nestsearch(res,macro)
+  res=repCalc(res,macro,tbase) while macro.keys.size>0 && nestsearch(res,macro)
   # 空白
   res.split.join 
 end
@@ -844,7 +848,7 @@ tracks=data.split('|||')
 tracks.map{|track|
     m,track=macroDef(track)
     macro.merge!(m)
-    repCalc(track,macro)
+    repCalc(track,macro,tbase)
   }.each{|t|
     r=loadCalc(t)
     case r[0]
