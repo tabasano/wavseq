@@ -1,16 +1,26 @@
 
 (p:orga)
-
+v120
++
+/cc2rrr/ r -b0.1r0.9 r
+v94
 /3:c-b+c16/ /de/ g2.5 /1.5:f2edc-b+d2c-bag/ f0.5+f3.5 /4:ed15r/ a2.5 /1.5:b2A2b2+dedc-b+c-abgfedc-b/
- g3 /ab/ d4 /edc-b/ /3:+dc15r/
+ g3 /ab/ d4 /edc-b/ /3:+dc15r/ v120c0.2v70-c0.7
 
 |||
+(pan:>40)
 (p:viol)
-[/grgr/]8 [/grgr/]8 [/grgr/]8 [/grgr/]8 
+v120
+/ggrrrr/ r f0.1r0.9 r
+v64
+[/grgr/]8 [/grgr/]8 [/grgr/]8 [/grgr/]8 v120g0.1
 
 |||
-
+(pan:<40)
+v120
+/aarrrr/ r G0.1r0.9 r
+v64
 [/2:crergrargrer/]4
 [/2:-ar+crerfrercr/]4
 [/drerfr/ /grfredc/]2
- /-brargrfrer/ /drcr-brar/ /grgr/ /grgr/ [/grgr/]6 /gr+cr/ /ergr/
+ /-brargrfrer/ /drcr-brar/ /grgr/ /grgr/ [/grgr/]6 /gr+cr/ /ergr/ v120e0.1

@@ -38,7 +38,7 @@ class String
     d
   end
 end
-def sizeHex d
+def trackSizeHex d
   d=d.trim.split.join
   i=(d.size+8)/2
 #  p [d,i,i.to_s(16)]
@@ -187,9 +187,13 @@ module MidiHex
     @basekey=0x3C
     @basekeyRythm=@basekeyOrg=@basekey
     @prepareSet=[@tbase,@ch,@velocity,@basekey]
+    @chmax=15
   end
   def self.trackPrepare tc=0
     @tbase,@ch,@velocity,@basekey=@prepareSet
+    @tracknum=tc+1
+    tc+=1 if tc>=9 # ch10 is drum kit channel
+    tc=@chmax if tc>@chmax
     @ch=tc
   end
   def self.header format,track,tbase=@tbase
@@ -201,11 +205,13 @@ module MidiHex
     track=format("%02x",track)
     tbase=format("%04x",tbase)
     "
+# Standard MIDI File data start
+# header
       4D 54 68 64  # ヘッダ
       00 00 00 06  # データ長:6[byte]
       00 #{format} # フォーマット
       00 #{track}  # トラック数
-      #{tbase}      # 1 拍の分解能
+      #{tbase}      # 1 拍の分解能 #{@tbase}
     "
   end
   def self.oneNote len=@tbase,key=@basekey,velocity=@velocity,ch=@ch
@@ -495,7 +501,7 @@ module MidiHex
         end
       end
     }
-    @h*"\n# onoff ==== \n"
+    @h*"\n# track: #{@tracknum} ==== \n"
   end
   def self.loadMap file, base=0
     if not File.exist?(file)
@@ -601,11 +607,12 @@ module MidiHex
   end
   def self.trackMake data
     start="
+# track header
       4D 54 72 6B # MTrk
     "
-    dsize=sizeHex(data)
+    dsize=trackSizeHex(data)
     trackend="
-      00 FF 2F 00 # end
+      00 FF 2F 00 # end of track
     "
     [start,dsize,data,trackend]
   end
@@ -613,7 +620,7 @@ module MidiHex
     @h
   end
 end
-def multiplet d,dep=3
+def multiplet d,dep=7
   d=~/\/(([[:digit:].]*):)?(.*)\//
   i=$3
   rate=$2 ? $2.to_f : 1
@@ -635,16 +642,14 @@ def multiplet d,dep=3
     end
   }
   sum=wait.inject{|s,i|s+i}
-  ls=wait.map{|i|i*1.0/sum*rate}.map{|i|i.round(dep)}
+  ls=wait.map{|i|i*1.0/sum*rate} # .map{|i|i.round(dep)}
   er=rate-ls.inject{|s,i|s+i}
-  if er.abs>0.0001
-    if er>0
-      ls[0]+=er
-      ls[0]=ls[0].round(dep+1)
-    else
-      ls[-1]+=er
-      ls[-1]=ls[-1].round(dep+1)
-    end
+  if er>0
+    ls[0]+=er
+#    ls[0]=ls[0].round(dep+1)
+  else
+    ls[-1]+=er
+#    ls[-1]=ls[-1].round(dep+1)
   end
   result=[]
   notes.size.times{|i|
@@ -859,12 +864,9 @@ d_header=mx.header(format,tracknum,tbase)
 tracks=[]
 # remember starting position check if data exist before sound
 tc=0
-chmax=15
 tracks<< d_comment + mx.tempo(bpm) + mx.makefraze(rundatas[0],tc) + d_last
 rundatas[1..-1].each{|track|
   tc+=1
-  tc+=1 if tc==9 # drum kit channel
-  tc=chmax if tc>chmax
   tracks<< mx.rest + mx.makefraze(track,tc) + d_last
 }
 alla=[d_header]+tracks.map{|t|mx.trackMake(t)}.flatten
