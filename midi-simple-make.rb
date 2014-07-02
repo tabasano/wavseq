@@ -254,7 +254,7 @@ module MidiHex
   def self.percussionNote key,len=@tbase,accent=false
     vel=@velocity
     vel+=@accentPlus if accent
-    self.oneNote(@tbase*len,key,vel,@rythmChannel)
+    self.oneNote(len,key,vel,@rythmChannel)
   end
   def self.notes c,l=false,accent=false
     notekey(@notes[c],l,accent)
@@ -705,6 +705,36 @@ def nestsearch d,macro
   p "nest? #{a} #{b} #{c}",r,macro if $DEBUG
   a||b||c
 end
+def tie d,tbase
+  res=[]
+  li=d.scan(/\*?[[:digit:].]+|~|./)
+  li.each{|i|
+    case i
+    when /(\*)?([[:digit:].]+)/
+      tick=$1? $2.to_i : $2.to_f*tbase
+      if res[-1][0]==:tick
+        res[-1][1]+=tick
+      else
+        res<<[:tick,tick]
+      end
+    when /~/
+      res<<[:tick,tbase] if res[-1][0]==:e
+    else
+      res<<[:e,i]
+    end
+  }
+  line=""
+  res.each{|mark,data|
+    case mark
+    when :e
+      line<<data
+    when :tick
+      line<<"*#{data.to_i}"
+    end
+  }
+  p res,line if $DEBUG && $debuglevel>1
+  line
+end
 # repeat block analysis: no relation with MIDI format
 def repCalc line,macro,tbase
   # nesting not supprted
@@ -781,7 +811,8 @@ def repCalc line,macro,tbase
   res=(res-[".CODA",".DS",".DC",".FINE",".toCODA",".$",".SKIP","[","]"])*""
   res=repCalc(res,macro,tbase) while macro.keys.size>0 && nestsearch(res,macro)
   # 空白
-  res.split.join 
+  res=res.split.join 
+  res=tie(res,tbase)
 end
 def loadCalc d
   if d=~/\(loadf:(.+)(,(.+))?\)/
@@ -796,16 +827,16 @@ def hint
   cmd=File.basename($0)
   puts <<EOF
 usage: #{cmd} -d \"dddd dr3 dddd r4 drdrdrdr dddd dr3\" -o outfile.mid -t bpm
-       #{cmd} -i infile.txt  -o outfile.mid -b bpm
+       #{cmd} -i infile.txt  -o outfile.mid -t bpm
 
 syntax: ...( will be changed time after time)
-    abcdefg=sound; capital letters are sharps 
+    abcdefg =sound; capital letters are sharps 
     +- =octave change
     r  =rest
     >< =tempo up-down(percent)
     a4    =4 beats of note 'a'
     A*120 =120 ticks of note 'a #'
-    v=velocity set(0-127)
+    v60   =velocity set to 60 (0-127)
     &(00 00) =set hex data directly. This can include '$delta(240)' for deltaTime data making etc..
     (p:0,11) =ProgramChange channel 0, instrument 11
     (p:0,organ) =ProgramChange channel 0, instrument ?(search word like 'organ' from list if exist)
@@ -817,7 +848,7 @@ syntax: ...( will be changed time after time)
     /*120:abcd/ = notes 'abcd' in 120 ticks measure. now, default measure is 480 ticks per one beat.
     (tempo:120) =tempo set
     (ch:1     ) =this track's channel set
-    (cc:10,64) =controlChange number10 value 64
+    (cc:10,64) =controlChange number10 value 64. see SMF format.
     (pan:>64)  =panpot right 64. ( pan:>0  set center )
     (bend:100) =pitch bend 100
     ||| = track separater
