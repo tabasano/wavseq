@@ -4,6 +4,7 @@ require 'optparse'
 
 infile=false
 outfile=false
+$debuglevel=1
 data=""
 bpm=120
 opt = OptionParser.new
@@ -14,18 +15,20 @@ opt.on('-D',"debug") {|v| $DEBUG=v }
 opt.on('-t b',"bpm") {|v| bpm=v.to_f }
 opt.on('-T w',"programChange test like instrument name '...'") {|v| $test=v }
 opt.on('-c d',"data for test") {|v| $testdata=v }
-opt.on('-m i',"mode of test/ 1:GM 2:XG 3:GS ") {|v| $testmode=v.to_i }
+opt.on('-m i',"mode of test/ 1:GM 2:XG 3:GS ; or debug level") {|v| $testmode=$debuglevel=v.to_i }
 opt.parse!(ARGV)
 
 1.round(2) rescue (
 class Float
-  def round n
+  def round n=0
     c=10**(n+1)
-    (((self*c).to_i+5)/10).to_f/(10**n)
+    f=(((self*c).to_i+5)/10).to_f/(10**n)
+    n>0 ? f : f.to_i
   end
 end
 class Fixnum
-  def round n
+  def round n=0
+    return self if n==0
     c=10**(n+1)
     (((self*c).to_i+5)/10).to_f/(10**n)
   end
@@ -387,9 +390,12 @@ module MidiHex
       if wait.size>0
         t=@tbase
         i=~/^(\*)?([[:digit:]]+)(\.[[:digit:]]+)?/
+        tickmode=$1
         if $&
           t=$2.to_i
-          if ! $1
+          if tickmode
+            puts "tick: #{t}" if $DEBUG && $debuglevel>1
+          else
             t=$&.to_f if $3
             t*=@tbase
           end
@@ -529,7 +535,7 @@ module MidiHex
     else
       @programList=self.loadMap(file,1)
     end
-    p @programList if $DEBUG
+    p @programList if $DEBUG && $debuglevel>1
   end
   def self.testGs cycle,key,scaleAll,intro,mapnum=3
     d=@programList.select{|i,v|v=~/#{key}/i}.map{|i,data|
@@ -604,7 +610,7 @@ module MidiHex
       @percussionList=self.loadMap(file,0)
       @snare=self.percussionGet("snare")
     end
-    p @percussionList if $DEBUG
+    p @percussionList if $DEBUG && $debuglevel>1
   end
   def self.trackMake data
     start="
@@ -622,11 +628,16 @@ module MidiHex
   end
 end
 def multiplet d,tbase
-  d=~/\/(([[:digit:].]*):)?(.*)\//
-  i=$3
-  rate=$2 ? $2.to_f : 1
+  d=~/\/((\*)?([[:digit:].]*):)?(.*)\//
+  tickmode=$2
+  i=$4
+  rate=$3 ? $3.to_f : 1
   rate=1 if rate==0
-  total=tbase*rate
+  if tickmode
+    total=$3.to_i
+  else
+    total=tbase*rate
+  end
   r=i.scan(/\^?\(x:[^\]]+\)|[[:digit:]\.]+|\^?_[^!]+!|[-+^]?./)
   wait=[]
   notes=[]
@@ -660,7 +671,7 @@ def multiplet d,tbase
     result<<notes[i]
     result<<"*#{ls[i]}"
   }
-  p "multiplet: ",total,ls.inject{|s,i|s+i} if $DEBUG
+  p "multiplet: ",total,ls.inject{|s,i|s+i} if $DEBUG && $debuglevel>1
   result*""
 end
 def macroDef data
@@ -789,18 +800,23 @@ usage: #{cmd} -d \"dddd dr3 dddd r4 drdrdrdr dddd dr3\" -o outfile.mid -t bpm
 
 syntax: ...( will be changed time after time)
     abcdefg=sound; capital letters are sharps 
-    +-=octave change, r=rest, num=length, ><=tempo up-down(percent),
-    v=velocity set(0-127) , blank ignored
+    +- =octave change
+    r  =rest
+    >< =tempo up-down(percent)
+    a4    =4 beats of note 'a'
+    A*120 =120 ticks of note 'a #'
+    v=velocity set(0-127)
     &(00 00) =set hex data directly. This can include '$delta(240)' for deltaTime data making etc..
     (p:0,11) =ProgramChange channel 0, instrument 11
     (p:0,organ) =ProgramChange channel 0, instrument ?(search word like 'organ' from list if exist)
         map text must start with instrument number
     (key:-4) =transpose -4 except rythmChannel
     [...] =repeat 2 times for first time
-    [...]3 =3 times
-    /3:abcd/ =(triplet etc.) 'abcd' notes in 3 beats measure
+    [...]3 =3 times of inside block []
+    /2:abcd/    =(triplet etc.) notes 'abcd' in 2 beats measure
+    /*120:abcd/ = notes 'abcd' in 120 ticks measure. now, default measure is 480 ticks per one beat.
     (tempo:120) =tempo set
-    (ch:1) =this track's channel set
+    (ch:1     ) =this track's channel set
     (cc:10,64) =controlChange number10 value 64
     (pan:>64)  =panpot right 64. ( pan:>0  set center )
     (bend:100) =pitch bend 100
@@ -811,8 +827,12 @@ syntax: ...( will be changed time after time)
     _snare! =percussion sound ( search word like 'snare' (can use tone number) from percussion list if exist )
         map text must start with tone number
     (loadf:filename.mid,2) =load filename.mid, track 2. Track must be this only and seperated by '|||'.
-    W:=abc  =macro definition. One Charactor macro can be used. When macro name is long, use prefix '$'.
-    compile order is : track seperate => macro set => repeat check => sound data make
+    W:=abc        =macro definition. One Charactor macro can be used. When macro name is long, use prefix '$' for refering.
+    macro W:=abc  =macro definition.
+    compile order is : track seperate => macro set and replace => repeat check => sound data make
+    ; =seperater. same to a new line
+    blank =ignored
+    # comment =ignored after # of each line
 EOF
 end
 
