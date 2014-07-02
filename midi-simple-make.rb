@@ -15,7 +15,8 @@ opt.on('-D',"debug") {|v| $DEBUG=v }
 opt.on('-t b',"bpm") {|v| bpm=v.to_f }
 opt.on('-T w',"programChange test like instrument name '...'") {|v| $test=v }
 opt.on('-c d',"data for test") {|v| $testdata=v }
-opt.on('-m i',"mode of test/ 1:GM 2:XG 3:GS ; or debug level") {|v| $testmode=$debuglevel=v.to_i }
+opt.on('-M i',"debug level") {|v| $debuglevel=v.to_i }
+opt.on('-m i',"mode of test/ 1:GM 2:XG 3:GS") {|v| $testmode=v.to_i }
 opt.parse!(ARGV)
 
 1.round(2) rescue (
@@ -646,7 +647,7 @@ def multiplet d,tbase
     when /\(x:[^\]]+\)/
       wait<<1
       notes<<i
-    when /[[:digit:]]+/
+    when /^[[:digit:]]+/
       wait[-1]*=i.to_f
     when / /
     else
@@ -690,7 +691,7 @@ def macroDef data
 end
 def nestsearch d,macro
   a=d.scan(/\[[^\[\]]*\] *[[:digit:]]+/)!=[]
-  r=d.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;]+|;|./).map{|i|
+  r=d.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;\$*_^+-]+|;|./).map{|i|
     case i
     when /^\$/
       $'
@@ -707,17 +708,17 @@ def nestsearch d,macro
 end
 def tie d,tbase
   res=[]
-  li=d.scan(/\*?[[:digit:].]+|~|./)
+  li=d.scan(/\$\{[^\}]+\}|\$[^ ;\$_*^+-]+|\([^)]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:].]+|~|./)
   li.each{|i|
     case i
-    when /(\*)?([[:digit:].]+)/
+    when /^(\*)?([[:digit:].]+)/
       tick=$1? $2.to_i : $2.to_f*tbase
       if res[-1][0]==:tick
         res[-1][1]+=tick
       else
         res<<[:tick,tick]
       end
-    when /~/
+    when "~"
       res<<[:tick,tbase] if res[-1][0]==:e
     else
       res<<[:e,i]
@@ -739,7 +740,7 @@ end
 def repCalc line,macro,tbase
   # nesting not supprted
   line.gsub!(/\[([^\[\]]*)\] *([[:digit:]]+)/){$1*$2.to_i}
-  a=line.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;]+|./)
+  a=line.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;\$_*^+-]+|./)
   a=a.map{|i|
     if i=~/^\/[^\/]+\//
       multiplet(i,tbase)
@@ -764,13 +765,13 @@ def repCalc line,macro,tbase
     puts "#{countertmp}: #{current}, #{rep},done: #{done*","}" if $DEBUG
     break if ! current
     case current
-    when /^\[/
+    when "["
       if ! done.member?(countertmp)
         repcount+=1
         rep<<countertmp
         done<<countertmp
       end
-    when /^\]/
+    when "]"
       if ! done.member?(countertmp)
         done<<countertmp
         counter=rep.shift+1
