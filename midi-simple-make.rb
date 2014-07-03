@@ -708,6 +708,8 @@ def nestsearch d,macro
 end
 def tie d,tbase
   res=[]
+  # if no length word after '~' length is 1
+  d.gsub!(/~([^*[:digit:]])?/){$1 ? "~1" : "~"}
   li=d.scan(/\$\{[^\}]+\}|\$[^ ;\$_*^+-]+|\([^)]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:].]+|~|./)
   li.each{|i|
     case i
@@ -738,8 +740,8 @@ def tie d,tbase
 end
 # repeat block analysis: no relation with MIDI format
 def repCalc line,macro,tbase
-  # nesting not supprted
-  line.gsub!(/\[([^\[\]]*)\] *([[:digit:]]+)/){$1*$2.to_i}
+  rpt=/\[([^\[\]]*)\] *([[:digit:]]+)/
+  line.gsub!(rpt){$1*$2.to_i} while line=~rpt
   a=line.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;\$_*^+-]+|./)
   a=a.map{|i|
     if i=~/^\/[^\/]+\//
@@ -809,8 +811,9 @@ def repCalc line,macro,tbase
     end
     res<<current
   end
-  res=(res-[".CODA",".DS",".DC",".FINE",".toCODA",".$",".SKIP","[","]"])*""
+  res=(res-[".CODA",".DS",".DC",".FINE",".toCODA",".$",".SKIP"])*""
   res=repCalc(res,macro,tbase) while macro.keys.size>0 && nestsearch(res,macro)
+  p res if $DEBUG && $debuglevel>1
   # 空白
   res=res.split.join 
   res=tie(res,tbase)
@@ -847,6 +850,7 @@ syntax: ...( will be changed time after time)
     [...]3 =3 times of inside block []
     /2:abcd/    =(triplet etc.) notes 'abcd' in 2 beats measure
     /*120:abcd/ = notes 'abcd' in 120 ticks measure. now, default measure is 480 ticks per one beat.
+    /cd/ ~2e /~fga/    =(tie) each length : c 0.5 d 0.5+2 e 1+0.25 f 0.25 g 0.25 a 0.25
     (tempo:120) =tempo set
     (ch:1     ) =this track's channel set
     (cc:10,64) =controlChange number10 value 64. see SMF format.
