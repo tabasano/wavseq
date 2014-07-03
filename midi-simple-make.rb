@@ -165,6 +165,7 @@ module MidiHex
   # 設定のため最初に呼ばなければならない
   def self.prepare tbase=480,vel=0x40
     @tbase=tbase
+    @gateRate=100
     @nowtime=0
     @rythmChannel=9
     @notes={
@@ -190,8 +191,11 @@ module MidiHex
     @accentPlus=10
     @basekey=0x3C
     @basekeyRythm=@basekeyOrg=@basekey
-    @prepareSet=[@tbase,@ch,@velocity,@basekey]
+    @prepareSet=[@tbase,@ch,@velocity,@basekey,@gateRate]
     @chmax=15
+  end
+  def self.setGateRate g
+    @gateRate=[g,100].min
   end
   def self.trackPrepare tc=0
     @tbase,@ch,@velocity,@basekey=@prepareSet
@@ -218,6 +222,11 @@ module MidiHex
       #{tbase}      # 1 拍の分解能 #{@tbase}
     "
   end
+  def self.byGate len
+    l=(len*1.0*@gateRate/100).to_i
+    r=len-l
+    [l,r]
+  end
   def self.oneNote len=@tbase,key=@basekey,velocity=@velocity,ch=@ch
     ch=[ch,0x0f].min
     velocity=[velocity,0x7f].min
@@ -225,12 +234,18 @@ module MidiHex
     key=format("%02x",@key)
     ch=format("%01x",ch)
     vel=format("%02x",velocity)
-    delta=varlenHex(len)
+    slen,r=self.byGate(len)
+    deltaS=varlenHex(slen)
+    deltaR=varlenHex(r)
     @nowtime+=len
     str="
       00 9#{ch} #{key} #{vel} # 0拍後, soundオン note #{@key} velocity #{velocity}
-      #{delta} 8#{ch} #{key} 00 # #{len.to_i}(#{len.round(2)})tick後, soundオフ [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]
+      #{deltaS} 8#{ch} #{key} 00 # #{slen}(gate:#{@gateRate})- #{len.to_i}(#{len.round(2)})tick後, soundオフ [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]
     "
+    rstr=r==0 ? "" : "
+      #{deltaR} 8#{ch} #{key} 00  # #{r} len-gate
+    "
+    str+rstr
   end
   def self.byKey key,len,accent=false
     vel=@velocity
@@ -449,6 +464,8 @@ module MidiHex
         wait<<[:percussion,perc]
       when /v([0-9]+)/
         @velocity=$1.to_i
+      when /\(g:([0-9]+)\)/
+        self.setGateRate($1.to_i)
       when /\(tempo:reset\)/
         @h<<self.tempo(@bpmStart)
       when /\(ch:(.*)\)/
@@ -856,6 +873,7 @@ syntax: ...( will be changed time after time)
     (cc:10,64) =controlChange number10 value 64. see SMF format.
     (pan:>64)  =panpot right 64. ( pan:>0  set center )
     (bend:100) =pitch bend 100
+    (g:10) =set sound gate-rate 10% (staccato)
     ||| = track separater
     .DC .DS .toCODA .CODA .FINE =coda mark etc.
     .SKIP =skip mark on over second time
