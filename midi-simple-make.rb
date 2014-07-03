@@ -6,6 +6,7 @@ infile=false
 outfile=false
 $debuglevel=1
 data=""
+pspl="///"
 bpm=120
 opt = OptionParser.new
 opt.on('-i file',"infile") {|v| infile=v }
@@ -15,6 +16,7 @@ opt.on('-D',"debug") {|v| $DEBUG=v }
 opt.on('-t b',"bpm") {|v| bpm=v.to_f }
 opt.on('-T w',"programChange test like instrument name '...'") {|v| $test=v }
 opt.on('-c d',"data for test") {|v| $testdata=v }
+opt.on('-p pspl',"page split chars") {|v| pspl=v }
 opt.on('-M i',"debug level") {|v| $debuglevel=v.to_i }
 opt.on('-m i',"mode of test/ 1:GM 2:XG 3:GS") {|v| $testmode=v.to_i }
 opt.parse!(ARGV)
@@ -40,6 +42,16 @@ class String
     d=split("\n").map{|i|i.sub(/#.*/){}.chomp}*ofs
 #    p d
     d
+  end
+  def tracks pspl
+    tracks={}
+    pages=self.split(/#{pspl}+/)
+    pages.each{|p|
+      p.split('|||').each_with_index{|t,i|
+        tracks[i] ? tracks[i]<<t : tracks[i]=[t]
+      }
+    }
+    tracks.keys.sort.map{|k|tracks[k]*";"}
   end
 end
 def trackSizeHex d
@@ -553,7 +565,6 @@ module MidiHex
     else
       @programList=self.loadMap(file,1)
     end
-    p @programList if $DEBUG && $debuglevel>1
   end
   def self.testGs cycle,key,scaleAll,intro,mapnum=3
     d=@programList.select{|i,v|v=~/#{key}/i}.map{|i,data|
@@ -628,7 +639,6 @@ module MidiHex
       @percussionList=self.loadMap(file,0)
       @snare=self.percussionGet("snare")
     end
-    p @percussionList if $DEBUG && $debuglevel>1
   end
   def self.trackMake data
     start="
@@ -875,6 +885,7 @@ syntax: ...( will be changed time after time)
     (bend:100) =pitch bend 100
     (g:10) =set sound gate-rate 10% (staccato)
     ||| = track separater
+    /// = page separater
     .DC .DS .toCODA .CODA .FINE =coda mark etc.
     .SKIP =skip mark on over second time
     .$ =DS point
@@ -918,7 +929,8 @@ d_last=
 rundatas=[]
 rawdatas=[]
 macro={}
-tracks=data.split('|||')
+tracks=data.tracks(pspl)
+p tracks if $DEBUG && $debuglevel>1
 tracks.map{|track|
     m,track=macroDef(track)
     macro.merge!(m)

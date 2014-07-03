@@ -1,3 +1,4 @@
+(p:clari)
 rr /2:cccc/ c g   [/~de/ /0.5:c-g+c/ /0.5:~d/ /2:~ge/]8 [/cdc/ [/~dc/]3]4 /2:~2crcrer/ c
 
 |||
@@ -7,3 +8,37 @@ rr /3:SSSSSS/_bas! [/2:~_close!_snare!2_snare!2_snare!2/ _snare!/_bas!_open!/]12
 |||
 (p:organ)
 rr cg/cr/g  [ /~c/ /~rc2/ /crc2/ /~g/]8 [/crg/ [/~rg/]3]4 /2:~2crcrgr/ c
+
+/////////////////////////////
+(pan:>40)
+/dd/r rr rr r
+
+|||
+
+rr /ee/r rr r
+
+|||
+(pan:<40)
+rr rr /gg/r r
+////////////////////////////
+
+rr crdr rr
+
+|||
+
+erfr rr rr
+|||
+
+rr rr brar
+
+////////////////////////////////
+(p:orga)
+r4 c2-b+c12
+|||
+(p:tro)
+r4 d2 e d12
+|||
+(p:trump)
+r4 e2 F e12
+
+
