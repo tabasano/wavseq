@@ -1,0 +1,150 @@
+V:=v30
+
+(tempo:220)
+(p:flut)v120
+||| (pan:<10)(p:flut)V-r
+||| (pan:<20)(p:flut)V-rr
+||| (pan:<30)(p:flut)V-rrr
+||| (pan:<40)(p:flut)V-rrrr
+
+||| (pan:<42)(p:flut)V-rrrrr
+||| (pan:<44)(p:flut)V-rrrrrr
+||| (pan:<46)(p:flut)V-rrrrrrr
+||| (pan:<48)(p:flut)V-rrrrrrrr
+
+||| (pan:<50)(p:flut)V-rrrrrrrrr
+||| (pan:<52)(p:flut)V-rrrrrrrrrr
+||| (pan:<54)(p:flut)V-rrrrrrrrrrr
+||| (pan:<56)(p:flut)V-rrrrrrrrrrrr
+
+||| (pan:<58)(p:flut)V-rrrrrrrrrrrrr
+||| (pan:<60)(p:flut)V-rrrrrrrrrrrrrr
+||| (pan:<62)(p:flut)V-rrrrrrrrrrrrrrr
+||| (pan:<10)(p:flut)V-r
+
+||| (pan:<20)(p:flut)V-rr
+||| (pan:<30)(p:flut)V-rrr
+||| (pan:<40)(p:flut)V-rrrr
+||| (pan:<42)(p:flut)V-rrrrr
+
+||| (pan:<44)(p:flut)V-rrrrrr
+||| (pan:<46)(p:flut)V-rrrrrrr
+||| (pan:<48)(p:flut)V-rrrrrrrr
+||| (pan:<50)(p:flut)V-rrrrrrrrr
+
+||| (pan:<52)(p:flut)V-rrrrrrrrrr
+||| (pan:<54)(p:flut)V-rrrrrrrrrrr
+||| (pan:<56)(p:flut)V-rrrrrrrrrrrr
+||| (pan:<58)(p:flut)V-rrrrrrrrrrrrr
+
+||| (pan:<60)(p:flut)V-rrrrrrrrrrrrrr
+||| (pan:<62)(p:flut)V-rrrrrrrrrrrrrrr
+||| (pan:>10)(p:trum)V+ rrrrrrrrrrrrrrrr
+||| (pan:>20)(p:trum)V+ rrrrrrrrrrrrrrrrr
+
+||| (pan:>30)(p:trum)V+ rrrrrrrrrrrrrrrrrr
+||| (pan:>40)(p:trum)V+ rrrrrrrrrrrrrrrrrrr
+||| (pan:>42)(p:trum)V+ rrrrrrrrrrrrrrrrrrrr
+||| (pan:>44)(p:trum)V+ rrrrrrrrrrrrrrrrrrrrr
+
+||| (pan:>46)(p:trum)V+ rrrrrrrrrrrrrrrrrrrrrr
+||| (pan:>48)(p:trum)V+ rrrrrrrrrrrrrrrrrrrrrrr
+||| (pan:>48)(p:trum)V+ rrrrrrrrrrrrrrrrrrrrrrr
+||| (pan:>48)(p:trum)V+ rrrrrrrrrrrrrrrrrrrrrrr
+||| (pan:>48)(p:trum)V+ rrrrrrrrrrrrrrrrrrrrrrr
+||| (pan:>48)(p:trum)V+ rrrrrrrrrrrrrrrrrrrrrrr
+||| (pan:>48)(p:trum)V+ rrrrrrrrrrrrrrrrrrrrrrr
+||| (pan:>48)(p:trum)V+ rrrrrrrrrrrrrrrrrrrrrrr
+||| (pan:>48)(p:trum)V+ rrrrrrrrrrrrrrrrrrrrrrr
+||| (pan:>48)(p:trum)V+ rrrrrrrrrrrrrrrrrrrrrrr
+
+||| (pan:>46)(p:trum)V+ rrrrrrrrrrrrrrrrrrrrrr
+||| (pan:>48)(p:trum)V+ rrrrrrrrrrrrrrrrrrrrrrr
+||| (pan:>48)(p:trum)V+ rrrrrrrrrrrrrrrrrrrrrrr
+||| (pan:>48)(p:trum)V+ rrrrrrrrrrrrrrrrrrrrrrr
+||| (pan:>48)(p:trum)V+ rrrrrrrrrrrrrrrrrrrrrrr
+||| (pan:>48)(p:trum)V+ rrrrrrrrrrrrrrrrrrrrrrr
+||| (pan:>48)(p:trum)V+ rrrrrrrrrrrrrrrrrrrrrrr
+||| (pan:>48)(p:trum)V+ rrrrrrrrrrrrrrrrrrrrrrr
+||| (pan:>48)(p:trum)V+ rrrrrrrrrrrrrrrrrrrrrrr
+||| (pan:>48)(p:trum)V+ rrrrrrrrrrrrrrrrrrrrrrr
+/////////////////////////////////////
+
+c120d120
+|||d120
+|||e120
+|||f120
+|||g120
+
+|||a120
+|||b120
+|||+d120
+|||+e120
+
+|||+f120
+|||+g120
+|||+a120
+|||+b120
+
+|||++d120
+|||++e120
+|||++f120
+|||++g120
+
+|||++a120
+|||++b120
+|||d120
+|||e120
+
+|||f120
+|||g120
+|||a120
+|||b120
+
+
+|||d120
+|||e120
+|||f120
+|||g120
+
+|||a120
+|||b120
+|||d120
+|||e120
+
+|||f120
+|||g120
+|||a120
+|||b120
+
+|||d120
+
+
+
+|||e120
+|||f120
+|||b120
+
+|||d120
+|||e120
+|||f120
+|||g120
+
+|||a120
+|||b120
+|||d120
+
+
+|||e120
+|||f120
+|||b120
+
+|||d120
+|||e120
+|||f120
+|||g120
+
+|||a120
+|||b120
+|||d120
+
