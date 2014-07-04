@@ -1,0 +1,33 @@
+R:=/cdefg/ /cde/
+O:=c*192c*288d
+RR:=$R $R $R r
+(pan:>40)
+|||
+RR:=$O $O $O r
+(pan:<40)
+(p:flu)
+|||
+H:=/*307:bagfedcb/ /*653:agfedcbagfedcdcfefdfefdfdfdfdfdrrrrrrrrrrrrrrrrrrrrrrrrrr/
+RR:=$H $H $H r
+(p:harpsi)
+////////////////////////////////////////////////////////////////////////////
+
+   c $RR c [$RR c c]2 r c r cdefg r2r  c
+|||e $RR e [$RR e e]2 r e r efgcr e2r  c
+|||g $RR g [$RR g g]2 r g r gab+cr r2g c
+////////////////////////////////////////////////////////////////////////////
+
+    crdrer rr grg3
+||| erfrgr rr ara3
+||| grarbr rr ere3
+////////////////////////////////////////////////////////////////////////////
+
+    /eer2/ /fedc/ d2 (key:+4)
+||| /ggr2/ /agfe/ f2 (key:+4)
+||| /bbr2/ /cd/   D2 (key:+4)
+/////////////////////////////////////////////////////////////////////////////
+
+   c $RR c [$RR c $RR (key:-2)c]2 r c r cdefg r2r         /cdr/ rr  c
+|||e $RR e [$RR e $RR (key:-2)e]2 r e r efgcr e2r         r /cer/ r c
+|||g $RR g [$RR g $RR (key:-2)g]2 r g r gab+cr r2g        rr /cdg/  c
+////////////////////////////////////////////////////////////////////////////
