@@ -1,3 +1,4 @@
+(tempo:220)
 R:=/cdefg/ /cde/
 O:=c*192c*288d
 RR:=$R $R $R r
@@ -22,12 +23,31 @@ RR:=$H $H $H r
 ||| grarbr rr ere3
 ////////////////////////////////////////////////////////////////////////////
 
-    /eer2/ /fedc/ d2 (key:+4)
-||| /ggr2/ /agfe/ f2 (key:+4)
-||| /bbr2/ /cd/   D2 (key:+4)
+    /eer2/ /fedc/ d2
+||| /ggr2/ /agfe/ f2
+||| /bbr2/ /cd/   D2
+/////////////////////////////////////////////////////////////////////////
+
+    v20 /9:cr cr cr cr cr cr cr cr cr/ r (key:+1)
+||| v20 /9:er er er er er er er er er/ r (key:+1)
+||| v20 /9:fr fr fr fr fr fr fr fr fr/ r (key:+1)
 /////////////////////////////////////////////////////////////////////////////
 
-   c $RR c [$RR c $RR (key:-2)c]2 r c r cdefg r2r         /cdr/ rr  c
-|||e $RR e [$RR e $RR (key:-2)e]2 r e r efgcr e2r         r /cer/ r c
-|||g $RR g [$RR g $RR (key:-2)g]2 r g r gab+cr r2g        rr /cdg/  c
+    v60 /9:cr cr cr cr cr cr cr cr cr/ r (key:+2)
+||| v60 /9:er er er er er er er er er/ r (key:+2)
+||| v60 /9:fr fr fr fr fr fr fr fr fr/ r (key:+2)
+/////////////////////////////////////////////////////////////////////////////
+
+    v90 /13:cr cr cr cr cr cr cr cr cr cr cr cr cr/ r (key:+3)
+||| v90 /13:er er er er er er er er er er er er er/ r (key:+3)
+||| v90 /13:fr fr fr fr fr fr fr fr fr fr fr fr fr/ r (key:+3)
+/////////////////////////////////////////////////////////////////////////////
+
+    rrrrrrr
+||| rrrrrrr
+||| rrrrrrr
+///////////////////////////////////////////////////////////////////////
+   cccc [$RR c $RR (key:-2)c]3 r c r cdefg r2r         /cdr/ rr  c r
+|||eeee [$RR e $RR (key:-2)e]3 r e r efgcr e2r         r /cer/ r c r
+|||gggg [$RR g $RR (key:-2)g]3 r g r gab+cr r2g        rr /cdg/  c r
 ////////////////////////////////////////////////////////////////////////////
