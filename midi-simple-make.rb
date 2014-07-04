@@ -32,6 +32,9 @@ syntax: ...( will be changed time after time)
     (cc:10,64) =controlChange number10 value 64. see SMF format.
     (pan:>64)  =panpot right 64. ( pan:>0  set center )
     (bend:100) =pitch bend 100
+    (on:a)     =note 'a' sound on only. take no ticks.; the event 'a' is same to '(on:a)(wait:1)(off:a)'.
+    (wait:1)   =set waiting time for next event
+    (off:a)    =note 'a' sound off 
     (g:10) =set sound gate-rate 10% (staccato)
     ||| = track separater
     /// = page separater
@@ -231,6 +234,8 @@ module MidiHex
     @tbase=tbase
     @gateRate=100
     @nowtime=0
+    @onlist=[]
+    @waitingtime=0
     @rythmChannel=9
     @notes={
       "c"=>0,
@@ -291,6 +296,34 @@ module MidiHex
     r=len-l
     [l,r]
   end
+  def self.soundOn key=@basekey,velocity=@velocity,ch=@ch
+    ch=[ch,0x0f].min
+    velocity=[velocity,0x7f].min
+    @key=[key,0x7f].min
+    @onlist<<@key
+    key=format("%02x",@key)
+    ch=format("%01x",ch)
+    vel=format("%02x",velocity)
+    start=@waitingtime
+    @waitingtime=0
+    deltaStart=varlenHex(start)
+    str="
+      #{deltaStart} 9#{ch} #{key} #{vel} # #{start}後, sound on only , note #{@key} velocity #{velocity}
+    "
+  end
+  def self.soundOff key=@basekey,ch=@ch
+    ch=[ch,0x0f].min
+    @key=[key,0x7f].min
+    @onlist-=[@key]
+    key=format("%02x",@key)
+    ch=format("%01x",ch)
+    start=@waitingtime
+    @waitingtime=0
+    delta=varlenHex(start)
+    str="
+      #{delta} 8#{ch} #{key} 00 # #{start} sound off only [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]
+    "
+  end
   def self.oneNote len=@tbase,key=@basekey,velocity=@velocity,ch=@ch
     ch=[ch,0x0f].min
     velocity=[velocity,0x7f].min
@@ -298,12 +331,15 @@ module MidiHex
     key=format("%02x",@key)
     ch=format("%01x",ch)
     vel=format("%02x",velocity)
+    start=@waitingtime
+    @waitingtime=0
+    deltaStart=varlenHex(start)
     slen,r=self.byGate(len)
     deltaS=varlenHex(slen)
     deltaR=varlenHex(r)
     @nowtime+=len
     str="
-      00 9#{ch} #{key} #{vel} # 0拍後, soundオン note #{@key} velocity #{velocity}
+      #{deltaStart} 9#{ch} #{key} #{vel} # #{start}後, soundオン note #{@key} velocity #{velocity}
       #{deltaS} 8#{ch} #{key} 00 # #{slen}(gate:#{@gateRate})- #{len.to_i}(#{len.round(2)})tick後, soundオフ [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]
     "
     rstr=r==0 ? "" : "
@@ -324,11 +360,7 @@ module MidiHex
     else
       key,ch=key
     end
-    if ch==@rythmChannel
-      key=key+@basekeyRythm
-    else
-      key=key+@basekey
-    end
+    key=key+@basekey
     self.oneNote(len,key,velocity,ch)
   end
   def self.percussionNote key,len=@tbase,accent=false
@@ -550,6 +582,28 @@ module MidiHex
         pan=$2.to_i
         pan=$1==">" ? 64+pan : 64-pan
         @h<<self.controlChange("10,#{pan}")
+      when /\(wait:(\*)?(.*)\)/
+        @waitingtime=$1? $2.to_i : $2.to_f*@tbase
+      when /\(on:(.*)\)/
+        i=$1
+        if @notes.keys.member?($1)
+          i=@basekey+@notes[i]
+        else
+          i=i.to_i
+        end
+        @h<<self.soundOn(i)
+      when /\(off:(.*)\)/
+        i=$1
+        if @notes.keys.member?($1)
+          i=@basekey+@notes[i]
+          @h<<self..soundOff(i)
+        elsif i=="all"
+          @onlist.each{|o|
+            @h<<self.soundOff(o)
+          }
+        else
+          @h<<self.soundOff(i.to_i)
+        end
       when /\(tempo:(.*)\)/
         bpm=$1.to_i
         @h<<self.tempo(bpm) if @bpm>0
