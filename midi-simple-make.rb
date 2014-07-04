@@ -2,6 +2,54 @@
 require 'kconv'
 require 'optparse'
 
+def hint
+  cmd=File.basename($0)
+  puts <<EOF
+usage: #{cmd} -d \"dddd dr3 dddd r4 drdrdrdr dddd dr3\" -o outfile.mid -t bpm
+       #{cmd} -i infile.txt  -o outfile.mid -t bpm
+
+syntax: ...( will be changed time after time)
+    abcdefg =sound; capital letters are sharps 
+    +- =octave change
+    r  =rest
+    >< =tempo up-down(percent)
+    a4    =4 beats of note 'a'
+    a     =one beat of note 'a'. default length equals 1 now.
+    A*120 =120 ticks of note 'a #'
+    v60   =velocity set to 60 (0-127)
+    &(00 00) =set hex data directly. This can include '$delta(240)' for deltaTime data making etc..
+    (p:0,11) =ProgramChange channel 0, instrument 11
+    (p:0,organ) =ProgramChange channel 0, instrument ?(search word like 'organ' from list if exist)
+        map text must start with instrument number
+    (key:-4) =transpose -4 except rythmChannel
+    [...] =repeat 2 times for first time
+    [...]3 =3 times of inside block []
+    /2:abcd/    =(triplet etc.) notes 'abcd' in 2 beats measure
+    /*120:abcd/ = notes 'abcd' in 120 ticks measure. now, default measure is 480 ticks per one beat.
+    /cd/ ~2e /~fga/    =(tie) each length : c 0.5 d 0.5+2 e 1+0.25 f 0.25 g 0.25 a 0.25
+    (tempo:120) =tempo set
+    (ch:1     ) =this track's channel set
+    (cc:10,64) =controlChange number10 value 64. see SMF format.
+    (pan:>64)  =panpot right 64. ( pan:>0  set center )
+    (bend:100) =pitch bend 100
+    (g:10) =set sound gate-rate 10% (staccato)
+    ||| = track separater
+    /// = page separater
+    .DC .DS .toCODA .CODA .FINE =coda mark etc.
+    .SKIP =skip mark on over second time
+    .$ =DS point
+    _snare! =percussion sound ( search word like 'snare' (can use tone number) from percussion list if exist )
+        map text must start with tone number
+    (loadf:filename.mid,2) =load filename.mid, track 2. Track must be this only and seperated by '|||'.
+    W:=abc        =macro definition. One Charactor macro can be used. When macro name is long, use prefix '$' for refering.
+    macro W:=abc  =macro definition.
+    compile order is : page,track seperate => macro set and replace => repeat check => sound data make
+    ; =seperater. same to a new line
+    blank =ignored
+    # comment =ignored after # of each line
+EOF
+end
+
 infile=false
 outfile=false
 $debuglevel=1
@@ -13,6 +61,10 @@ opt.on('-i file',"infile") {|v| infile=v }
 opt.on('-o file',"outfile") {|v| outfile=v }
 opt.on('-d d',"data string") {|v| data=v }
 opt.on('-D',"debug") {|v| $DEBUG=v }
+opt.on('-s',"show syntax") {|v|
+  hint
+  exit
+}
 opt.on('-t b',"bpm") {|v| bpm=v.to_f }
 opt.on('-T w',"programChange test like instrument name '...'") {|v| $test=v }
 opt.on('-c d',"data for test") {|v| $testdata=v }
@@ -853,52 +905,6 @@ def loadCalc d
   else
     [:seq,rawHexPart(d)]
   end
-end
-def hint
-  cmd=File.basename($0)
-  puts <<EOF
-usage: #{cmd} -d \"dddd dr3 dddd r4 drdrdrdr dddd dr3\" -o outfile.mid -t bpm
-       #{cmd} -i infile.txt  -o outfile.mid -t bpm
-
-syntax: ...( will be changed time after time)
-    abcdefg =sound; capital letters are sharps 
-    +- =octave change
-    r  =rest
-    >< =tempo up-down(percent)
-    a4    =4 beats of note 'a'
-    A*120 =120 ticks of note 'a #'
-    v60   =velocity set to 60 (0-127)
-    &(00 00) =set hex data directly. This can include '$delta(240)' for deltaTime data making etc..
-    (p:0,11) =ProgramChange channel 0, instrument 11
-    (p:0,organ) =ProgramChange channel 0, instrument ?(search word like 'organ' from list if exist)
-        map text must start with instrument number
-    (key:-4) =transpose -4 except rythmChannel
-    [...] =repeat 2 times for first time
-    [...]3 =3 times of inside block []
-    /2:abcd/    =(triplet etc.) notes 'abcd' in 2 beats measure
-    /*120:abcd/ = notes 'abcd' in 120 ticks measure. now, default measure is 480 ticks per one beat.
-    /cd/ ~2e /~fga/    =(tie) each length : c 0.5 d 0.5+2 e 1+0.25 f 0.25 g 0.25 a 0.25
-    (tempo:120) =tempo set
-    (ch:1     ) =this track's channel set
-    (cc:10,64) =controlChange number10 value 64. see SMF format.
-    (pan:>64)  =panpot right 64. ( pan:>0  set center )
-    (bend:100) =pitch bend 100
-    (g:10) =set sound gate-rate 10% (staccato)
-    ||| = track separater
-    /// = page separater
-    .DC .DS .toCODA .CODA .FINE =coda mark etc.
-    .SKIP =skip mark on over second time
-    .$ =DS point
-    _snare! =percussion sound ( search word like 'snare' (can use tone number) from percussion list if exist )
-        map text must start with tone number
-    (loadf:filename.mid,2) =load filename.mid, track 2. Track must be this only and seperated by '|||'.
-    W:=abc        =macro definition. One Charactor macro can be used. When macro name is long, use prefix '$' for refering.
-    macro W:=abc  =macro definition.
-    compile order is : track seperate => macro set and replace => repeat check => sound data make
-    ; =seperater. same to a new line
-    blank =ignored
-    # comment =ignored after # of each line
-EOF
 end
 
 data=File.read(infile).trim(" ;") if infile && File.exist?(infile)
