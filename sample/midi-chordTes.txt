@@ -1,0 +1,46 @@
+(p:flut)
+v60
+(pan:>70)
+cC:=(on:c)(on:e)(on:g)(wait:1)
+cF:=(on:c)(on:f)(on:a)(wait:1)
+cG:=(on:b)(on:d)(on:g)(wait:1)
+cG7:=(on:b)(on:d)(on:g)(on:f)(wait:1)
+OFF:=(off:all)
+|||
+(p:trum)
+v120
+|||
+(p:ocar)
+v60
+(pan:<70)
+/////////////////////////
+
+    /4:cegrg3r/ - $cG7 (wait:2) $OFF r +
+||| r4            $cG7 (wait:2) $OFF r
+||| r4          + $cG7 (wait:2) $OFF r -
+////////////////////////
+
+    cfgc   ffcc rrr
+||| eabe   aaee rrr
+||| gc-b+c ccgg rrr
+//////////////////////
+
+     r        $cF $OFF $cG $OFF $cC $OFF $cF $OFF  r         r         $cC (wait:2) $OFF r
+|||  $cC $OFF r        $cG $OFF $cC $OFF r         $cF $OFF  r         $cC (wait:2) $OFF r
+|||  $cC $OFF $cF $OFF r        $cC $OFF r         r         $cC $OFF  $cC (wait:2) $OFF r
+///////////////////////////
+
+    cder
+||| efgr
+||| g-b+cr
+//////////////////////////////////
+
+    rrr
+||| rrr
+||| rrr
+/////////////////////////////////////
+
+    $cC (wait:1) $OFF rrr    r /crc/crr +$cC v100  +$cC $OFF r $cF $OFF r $cC $OFF
+||| rr $cC (wait:2) $OFF     r /ere/e3  +$cC v100  -$cC $OFF r $cC $OFF r $cC $OFF
+||| r $cC (wait:1) $OFF rr   r /grg/crr +$cC v100 --$cC $OFF r $cG $OFF r $cC $OFF
+/////////////////////////////////////

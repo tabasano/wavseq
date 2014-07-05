@@ -22,7 +22,7 @@ syntax: ...( will be changed time after time)
     (p:organ) =ProgramChange channel here, instrument ?(search word like 'organ' from list if exist)
         map text must start with instrument number
         channel number can be used, but not recommended. '(p:0,11)'
-    (key:-4) =transpose -4 except rythmChannel
+    (key:-4) =transpose -4 except percussionSoundName like '_snare!'
     [...] =repeat 2 times for first time
     [...]3 =3 times of inside block []
     /2:abcd/    =(triplet etc.) notes 'abcd' in 2 beats measure
