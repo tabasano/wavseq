@@ -374,7 +374,18 @@ module MidiHex
     self.oneNote(len,key,vel,@rythmChannel)
   end
   def self.notes c,l=false,accent=false
-    notekey(@notes[c],l,accent)
+    self.notekey(@notes[c],l,accent)
+  end
+  def self.chord c,l=false,accent=false
+    r=[]
+    c.each{|i|
+      r<<self.soundOn(i)
+    }
+    @waitingtime=l
+    c.each{|i|
+      r<<self.soundOff(i)
+    }
+    r*"\n"
   end
   def self.rest len=@tbase
     delta=varlenHex(len)
@@ -493,6 +504,13 @@ module MidiHex
     @nowtime+=len
     "#{delta} e#{format"%01x",ch} #{bendHex(depth)}\n"
   end
+  def self.note2key i
+    if @notes.keys.member?(i)
+      @basekey+@notes[i]
+    else
+      i.to_i
+    end
+  end
   def self.makefraze rundata,tc
     return "" if not rundata
     self.trackPrepare(tc)
@@ -525,6 +543,8 @@ module MidiHex
             @h<<self.byKey(c,t,accent)
           when :sound
             @h<<self.notes(c,t,accent)
+          when :chord
+            @h<<self.chord(c,t,accent)
           when :rest
             @h<<self.rest(t)
           end
@@ -591,24 +611,21 @@ module MidiHex
         @waitingtime=$1? $2.to_i : $2.to_f*@tbase
       when /\(on:(.*)\)/
         i=$1
-        if @notes.keys.member?($1)
-          i=@basekey+@notes[i]
-        else
-          i=i.to_i
-        end
+        i=self.note2key(i)
         @h<<self.soundOn(i)
       when /\(off:(.*)\)/
         i=$1
-        if @notes.keys.member?($1)
-          i=@basekey+@notes[i]
-          @h<<self..soundOff(i)
-        elsif i=="all"
+        if i=="all"
           @onlist.each{|o|
             @h<<self.soundOff(o)
           }
         else
-          @h<<self.soundOff(i.to_i)
+          i=self.note2key(i)
+          @h<<self.soundOff(i)
         end
+      when /\((chord|C):(.*)\)/
+          chord=$2.split.join.split(",").map{|i|self.note2key(i)}
+          wait<<[:chord,chord]
       when /\(tempo:(.*)\)/
         bpm=$1.to_i
         @h<<self.tempo(bpm) if @bpm>0
