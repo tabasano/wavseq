@@ -29,15 +29,16 @@ syntax: ...( will be changed time after time)
     /*120:abcd/ = notes 'abcd' in 120 ticks measure. now, default measure is 480 ticks per one beat.
     /cd/ ~2e /~fga/    =(tie) each length : c 0.5 d 0.5+2 e 1+0.25 f 0.25 g 0.25 a 0.25
                         after '~' length needed. if not length 1 is automaticaly inserted.
+    =           = same note and length as the previous note. 'c2c2c2c2' = 'c2==='
     (tempo:120) =tempo set
     (ch:1)      =set this track's channel 1
     (cc:10,64) =controlChange number10 value 64. see SMF format.
     (pan:>64)  =panpot right 64. ( pan:>0  set center )
     (bend:100) =pitch bend 100
-    (on:a)     =note 'a' sound on only. take no ticks.; the event 'a' is same to '(on:a)(wait:1)(off:a)'.
+    (on:a)     =note 'a' sound on only. take no ticks.; the event 'a' is the same as '(on:a)(wait:1)(off:a)'.
     (wait:1)   =set waiting time 1 for next event
     (off:a)    =note 'a' sound off 
-    (g:10) =set sound gate-rate 10% (staccato)
+    (g:10) =set sound gate-rate 10% (staccato etc.)
     ||| = track separater
     /// = page separater
     .DC .DS .toCODA .CODA .FINE =coda mark etc.
@@ -637,6 +638,8 @@ module MidiHex
       when "^"
         p "accent" if $DEBUG
         accent=true
+      when "="
+        @h<<@h[-1]
       when "r"
         wait<<[:rest,i]
       when " "
@@ -786,7 +789,10 @@ def multiplet d,tbase
       notes<<i
     when /^[[:digit:]]+/
       wait[-1]*=i.to_f
-    when / /
+    when "="
+      wait<<wait[-1]
+      notes<<notes[-1]
+    when " "
     else
       wait<<1
       notes<<i
