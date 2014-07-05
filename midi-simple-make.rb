@@ -13,27 +13,29 @@ syntax: ...( will be changed time after time)
     +- =octave change
     r  =rest
     >< =tempo up-down(percent)
-    a4    =4 beats of note 'a'
+    a4    =4 beats of note 'a'. in length words, integers or flout numbers can be used.
     a     =one beat of note 'a'. default length equals 1 now.
     A*120 =120 ticks of note 'a #'
     v60   =velocity set to 60 (0-127)
     &(00 00) =set hex data directly. This can include '$delta(240)' for deltaTime data making etc..
-    (p:0,11) =ProgramChange channel 0, instrument 11
-    (p:0,organ) =ProgramChange channel 0, instrument ?(search word like 'organ' from list if exist)
+    (p:11) =ProgramChange channel here, instrument 11
+    (p:organ) =ProgramChange channel here, instrument ?(search word like 'organ' from list if exist)
         map text must start with instrument number
+        channel number can be used, but not recommended. '(p:0,11)'
     (key:-4) =transpose -4 except rythmChannel
     [...] =repeat 2 times for first time
     [...]3 =3 times of inside block []
     /2:abcd/    =(triplet etc.) notes 'abcd' in 2 beats measure
     /*120:abcd/ = notes 'abcd' in 120 ticks measure. now, default measure is 480 ticks per one beat.
     /cd/ ~2e /~fga/    =(tie) each length : c 0.5 d 0.5+2 e 1+0.25 f 0.25 g 0.25 a 0.25
+                        after '~' length needed. if not length 1 is automaticaly inserted.
     (tempo:120) =tempo set
-    (ch:1     ) =this track's channel set
+    (ch:1)      =set this track's channel 1
     (cc:10,64) =controlChange number10 value 64. see SMF format.
     (pan:>64)  =panpot right 64. ( pan:>0  set center )
     (bend:100) =pitch bend 100
     (on:a)     =note 'a' sound on only. take no ticks.; the event 'a' is same to '(on:a)(wait:1)(off:a)'.
-    (wait:1)   =set waiting time for next event
+    (wait:1)   =set waiting time 1 for next event
     (off:a)    =note 'a' sound off 
     (g:10) =set sound gate-rate 10% (staccato)
     ||| = track separater
@@ -55,6 +57,7 @@ end
 
 infile=false
 outfile=false
+expfile=false
 $debuglevel=1
 data=""
 pspl="///"
@@ -62,6 +65,7 @@ bpm=120
 opt = OptionParser.new
 opt.on('-i file',"infile") {|v| infile=v }
 opt.on('-o file',"outfile") {|v| outfile=v }
+opt.on('-e file',"write down macro etc. expanded data") {|v| expfile=v }
 opt.on('-d d',"data string") {|v| data=v }
 opt.on('-D',"debug") {|v| $DEBUG=v }
 opt.on('-s',"show syntax") {|v|
@@ -70,7 +74,7 @@ opt.on('-s',"show syntax") {|v|
 }
 opt.on('-t b',"bpm") {|v| bpm=v.to_f }
 opt.on('-T w',"programChange test like instrument name '...'") {|v| $test=v }
-opt.on('-c d',"data for test") {|v| $testdata=v }
+opt.on('-c d',"cycle data for test mode") {|v| $testdata=v }
 opt.on('-p pspl',"page split chars") {|v| pspl=v }
 opt.on('-M i',"debug level") {|v| $debuglevel=v.to_i }
 opt.on('-m i',"mode of test/ 1:GM 2:XG 3:GS") {|v| $testmode=v.to_i }
@@ -1006,6 +1010,7 @@ tracks.map{|track|
 }
 p macro if$DEBUG
 rawdatas.flatten!
+open(expfile,"w"){|f|f.puts rundatas*"|||"} if expfile
 tracknum=rawdatas.size+rundatas.size
 tracknum=tracks.size
 format=1

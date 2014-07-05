@@ -1,3 +1,6 @@
+exec main script with no args for up-to-date syntax. 
+
+
 >>主なコマンド
 
 cdefgab　音符高さ：ドレミファソラシ.長さは数字で後ろに置く（省略で１拍。）
@@ -38,6 +41,10 @@ X:=abc　　マクロ'X'を設定。曲中のXはabcに置き換えられる。
 　　　　　長いマクロ名は使用時に$X,${X}などと指定する。
 macro X:=abc
 　　　　　上に同じ。
+(on:a)　　'a'を鳴らし、時間を進めない。　コマンド'a'は'(on:a)(wait:1)(off:a)'と同じ。'(on:a)b(off:a)'でabを同時に鳴らせる。
+(wait:1)　一拍待つ
+(off:a)　'a'を止める
+(off:all) onで鳴っているものをすべて止める
 (ch:2)　　midiチャンネルを２に設定
 (cc:1,2)　midiコントロールチェンジ
 a*120　　音符a,長さ120tick
