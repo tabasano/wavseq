@@ -47,7 +47,8 @@ syntax: ...( will be changed time after time)
     .SKIP =skip mark on over second time
     .$ =DS point
     _snare! =percussion sound ( search word like 'snare' (can use tone number) from percussion list if exist )
-        map text must start with tone number
+        similarly, _s!=snare, k:bassKick, o:openHighHat, c:closedHighHat, cc:CrachCymbal, h:highTom, l:lowTom as default.
+        map text personaly you set must start with tone number.
     (loadf:filename.mid,2) =load filename.mid, track 2. Track must be this only and seperated by '|||'.
     W:=abc        =macro definition. One Charactor macro can be used. When macro name is long, use prefix '$' for refering.
     macro W:=abc  =macro definition.
@@ -385,6 +386,36 @@ module MidiHex
   def self.notes c,l=false,accent=false
     self.notekey(@notes[c],l,accent)
   end
+  def self.chordName c,l=false,accent=false
+    c=~/(.)(.*)/
+    type=$2
+    base=self.note2key($1)
+    ten=[0]
+    case type
+    when "7"
+      ten+=[4,7,10]
+    when "m7"
+      ten+=[3,7,10]
+    when "maj7"
+      ten+=[4,7,11]
+    when "mmaj7"
+      ten+=[3,7,11]
+    when "m"
+      ten+=[3]
+    when "6"
+      ten+=[4,9]
+    when "m6"
+      ten+=[3,9]
+    when "sus4"
+      ten+=[5]
+    when "dim"
+      ten+=[3,6,9]
+    else
+      ten+=[4]
+    end
+    c=ten.map{|i|base+i}
+    self.chord(c,l,accent)
+  end
   def self.chord c,l=false,accent=false
     r=[]
     c.each{|i|
@@ -504,6 +535,7 @@ module MidiHex
   end
   def self.percussionGet p
     return @snare if not @percussionList
+    return @gmKit[p] if @gmKit.keys.member?(p)
     r=@percussionList.select{|num,line|line=~/#{p}/i}
     puts "no percussion name like '#{p}' in list" if $DEBUG && r.size==0
     r.size>0 ? r[0][0] : @snare
@@ -538,7 +570,7 @@ module MidiHex
     wait=[]
     @nowtime=0
     accent=false
-    cmd=rundata.scan(/&\([^)]+\)|\([^:]*:[^)]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|[[:digit:]]+\.[[:digit:]]+|\*?[[:digit:]]+|[-+[:alpha:]]|\^|./)
+    cmd=rundata.scan(/&\([^)]+\)|:[^,]+,|\([^:]*:[^)]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|[[:digit:]]+\.[[:digit:]]+|\*?[[:digit:]]+|[-+[:alpha:]]|\^|./)
     cmd<<" " # dummy
     p "make start: ",cmd if $DEBUG
     cmd.each{|i|
@@ -565,6 +597,8 @@ module MidiHex
             @h<<self.notes(c,t,accent)
           when :chord
             @h<<self.chord(c,t,accent)
+          when :chordName
+            @h<<self.chordName(c,t,accent)
           when :rest
             @h<<self.rest(t)
           end
@@ -596,6 +630,8 @@ module MidiHex
       when /&\((.+)\)/
         raw=rawHexPart($1)
         @h<<raw
+      when /^:([^,]+),/
+        wait<<[:chordName,$1]
       when /_(([[:digit:]]+)|([[:alnum:]]+))!/
         if $2
           perc=$2.to_i
@@ -783,6 +819,8 @@ module MidiHex
   def self.loadPercussionMap file
     @snare=35
     @gmSnare,@gmKick,@gmHiTom,@gmLoTom,@gmOpenH,@gmCloseH,@gmCrashCym=38,35,50,45,46,42,49
+    @gmKit={}
+    @gmKit["s"],@gmKit["k"],@gmKit["h"],@gmKit["l"],@gmKit["o"],@gmKit["c"],@gmKit["cc"]=@gmSnare,@gmKick,@gmHiTom,@gmLoTom,@gmOpenH,@gmCloseH,@gmCrashCym
     if not File.exist?(file)
       @percussionList=false
     else
@@ -806,7 +844,7 @@ module MidiHex
   end
 end
 def multiplet d,tbase
-  d=~/\/((\*)?([[:digit:].]*):)?(.*)\//
+  d=~/\/((\*)?([[:digit:].]+):)?(.*)\//
   tickmode=$2
   i=$4
   rate=$3 ? $3.to_f : 1
@@ -816,12 +854,12 @@ def multiplet d,tbase
   else
     total=tbase*rate
   end
-  r=i.scan(/\^?\(x:[^\]]+\)|[[:digit:]\.]+|\^?_[^!]+!|[-+^]?./)
+  r=i.scan(/\^?\(x:[^\]]+\)|\^?\(chord:[^)]+\)|\^?\(C:[^)]+\)|\^?:[^,]+,|[[:digit:]\.]+|\^?_[^!]+!|[-+^]?./)
   wait=[]
   notes=[]
   r.each{|i|
     case i
-    when /\(x:[^\]]+\)/
+    when /\((x|C|chord):[^\)]+\)|^\^?:[^,]+,/
       wait<<1
       notes<<i
     when /^[[:digit:]]+/
@@ -873,6 +911,8 @@ def nestsearch d,macro
   a=d.scan(/\[[^\[\]]*\] *[[:digit:]]+/)!=[]
   r=d.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;\$*_^+-]+|;|./).map{|i|
     case i
+    when /^\$\{([^\}]+)\}/
+      $1
     when /^\$/
       $'
     when /\/[^\/]+\//
@@ -890,7 +930,7 @@ def tie d,tbase
   res=[]
   # if no length word after '~' length is 1
   d.gsub!(/~([^*[:digit:]])?/){$1 ? "~1" : "~"}
-  li=d.scan(/\$\{[^\}]+\}|\$[^ ;\$_*^+-]+|\([^)]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:].]+|~|./)
+  li=d.scan(/\$\{[^\}]+\}|\$[^ ;\$_*^+-]+|\([^)]*\)|:[^,]+,|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:].]+|~|./)
   li.each{|i|
     case i
     when /^(\*)?([[:digit:].]+)/
