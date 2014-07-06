@@ -939,9 +939,8 @@ end
 def tie d,tbase
   res=[]
   # if no length word after '~' length is 1
-  d.gsub!(/~([^*[:digit:]])?/){$1 ? "~1#{$1}" : $&}
+  d.gsub!(/~([^*[:digit:]])?/){$1 ? "~1#{$1}" : $&} while d=~/~[^*[:digit:]]/
   li=d.scan(/\$\{[^\}]+\}|\$[^ ;\$_*^+-]+|\([^)]*\)|:[^,]+,|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:].]+|~|./)
-p li
   li.each{|i|
     case i
     when /^(\*)?([[:digit:].]+)/
@@ -958,7 +957,6 @@ p li
     end
   }
   line=""
-p res
   res.each{|mark,data|
     case mark
     when :e
@@ -974,6 +972,8 @@ end
 def repCalc line,macro,tbase
   rpt=/\[([^\[\]]*)\] *([[:digit:]]+)/
   line.gsub!(rpt){$1*$2.to_i} while line=~rpt
+  chord=/([^$])\{([^\}]*)\}/
+  line.gsub!(chord){"#{$1}(C:#{$2})"}
   a=line.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;\$_*^+-]+|./)
   a=a.map{|i|
     if i=~/^\/[^\/]+\//
