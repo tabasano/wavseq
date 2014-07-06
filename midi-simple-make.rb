@@ -9,7 +9,7 @@ usage: #{cmd} -d \"dddd dr3 dddd r4 drdrdrdr dddd dr3\" -o outfile.mid -t bpm
        #{cmd} -i infile.txt  -o outfile.mid -t bpm
 
 syntax: ...( will be changed time after time)
-    abcdefg =sound; capital letters are sharps 
+    abcdefg =tone; capital letters are sharps. followed by number as length. 
     +- =octave change
     r  =rest
     >< =tempo up-down(percent)
@@ -38,7 +38,9 @@ syntax: ...( will be changed time after time)
     (on:a)     =note 'a' sound on only. take no ticks.; the event 'a' is the same as '(on:a)(wait:1)(off:a)'.
     (wait:1)   =set waiting time 1 for next event
     (off:a)    =note 'a' sound off 
-    (g:10) =set sound gate-rate 10% (staccato etc.)
+    (g:10)     =set sound gate-rate 10% (staccato etc.)
+    (x:64)     =tone '64' by absolute tone number.
+    (chord:c,e,g) =chord 'C major'. use similar to tone 'a' etc. = '(on:c)(on:e)(on:g)(wait:1)(off:c)(off:e)(off:g)'
     ||| = track separater
     /// = page separater
     .DC .DS .toCODA .CODA .FINE =coda mark etc.
@@ -53,6 +55,9 @@ syntax: ...( will be changed time after time)
     ; =seperater. same to a new line
     blank =ignored
     # comment =ignored after # of each line
+
+    basicaly, one sound is a tone command followed by length number. now, tone type commands are :
+      'c',  '(x:64)', '_snare!', '(chord:d,g,-b)'
 EOF
 end
 
@@ -505,8 +510,19 @@ module MidiHex
     "#{delta} e#{format"%01x",ch} #{bendHex(depth)}\n"
   end
   def self.note2key i
+    # inside parenthesis -+ are octave
+    oct=0
+    i=~/^([-+]+)?(.+)/
+    octave,tone=$1,$2
+    i=tone if octave
+    case octave
+    when /-+/
+      oct=-octave.size
+    when /\++/
+      oct=octave.size
+    end
     if @notes.keys.member?(i)
-      @basekey+@notes[i]
+      @basekey+oct*12+@notes[i]
     else
       i.to_i
     end
