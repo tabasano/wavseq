@@ -41,6 +41,7 @@ syntax: ...( will be changed time after time)
     (g:10)     =set sound gate-rate 10% (staccato etc.)
     (x:64)     =tone '64' by absolute tone number.
     (chord:c,e,g) =chord 'C major'. use similar to tone 'a' etc. = '(on:c)(on:e)(on:g)(wait:1)(off:c)(off:e)(off:g)'
+    :cmaj7,       =use chord name. the first letter is tone name 'c'. so using capital one is with sharp.
     ||| = track separater
     /// = page separater
     .DC .DS .toCODA .CODA .FINE =coda mark etc.
