@@ -393,6 +393,8 @@ module MidiHex
     base=self.note2key($1)
     ten=[0]
     case type
+    when "power"
+      ten+=[7]
     when "7"
       ten+=[4,7,10]
     when "m7"
@@ -401,6 +403,8 @@ module MidiHex
       ten+=[4,7,11]
     when "mmaj7"
       ten+=[3,7,11]
+    when "maj" # no need
+      ten+=[4]
     when "m"
       ten+=[3]
     when "6"
@@ -409,10 +413,15 @@ module MidiHex
       ten+=[3,9]
     when "sus4"
       ten+=[5]
+    when "aug" || "+"
+      ten+=[4,8]
     when "dim"
       ten+=[3,6,9]
+    when ""
+      ten+=[4]
     else
       ten+=[4]
+      STDERR.puts "unknown chord type? #{type}"
     end
     c=ten.map{|i|base+i}
     self.chord(c,l,accent)
