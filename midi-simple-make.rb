@@ -939,8 +939,9 @@ end
 def tie d,tbase
   res=[]
   # if no length word after '~' length is 1
-  d.gsub!(/~([^*[:digit:]])?/){$1 ? "~1" : "~"}
+  d.gsub!(/~([^*[:digit:]])?/){$1 ? "~1#{$1}" : $&}
   li=d.scan(/\$\{[^\}]+\}|\$[^ ;\$_*^+-]+|\([^)]*\)|:[^,]+,|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:].]+|~|./)
+p li
   li.each{|i|
     case i
     when /^(\*)?([[:digit:].]+)/
@@ -951,12 +952,13 @@ def tie d,tbase
         res<<[:tick,tick]
       end
     when "~"
-      res<<[:tick,tbase] if res[-1][0]==:e
+       res<<[:tick,tbase] if res[-1][0]==:e
     else
       res<<[:e,i]
     end
   }
   line=""
+p res
   res.each{|mark,data|
     case mark
     when :e
