@@ -113,7 +113,11 @@ class String
     pages=self.split(/#{pspl}+/)
     pages.each{|p|
       p.split('|||').each_with_index{|t,i|
-        tracks[i] ? tracks[i]<<t : tracks[i]=[t]
+        if tracks[i]
+          tracks[i] << t
+        else
+          tracks[i] = [t]
+        end
       }
     }
     tracks.keys.sort.map{|k|tracks[k]*";"}
