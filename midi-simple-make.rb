@@ -40,7 +40,7 @@ syntax: ...( will be changed time after time)
     (wait:1)   =set waiting time 1 for next event
     (off:a)    =note 'a' sound off 
     (g:10)     =set sound gate-rate 10% (staccato etc.)
-    (x:64)     =tone '64' by absolute tone number.
+    {64}     =tone '64' by absolute tone number. ='(x:64)'
     {c,e,g}    =multi tone. use similar way to tone 'a' etc. = '(on:c)(on:e)(on:g)(wait:1)(off:c)(off:e)(off:g)'
     :cmaj7,       =use chord name. the first letter is tone name 'c'. so using capital one is with sharp.
     ||| = track separater
@@ -60,7 +60,7 @@ syntax: ...( will be changed time after time)
     # comment =ignored after # of each line
 
     basicaly, one sound is a tone command followed by length number. now, tone type commands are :
-      'c',  '(x:64)', '_snare!', '{d,g,-b}', ':cmaj7,'
+      'c',  '{64}', '_snare!', '{d,g,-b}', ':cmaj7,'
 EOF
 end
 
@@ -72,10 +72,10 @@ data=""
 pspl="///"
 bpm=120
 opt = OptionParser.new
-opt.on('-i file',"infile") {|v| infile=v }
-opt.on('-o file',"outfile") {|v| outfile=v }
+opt.on('-i file',"input file") {|v| infile=v }
+opt.on('-o file',"output file") {|v| outfile=v }
 opt.on('-e file',"write down macro etc. expanded data") {|v| expfile=v }
-opt.on('-d d',"data string") {|v| data=v }
+opt.on('-d d',"input data string") {|v| data=v }
 opt.on('-D',"debug") {|v| $DEBUG=v }
 opt.on('-s',"show syntax") {|v|
   hint
@@ -581,6 +581,11 @@ module MidiHex
       else
         i.to_i
       end
+   if k.class!=Array && k<0
+     k+=12 while k<0
+   elsif k.class!=Array && k>0x7f
+     k-=12 while k>0x7f
+   end
    k
   end
   def self.makefraze rundata,tc
@@ -627,13 +632,13 @@ module MidiHex
         accent=false
       end
       case i
-      when /\(key:(-?)\+?([[:digit:]]+)\)/
+      when /^\(key:(-?)\+?([[:digit:]]+)\)/
         tr=$2.to_i
         tr*=-1 if $1=="-"
         @basekey+=tr
-      when /\(key:reset\)/
+      when /^\(key:reset\)/
         @basekey=@basekeyOrg
-      when /\(p:(([[:digit:]]+),)?(([[:digit:]]+)|([\?[:alnum:]]+)(,([[:digit:]]))?)\)/
+      when /^\(p:(([[:digit:]]+),)?(([[:digit:]]+)|([\?[:alnum:]]+)(,([[:digit:]]))?)\)/
         channel=$1 ? $2.to_i : @ch
         subNo=false
         if $5
@@ -643,11 +648,11 @@ module MidiHex
           instrument=$4.to_i
         end
         @h<<self.ProgramChange(channel,instrument)
-      when /\(bend:(([[:digit:]]+),)?(-?[[:digit:]]+)\)/
+      when /^\(bend:(([[:digit:]]+),)?(-?[[:digit:]]+)\)/
         channel=$1 ? $2.to_i : @ch
         depth=$3.to_i
         @h<<self.bend(channel,depth)
-      when /&\((.+)\)/
+      when /^&\((.+)\)/
         raw=rawHexPart($1)
         @h<<raw
       when /^:([^,]+),/
@@ -659,37 +664,37 @@ module MidiHex
           perc=self.percussionGet($3)
         end
         wait<<[:percussion,perc]
-      when /v([0-9]+)/
+      when /^v([0-9]+)/
         @velocity=$1.to_i
-      when /\(g:([0-9]+)\)/
+      when /^\(g:([0-9]+)\)/
         self.setGateRate($1.to_i)
-      when /\(tempo:reset\)/
+      when /^\(tempo:reset\)/
         @h<<self.tempo(@bpmStart)
-      when /\(ch:(.*)\)/
+      when /^\(ch:(.*)\)/
         @ch=$1.to_i
-      when /\(cc:(.*)\)/
+      when /^\(cc:(.*)\)/
         @h<<self.controlChange($1)
-      when /\(bs:(.*)\)/
+      when /^\(bs:(.*)\)/
         @h<<self.bankSelect($1)
-      when /\(bspc:(.*)\)/
+      when /^\(bspc:(.*)\)/
         @h<<self.bankSelectPC($1)
-      when /\(gs:reset\)/
+      when /^\(gs:reset\)/
         @h<<self.GSreset
-      when /\(gm:on\)/
+      when /^\(gm:on\)/
         @h<<self.GMsystemOn(120)
-      when /\(xg:on\)/
+      when /^\(xg:on\)/
         @h<<self.XGsystemOn(120)
-      when /\(pan:(<|>)(.*)\)/
+      when /^\(pan:(<|>)(.*)\)/
         pan=$2.to_i
         pan=$1==">" ? 64+pan : 64-pan
         @h<<self.controlChange("10,#{pan}")
-      when /\(wait:(\*)?(.*)\)/
+      when /^\(wait:(\*)?(.*)\)/
         @waitingtime=$1? $2.to_i : $2.to_f*@tbase
-      when /\(on:(.*)\)/
+      when /^\(on:(.*)\)/
         i=$1
         i=self.note2key(i)
         @h<<self.soundOn(i)
-      when /\(off:(.*)\)/
+      when /^\(off:(.*)\)/
         i=$1
         if i=="all"
           @onlist.each{|o|
@@ -702,31 +707,39 @@ module MidiHex
       when /^\((chord|C):(.*)\)/
           chord=$2.split.join.split(",").map{|i|self.note2key(i)}
           wait<<[:chord,chord]
-      when /\(tempo:(.*)\)/
+      when /^\(tempo:(.*)\)/
         bpm=$1.to_i
         @h<<self.tempo(bpm) if @bpm>0
-      when /\(x:(.*)\)/
+      when /^\(x:(.*)\)/
         key=$1.to_i
         wait<<[:rawsound,key]
-      when /<(.*)/
+      when /^<(.*)/
         rate=1.25
         if $1.size>0
           rate=$1.to_i/100.0
         end
         @bpm=@bpm/rate
         @h<<self.tempo(@bpm)
-      when />(.*)/
+      when /^>(.*)/
         rate=1.25
         if $1.size>0
           rate=$1.to_i/100.0
         end
         @bpm=@bpm*rate
         @h<<self.tempo(@bpm)
-      when /-/
-        @basekey-=12
-      when /\+/
-        @basekey+=12
-      when /[0-9]+/
+      when "-"
+        if @basekey<12
+          STDERR.puts "octave too low."
+        else
+          @basekey-=12
+        end
+      when "+"
+        if @basekey>0x7f-12
+          STDERR.puts "octave too high."
+        else
+          @basekey+=12
+        end
+      when /^\*?[0-9]+/
         # (i.to_i-1).times{@h<<@h[-1]}
       when "^"
         p "accent" if $DEBUG
