@@ -315,6 +315,7 @@ module MidiHex
   end
   def self.soundOn key=@basekey,velocity=@velocity,ch=@ch
     key,ch=key if key.class==Array
+    key=self.note2key(key) if key.class==String 
     ch=[ch,0x0f].min
     velocity=[velocity,0x7f].min
     @key=[key,0x7f].min
@@ -331,6 +332,7 @@ module MidiHex
   end
   def self.soundOff key=@basekey,ch=@ch
     key,ch=key if key.class==Array
+    key=self.note2key(key) if key.class==String 
     ch=[ch,0x0f].min
     @key=[key,0x7f].min
     @onlist-=[@key]
@@ -581,12 +583,65 @@ module MidiHex
       else
         i.to_i
       end
-   if k.class!=Array && k<0
-     k+=12 while k<0
-   elsif k.class!=Array && k>0x7f
-     k-=12 while k>0x7f
-   end
-   k
+    if k.class!=Array && k<0
+      k+=12 while k<0
+    elsif k.class!=Array && k>0x7f
+      k-=12 while k>0x7f
+    end
+    k
+  end
+  def self.basekeySet d
+    case d
+    when "-"
+      if @basekey<12
+        STDERR.puts "octave too low."
+      else
+        @basekey-=12
+      end
+    when "+"
+      if @basekey>0x7f-12
+        STDERR.puts "octave too high."
+      else
+        @basekey+=12
+      end
+    else
+      @basekey=d
+    end
+  end
+  def self.eventlist2str elist
+    r=[]
+    elist.each{|h|
+      cmd=h[0]
+      arg=h[1..-1]
+      case cmd
+      when :basekeyPlus
+        @basekey=arg[0]
+      when :raw
+        r<<arg[0]
+      when :velocity
+        @velocity=arg[0]
+      when :ch
+        @ch=arg[0]
+      when :waitingtime
+        @waitingtime=arg[0]
+      when :setGateRate
+        method(cmd).call(*arg)
+      when :basekeySet
+        method(cmd).call(*arg)
+      when :soundOff
+        if arg[0]=="all"
+          @onlist.each{|o|
+            r<<method(cmd).call(o)
+          }
+        else
+          r<<method(cmd).call(*arg)
+        end
+      else
+        r<<"# #{cmd} #{arg}"
+        r<<method(cmd).call(*arg)
+      end
+    }
+    r
   end
   def self.makefraze rundata,tc
     return "" if not rundata
@@ -615,17 +670,17 @@ module MidiHex
         wait.each{|m,c|
           case m
           when :percussion
-            @h<<self.percussionNote(c,t,accent)
+            @h<<[:percussionNote,c,t,accent]
           when :rawsound
-            @h<<self.byKey(c,t,accent)
+            @h<<[:byKey,c,t,accent]
           when :sound
-            @h<<self.notes(c,t,accent)
+            @h<<[:notes,c,t,accent]
           when :chord
-            @h<<self.chord(c,t,accent)
+            @h<<[:chord,c,t,accent]
           when :chordName
-            @h<<self.chordName(c,t,accent)
+            @h<<[:chordName,c,t,accent]
           when :rest
-            @h<<self.rest(t)
+            @h<<[:rest,t]
           end
         }
         wait=[]
@@ -635,9 +690,9 @@ module MidiHex
       when /^\(key:(-?)\+?([[:digit:]]+)\)/
         tr=$2.to_i
         tr*=-1 if $1=="-"
-        @basekey+=tr
+        @h<<[:basekeyPlus,tr]
       when /^\(key:reset\)/
-        @basekey=@basekeyOrg
+        @h<<[:basekeySet,@basekeyOrg]
       when /^\(p:(([[:digit:]]+),)?(([[:digit:]]+)|([\?[:alnum:]]+)(,([[:digit:]]))?)\)/
         channel=$1 ? $2.to_i : @ch
         subNo=false
@@ -647,14 +702,14 @@ module MidiHex
         else
           instrument=$4.to_i
         end
-        @h<<self.ProgramChange(channel,instrument)
+        @h<<[:ProgramChange,channel,instrument]
       when /^\(bend:(([[:digit:]]+),)?(-?[[:digit:]]+)\)/
         channel=$1 ? $2.to_i : @ch
         depth=$3.to_i
-        @h<<self.bend(channel,depth)
+        @h<<[:bend,channel,depth]
       when /^&\((.+)\)/
         raw=rawHexPart($1)
-        @h<<raw
+        @h<<[:raw,raw]
       when /^:([^,]+),/
         wait<<[:chordName,$1]
       when /^_(([[:digit:]]+)|([[:alnum:]]+))!/
@@ -665,51 +720,42 @@ module MidiHex
         end
         wait<<[:percussion,perc]
       when /^v([0-9]+)/
-        @velocity=$1.to_i
+        @h<<[:velocity,$1.to_i]
       when /^\(g:([0-9]+)\)/
-        self.setGateRate($1.to_i)
+        @h<<[:setGateRate,$1.to_i]
       when /^\(tempo:reset\)/
-        @h<<self.tempo(@bpmStart)
+        @h<<[:tempo,@bpmStart]
       when /^\(ch:(.*)\)/
-        @ch=$1.to_i
+        @h<<[:ch,$1.to_i]
       when /^\(cc:(.*)\)/
-        @h<<self.controlChange($1)
+        @h<<[:controlChange,$1]
       when /^\(bs:(.*)\)/
-        @h<<self.bankSelect($1)
+        @h<<[:bankSelect,$1]
       when /^\(bspc:(.*)\)/
-        @h<<self.bankSelectPC($1)
+        @h<<[:bankSelectPC,$1]
       when /^\(gs:reset\)/
-        @h<<self.GSreset
+        @h<<[:GSreset]
       when /^\(gm:on\)/
-        @h<<self.GMsystemOn(120)
+        @h<<[:GMsystemOn,120]
       when /^\(xg:on\)/
-        @h<<self.XGsystemOn(120)
+        @h<<[:XGsystemOn,120]
       when /^\(pan:(<|>)(.*)\)/
         pan=$2.to_i
         pan=$1==">" ? 64+pan : 64-pan
-        @h<<self.controlChange("10,#{pan}")
+        @h<<[:controlChange,"10,#{pan}"]
       when /^\(wait:(\*)?(.*)\)/
-        @waitingtime=$1? $2.to_i : $2.to_f*@tbase
+        @h<<[:waitingtime,$1? $2.to_i : $2.to_f*@tbase]
       when /^\(on:(.*)\)/
         i=$1
-        i=self.note2key(i)
-        @h<<self.soundOn(i)
+        @h<<[:soundOn,i]
       when /^\(off:(.*)\)/
-        i=$1
-        if i=="all"
-          @onlist.each{|o|
-            @h<<self.soundOff(o)
-          }
-        else
-          i=self.note2key(i)
-          @h<<self.soundOff(i)
-        end
+        @h<<[:soundOff,$1]
       when /^\((chord|C):(.*)\)/
           chord=$2.split.join.split(",").map{|i|self.note2key(i)}
           wait<<[:chord,chord]
       when /^\(tempo:(.*)\)/
         bpm=$1.to_i
-        @h<<self.tempo(bpm) if @bpm>0
+        @h<<[:tempo,bpm] if @bpm>0
       when /^\(x:(.*)\)/
         key=$1.to_i
         wait<<[:rawsound,key]
@@ -719,26 +765,18 @@ module MidiHex
           rate=$1.to_i/100.0
         end
         @bpm=@bpm/rate
-        @h<<self.tempo(@bpm)
+        @h<<[:tempo,@bpm]
       when /^>(.*)/
         rate=1.25
         if $1.size>0
           rate=$1.to_i/100.0
         end
         @bpm=@bpm*rate
-        @h<<self.tempo(@bpm)
+        @h<<[:tempo,@bpm]
       when "-"
-        if @basekey<12
-          STDERR.puts "octave too low."
-        else
-          @basekey-=12
-        end
+        @h<<[:basekeySet,"-"]
       when "+"
-        if @basekey>0x7f-12
-          STDERR.puts "octave too high."
-        else
-          @basekey+=12
-        end
+        @h<<[:basekeySet,"+"]
       when /^\*?[0-9]+/
         # (i.to_i-1).times{@h<<@h[-1]}
       when "^"
@@ -757,6 +795,8 @@ module MidiHex
         end
       end
     }
+    p @h if $DEBUG
+    @h=self.eventlist2str(@h)
     @h*"\n# track: #{@tracknum} ==== \n"
   end
   def self.loadMap file, base=0
