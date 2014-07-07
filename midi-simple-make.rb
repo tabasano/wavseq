@@ -29,6 +29,7 @@ syntax: ...( will be changed time after time)
     /*120:abcd/ = notes 'abcd' in 120 ticks measure. now, default measure is 480 ticks per one beat.
     /cd/ ~2e /~fga/    =(tie) each length : c 0.5 d 0.5+2 e 1+0.25 f 0.25 g 0.25 a 0.25
                         after '~' length needed. if not length 1 is automaticaly inserted.
+                        'c~~~' = 'c4'
     =           = same note and length as the previous note. 'c2c2c2c2' = 'c2==='
     (tempo:120) =tempo set
     (ch:1)      =set this track's channel 1
@@ -40,7 +41,7 @@ syntax: ...( will be changed time after time)
     (off:a)    =note 'a' sound off 
     (g:10)     =set sound gate-rate 10% (staccato etc.)
     (x:64)     =tone '64' by absolute tone number.
-    (chord:c,e,g) =chord 'C major'. use similar to tone 'a' etc. = '(on:c)(on:e)(on:g)(wait:1)(off:c)(off:e)(off:g)'
+    {c,e,g}    =multi tone. use similar way to tone 'a' etc. = '(on:c)(on:e)(on:g)(wait:1)(off:c)(off:e)(off:g)'
     :cmaj7,       =use chord name. the first letter is tone name 'c'. so using capital one is with sharp.
     ||| = track separater
     /// = page separater
@@ -59,7 +60,7 @@ syntax: ...( will be changed time after time)
     # comment =ignored after # of each line
 
     basicaly, one sound is a tone command followed by length number. now, tone type commands are :
-      'c',  '(x:64)', '_snare!', '(chord:d,g,-b)'
+      'c',  '(x:64)', '_snare!', '{d,g,-b}', ':cmaj7,'
 EOF
 end
 
@@ -313,6 +314,7 @@ module MidiHex
     [l,r]
   end
   def self.soundOn key=@basekey,velocity=@velocity,ch=@ch
+    key,ch=key if key.class==Array
     ch=[ch,0x0f].min
     velocity=[velocity,0x7f].min
     @key=[key,0x7f].min
@@ -328,6 +330,7 @@ module MidiHex
     "
   end
   def self.soundOff key=@basekey,ch=@ch
+    key,ch=key if key.class==Array
     ch=[ch,0x0f].min
     @key=[key,0x7f].min
     @onlist-=[@key]
@@ -437,11 +440,12 @@ module MidiHex
     }
     r*"\n"
   end
-  def self.rest len=@tbase
+  def self.rest len=@tbase, ch=@ch
     delta=varlenHex(len)
+    chx=format("%01x",ch)
     @nowtime+=len
     "
-      #{delta}  89 3C 00 # #{len.to_i}(#{len.round(2)})tick後, オフ:ch10, key:3C
+      #{delta}  8#{chx} 3C 00 # #{len.to_i}(#{len.round(2)})tick後, オフ:ch#{ch}, key:3C
     "
   end
   def self.tempo bpm, len=0
@@ -544,6 +548,9 @@ module MidiHex
     res
   end
   def self.percussionGet p
+    p=~/^_([^!]+)/
+    p=$1 if $1
+    return p.to_i if p=~/^[[:digit:]]+$/
     return @snare if not @percussionList
     return @gmKit[p] if @gmKit.keys.member?(p)
     r=@percussionList.select{|num,line|line=~/#{p}/i}
@@ -567,11 +574,14 @@ module MidiHex
     when /\++/
       oct=octave.size
     end
-    if @notes.keys.member?(i)
-      @basekey+oct*12+@notes[i]
-    else
-      i.to_i
-    end
+    k=if tone=~/^_/
+        [self.percussionGet(tone),@rythmChannel]
+      elsif @notes.keys.member?(i)
+        @basekey+oct*12+@notes[i]
+      else
+        i.to_i
+      end
+   k
   end
   def self.makefraze rundata,tc
     return "" if not rundata
@@ -642,7 +652,7 @@ module MidiHex
         @h<<raw
       when /^:([^,]+),/
         wait<<[:chordName,$1]
-      when /_(([[:digit:]]+)|([[:alnum:]]+))!/
+      when /^_(([[:digit:]]+)|([[:alnum:]]+))!/
         if $2
           perc=$2.to_i
         else
@@ -689,7 +699,7 @@ module MidiHex
           i=self.note2key(i)
           @h<<self.soundOff(i)
         end
-      when /\((chord|C):(.*)\)/
+      when /^\((chord|C):(.*)\)/
           chord=$2.split.join.split(",").map{|i|self.note2key(i)}
           wait<<[:chord,chord]
       when /\(tempo:(.*)\)/
@@ -972,8 +982,8 @@ end
 def repCalc line,macro,tbase
   rpt=/\[([^\[\]]*)\] *([[:digit:]]+)/
   line.gsub!(rpt){$1*$2.to_i} while line=~rpt
-  chord=/([^$])\{([^\}]*)\}/
-  line.gsub!(chord){"#{$1}(C:#{$2})"}
+  chord=/([^$]|^)\{([^\}]*)\}/
+  line.gsub!(chord){"#{$1}(C:#{$2})"} while line=~chord
   a=line.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;\$_*^+-]+|./)
   a=a.map{|i|
     if i=~/^\/[^\/]+\//
