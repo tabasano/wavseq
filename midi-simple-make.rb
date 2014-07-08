@@ -390,7 +390,16 @@ module MidiHex
     self.oneNote(len,key,vel,@rythmChannel)
   end
   def self.notes c,l=false,accent=false
-    self.notekey(@notes[c],l,accent)
+    n=@notes[c]
+    if @lastnote
+      n+=12 if @lastnote-n>6
+      n-=12 if @lastnote-n<-6
+    end
+    @lastnote=n
+    (@basekey+=12;@lastnote-=12) if n>=12
+    (@basekey-=12;@lastnote+=12) if n<0
+    n=@lastnote
+    self.notekey(n,l,accent)
   end
   def self.chordName c,l=false,accent=false
     c=~/(.)(.*)/
