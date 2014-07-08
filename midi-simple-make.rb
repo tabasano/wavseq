@@ -648,23 +648,31 @@ module MidiHex
     self.trackPrepare(tc)
     @h=[]
     wait=[]
+    @frest=0
+    @frestc=0
     @nowtime=0
     accent=false
-    cmd=rundata.scan(/&\([^)]+\)|:[^,]+,|\([^:]*:[^)]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|[[:digit:]]+\.[[:digit:]]+|\*?[[:digit:]]+|[-+[:alpha:]]|\^|./)
+    cmd=rundata.scan(/&\([^)]+\)|:[^,]+,|\([^:]*:[^)]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:]]+\.[[:digit:]]+|\*?[[:digit:]]+|[-+[:alpha:]]|\^|./)
     cmd<<" " # dummy
     p "make start: ",cmd if $DEBUG
     cmd.each{|i|
       if wait.size>0
         t=@tbase
-        i=~/^(\*)?([[:digit:]]+)(\.[[:digit:]]+)?/
+        i=~/^(\*)?([[:digit:]]+(\.[[:digit:]]+)?)/
         tickmode=$1
+        t=$2.to_f if $&
         if $&
-          t=$2.to_i
           if tickmode
             puts "tick: #{t}" if $DEBUG && $debuglevel>1
           else
-            t=$&.to_f if $3
             t*=@tbase
+          end
+          @frest+=(t-t.to_i)
+          t=t.to_i
+          if @frest>=1
+            t+=@frest.to_i
+            @frest=@frest-@frest.to_i
+            @frestc+=1
           end
         end
         wait.each{|m,c|
@@ -796,6 +804,7 @@ module MidiHex
       end
     }
     p @h if $DEBUG
+    puts "float rest add times: #{@frestc}" if $DEBUG
     @h=self.eventlist2str(@h)
     @h*"\n# track: #{@tracknum} ==== \n"
   end
@@ -958,6 +967,8 @@ def multiplet d,tbase
       ls[-1-i]-=1
     }
   end
+  er=(total-ls.inject{|s,i|s+i})
+  ls[-1]+=er
   result=[]
   notes.size.times{|i|
     result<<notes[i]
@@ -1007,7 +1018,7 @@ def tie d,tbase
   li.each{|i|
     case i
     when /^(\*)?([[:digit:].]+)/
-      tick=$1? $2.to_i : $2.to_f*tbase
+      tick=$1? $2.to_f : $2.to_f*tbase
       if res[-1][0]==:tick
         res[-1][1]+=tick
       else
@@ -1020,12 +1031,16 @@ def tie d,tbase
     end
   }
   line=""
+  frest=0
   res.each{|mark,data|
     case mark
     when :e
       line<<data
     when :tick
-      line<<"*#{data.to_i}"
+      tick=data.to_i
+      frest+=data-tick
+      (tick+=frest;puts "frest:#{frest}" if $DEBUG && $debuglevel>1;frest=0) if frest>1
+      line<<"*#{tick}"
     end
   }
   p res,line if $DEBUG && $debuglevel>1
