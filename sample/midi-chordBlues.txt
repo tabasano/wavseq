@@ -1,9 +1,12 @@
-(tempo:120)
 BL:=:c7,===:f7,===:c7,=== ====    :f7,=== ====:c6,===:am7,===   :dm7,===:g7,===:c6,=:am7,=:dm7,=:g7,=
 RY:=[{_k!,_o!}/_c!r_o!//_o!2_s!//_c!r_o!/ {_k!,_o!}/_c!r_o!/_o!/_c!r_o!/]6
 BS:=ccecffcfccefgfec fffcffffcccbaacC dcbagGabccaadd-gg
 
-    (p:sax)v120 
+
+(tempo:120)
+(accent:25)
+
+    (p:sax)v100 
 ||| (p:orga) v65
 ||| v65
 ||| (p:bas)v80 - (g:66)

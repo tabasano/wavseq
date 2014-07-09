@@ -280,6 +280,9 @@ module MidiHex
     @prepareSet=[@tbase,@ch,@velocity,@basekey,@gateRate]
     @chmax=15
   end
+  def self.accent a
+    @accentPlus=a.to_i
+  end
   def self.setGateRate g
     @gateRate=[g,100].min
   end
@@ -622,6 +625,7 @@ module MidiHex
     elist.each{|h|
       cmd=h[0]
       arg=h[1..-1]
+      r<<"# #{cmd} #{arg}"
       case cmd
       when :basekeyPlus
         @basekey=arg[0]
@@ -633,6 +637,8 @@ module MidiHex
         @ch=arg[0]
       when :waitingtime
         @waitingtime=arg[0]
+      when :accent
+        method(cmd).call(*arg)
       when :setGateRate
         method(cmd).call(*arg)
       when :basekeySet
@@ -646,7 +652,6 @@ module MidiHex
           r<<method(cmd).call(*arg)
         end
       else
-        r<<"# #{cmd} #{arg}"
         r<<method(cmd).call(*arg)
       end
     }
@@ -762,6 +767,8 @@ module MidiHex
         @h<<[:controlChange,"10,#{pan}"]
       when /^\(wait:(\*)?(.*)\)/
         @h<<[:waitingtime,$1? $2.to_i : $2.to_f*@tbase]
+      when /^\(accent:([^)]*)\)/
+        @h<<[:accent,$1]
       when /^\(on:(.*)\)/
         i=$1
         @h<<[:soundOn,i]
