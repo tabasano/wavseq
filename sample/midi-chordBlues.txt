@@ -1,4 +1,4 @@
-BL:=:c7,===:f7,===:c7,=== ====    :f7,=== ====:c6,===:am7,===   :dm7,===:g7,===:c6,=:am7,=:dm7,=:g7,=
+BL:=:c7,===:f7,===:c7,=== ====    :f7,=== ====:c6,===:am7,==:aaug,   :dm7,===:g7,===:c6,=:a7,=:dm7,=:gaug,=
 RY:=[{_k!,_o!}/_c!r_o!//_o!2_s!//_c!r_o!/ {_k!,_o!}/_c!r_o!/_o!/_c!r_o!/]6
 BS:=ccecffcfccefgfec fffcffffcccbaacC dcbagGabccaadd-gg
 
@@ -7,14 +7,14 @@ BS:=ccecffcfccefgfec fffcffffcccbaacC dcbagGabccaadd-gg
 (accent:25)
 
     (p:sax)v100 
-||| (p:orga) v65
+||| (p:orga) v65 (g:66)
 ||| v65
-||| (p:bas)v80 - (g:66)
+||| (p:bas)v80 -- (g:66)
 /////////////////////////////////////////////////////////////////
 
 
     [  r/ede/~/~~c/  /fD^f/~~/~~D/  r/F~~^g/~/~fD/      /fD~/c~~
-    rf/ara/~      /~~A//~~c^d~A//a~Ag~^a~//~^ar/      rg/~c~//~Aa/  /fgD/~~/r~~a/
+    rf/ara/~      /~~A//~~c^d~A//a~Ag~^a~//~^ar/      rg/~c~//~Aa/  /fgD//~ef/~/r~~a/
     /~-dd/~~+/ar/   A~/~~a//gfg/ /~~e//~rr/rr      ~/crf/~/0.5:~Df//0.5:g2f2D2cD2cAgf/ + ]12
 ||| [$BL]12
 ||| [$RY]12

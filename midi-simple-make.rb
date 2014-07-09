@@ -407,51 +407,84 @@ module MidiHex
   def self.chordName c,l=false,accent=false
     c=~/(.)(.*)/
     type=$2
-    base=self.note2key($1)
-    ten=[0]
-    case type
-    when "power"
-      ten+=[7]
-    when "7"
-      ten+=[4,7,10]
-    when "m7"
-      ten+=[3,7,10]
-    when "maj7"
-      ten+=[4,7,11]
-    when "mmaj7"
-      ten+=[3,7,11]
-    when "maj" # no need
-      ten+=[4]
-    when "m"
-      ten+=[3]
-    when "6"
-      ten+=[4,9]
-    when "m6"
-      ten+=[3,9]
-    when "sus4"
-      ten+=[5]
-    when "aug" || "+"
-      ten+=[4,8]
-    when "dim"
-      ten+=[3,6,9]
-    when ""
-      ten+=[4]
+    same=(@lastchordName==c) if @lastchordName
+    if same
+      chord=@lastchord
+      firstbase=@firstchord[0]
+      if not (chord[0]-firstbase).abs<7
+        puts "# same chord auto inversion, too far" if $DEBUG && $debuglevel>1
+        if chord[0]>firstbase
+          chord=[chord.last-12]+chord[0..-2]
+        else
+          chord=chord[1..-1]+[chord.first+12]
+        end
+      end
     else
-      ten+=[4]
-      STDERR.puts "unknown chord type? #{type}"
+      @lastchordName=c
+      base=self.note2key($1)
+      ten=[0]
+      case type
+      when "power"
+        ten+=[7]
+      when "7"
+        ten+=[4,7,10]
+      when "m7"
+        ten+=[3,7,10]
+      when "maj7"
+        ten+=[4,7,11]
+      when "mmaj7"
+        ten+=[3,7,11]
+      when "maj" # no need
+        ten+=[4,7]
+      when "m"
+        ten+=[3,7]
+      when "6"
+        ten+=[4,7,9]
+      when "m6"
+        ten+=[3,7,9]
+      when "sus4"
+        ten+=[5,7]
+      when "aug" || "+"
+        ten+=[4,8]
+      when "dim"
+        ten+=[3,6,9]
+      when ""
+        ten+=[4,7]
+      else
+        STDERR.puts "unknown chord type? #{type}"
+      end
+      chord=ten.map{|i|base+i}
+      chord=self.invert(@lastchord,chord)
     end
-    c=ten.map{|i|base+i}
-    self.chord(c,l,accent)
+    @lastchord=chord
+    @firstchord=chord if !@firstchord
+    self.chord(chord,l,accent)
+  end
+  def self.invert last,c
+    last=c if ! last
+    root=last[0]
+    r=c.map{|i|
+        s=(root-i).abs%12
+        if s>6
+          s=12-s
+        end
+        [s,i]
+      }.sort_by{|s,i|s}[0][1]
+    n=(root-r)%12
+    r=n>6 ? root-(12-n) : root+n
+    cc=c.map{|i|(i-r)%12}.sort.map{|i|i+r}
+    cc
   end
   def self.chord c,l=false,accent=false
     r=[]
     c.each{|i|
       r<<self.soundOn(i)
     }
-    @waitingtime=l
+    @waitingtime,rest=self.byGate(l)
     c.each{|i|
       r<<self.soundOff(i)
     }
+    r<<self.rest(rest) if rest>0
     r*"\n"
   end
   def self.rest len=@tbase, ch=@ch
@@ -622,6 +655,7 @@ module MidiHex
   end
   def self.eventlist2str elist
     r=[]
+    # EventList : [func,args]  or [callonly, func,args] or others
     elist.each{|h|
       cmd,*arg=h
       r<<"# #{cmd} #{arg}"
