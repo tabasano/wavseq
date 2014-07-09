@@ -623,8 +623,7 @@ module MidiHex
   def self.eventlist2str elist
     r=[]
     elist.each{|h|
-      cmd=h[0]
-      arg=h[1..-1]
+      cmd,*arg=h
       r<<"# #{cmd} #{arg}"
       case cmd
       when :basekeyPlus
@@ -637,11 +636,8 @@ module MidiHex
         @ch=arg[0]
       when :waitingtime
         @waitingtime=arg[0]
-      when :accent
-        method(cmd).call(*arg)
-      when :setGateRate
-        method(cmd).call(*arg)
-      when :basekeySet
+      when :call
+        cmd,*arg=arg
         method(cmd).call(*arg)
       when :soundOff
         if arg[0]=="all"
@@ -714,7 +710,7 @@ module MidiHex
         tr*=-1 if $1=="-"
         @h<<[:basekeyPlus,tr]
       when /^\(key:reset\)/
-        @h<<[:basekeySet,@basekeyOrg]
+        @h<<[:call,:basekeySet,@basekeyOrg]
       when /^\(p:(([[:digit:]]+),)?(([[:digit:]]+)|([\?[:alnum:]]+)(,([[:digit:]]))?)\)/
         channel=$1 ? $2.to_i : @ch
         subNo=false
@@ -744,7 +740,7 @@ module MidiHex
       when /^v([0-9]+)/
         @h<<[:velocity,$1.to_i]
       when /^\(g:([0-9]+)\)/
-        @h<<[:setGateRate,$1.to_i]
+        @h<<[:call,:setGateRate,$1.to_i]
       when /^\(tempo:reset\)/
         @h<<[:tempo,@bpmStart]
       when /^\(ch:(.*)\)/
@@ -768,7 +764,7 @@ module MidiHex
       when /^\(wait:(\*)?(.*)\)/
         @h<<[:waitingtime,$1? $2.to_i : $2.to_f*@tbase]
       when /^\(accent:([^)]*)\)/
-        @h<<[:accent,$1]
+        @h<<[:call,:accent,$1]
       when /^\(on:(.*)\)/
         i=$1
         @h<<[:soundOn,i]
@@ -798,9 +794,9 @@ module MidiHex
         @bpm=@bpm*rate
         @h<<[:tempo,@bpm]
       when "-"
-        @h<<[:basekeySet,"-"]
+        @h<<[:call,:basekeySet,"-"]
       when "+"
-        @h<<[:basekeySet,"+"]
+        @h<<[:call,:basekeySet,"+"]
       when /^\*?[0-9]+/
         # (i.to_i-1).times{@h<<@h[-1]}
       when "^"
