@@ -404,20 +404,24 @@ module MidiHex
     n=@lastnote
     self.notekey(n,l,accent)
   end
+  def self.shiftChord chord, base, limit=6
+    if chord[0]>base+limit
+      chord=[chord.last-12]+chord[0..-2]
+    elsif chord[0]<base-limit
+      chord=chord[1..-1]+[chord.first+12]
+    end
+    chord
+  end
   def self.chordName c,l=false,accent=false
     c=~/(.)(.*)/
     type=$2
+    same=false
     same=(@lastchordName==c) if @lastchordName
     if same
       chord=@lastchord
-      firstbase=@firstchord[0]
-      if not (chord[0]-firstbase).abs<7
+      if not (chord[0]-@firstchordbase).abs<7
         puts "# same chord auto inversion, too far" if $DEBUG && $debuglevel>1
-        if chord[0]>firstbase
-          chord=[chord.last-12]+chord[0..-2]
-        else
-          chord=chord[1..-1]+[chord.first+12]
-        end
+        chord=self.shiftChord(chord,@firstchordbase)
       end
     else
       @lastchordName=c
@@ -455,9 +459,16 @@ module MidiHex
       end
       chord=ten.map{|i|base+i}
       chord=self.invert(@lastchord,chord)
+      if @firstchordbase && ! ((chord[0]-@firstchordbase).abs<12)
+        puts "# chord auto inversion, too far." if $DEBUG && $debuglevel>1
+        chord=self.shiftChord(chord,@firstchordbase)
+      end
     end
     @lastchord=chord
-    @firstchord=chord if !@firstchord
+    if ! @firstchord
+      @firstchord=chord
+      @firstchordbase=@firstchord[0]
+    end
     self.chord(chord,l,accent)
   end
   def self.invert last,c
