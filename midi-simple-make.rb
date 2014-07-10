@@ -293,6 +293,7 @@ module MidiHex
     @velocityOrg=vel
     @accentPlus=10
     @basekey=0x3C
+    @chordCenter=@chordCenterOrg=@basekey
     @basekeyRythm=@basekeyOrg=@basekey
     @prepareSet=[@tbase,@ch,@velocity,@basekey,@gateRate]
     @chmax=15
@@ -679,6 +680,24 @@ module MidiHex
       @basekey=d
     end
   end
+  def self.chordCenter c
+    case c
+    when "reset"
+      @chordCenter=@chordCenterOrg
+    when "+"
+      @chordCenter-=6
+    when "-"
+      @chordCenter+=6
+    when /^+(.+)/
+      @chordCenter+=$1.to_i
+    when /^-(.+)/
+      @chordCenter-=$1.to_i
+    else
+      @chordCenter=c.to_i
+    end
+    @chordCenter=[[0,@chordCenter].max,0x7f].min
+    @firstchordbase=@chordCenter
+  end
   def self.eventlist2str elist
     r=[]
     # EventList : [func,args]  or [callonly, func,args] or others
@@ -830,12 +849,14 @@ module MidiHex
         @h<<[:soundOn,i]
       when /^\(off:(.*)\)/
         @h<<[:soundOff,$1]
+      when /^\(chordcenter:(.*)\)/
+        @h<<[:call,:chordCenter,$1]
       when /^\((chord|C):(.*)\)/
-          chord=$2.split.join.split(",").map{|i|self.note2key(i)}
-          wait<<[:chord,chord]
+        chord=$2.split.join.split(",").map{|i|self.note2key(i)}
+        wait<<[:chord,chord]
       when /^\(tempo:(.*)\)/
-        bpm=$1.to_i
-        @h<<[:tempo,bpm] if @bpm>0
+        @bpm=$1.to_i
+        @h<<[:tempo,@bpm] if @bpm>0
       when /^\(x:(.*)\)/
         key=$1.to_i
         wait<<[:rawsound,key]
