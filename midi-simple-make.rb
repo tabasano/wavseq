@@ -126,6 +126,23 @@ class String
     tracks.keys.sort.map{|k|tracks[k]*";"}
   end
 end
+class Array
+  def rotatePlus
+    self[1..-1]+[self.first+12]
+  end
+  def rotateMinus
+    [self.last-12]+self[0..-2]
+  end
+  def orotate n=1
+    r=self
+    if n>0
+      n.times{r=r.rotatePlus}
+    else
+      (-n).times{r=r.rotateMinus}
+    end
+    r
+  end
+end
 def trackSizeHex d
   d=d.trim.split.join
   i=(d.size+8)/2
@@ -405,11 +422,9 @@ module MidiHex
     self.notekey(n,l,accent)
   end
   def self.shiftChord chord, base, limit=6
-    if chord[0]>base+limit
-      chord=[chord.last-12]+chord[0..-2]
-    elsif chord[0]<base-limit
-      chord=chord[1..-1]+[chord.first+12]
-    end
+    octave=12
+    chord=chord.orotate(-1) while chord[0]>base+limit
+    chord=chord.orotate(1) while chord[0]<base-limit
     chord
   end
   def self.chordName c,l=false,accent=false
