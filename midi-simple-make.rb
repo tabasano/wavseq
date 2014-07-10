@@ -429,8 +429,10 @@ module MidiHex
     chord
   end
   def self.chordName c,l=false,accent=false
-    c=~/(.)(.*)/
+    c=~/(.)([^(]*)(\((.*)\))?/
+    root=$1
     type=$2
+    subtype=$4
     same=false
     same=(@lastchordName==c) if @lastchordName
     if same
@@ -441,7 +443,7 @@ module MidiHex
       end
     else
       @lastchordName=c
-      base=self.note2key($1)
+      base=self.note2key(root)
       ten=[0]
       case type
       when "power"
@@ -467,13 +469,40 @@ module MidiHex
       when "aug" || "+"
         ten+=[4,8]
       when "dim"
+        ten+=[3,6]
+      when "dim7"
         ten+=[3,6,9]
       when ""
         ten+=[4,7]
       else
         STDERR.puts "unknown chord type? #{type}"
       end
-      chord=ten.map{|i|base+i}
+      if subtype
+        tention=subtype.split(',')
+        tention.each{|i|
+          case i
+          when "+5"
+            ten=ten-[7]+[8]
+          when "-5"
+            ten=ten-[7]+[6]
+          when "9"||"add9"
+            ten=ten+[14]
+          when "+9"
+            ten=ten+[15]
+          when "-9"
+            ten=ten+[13]
+          when "+11"
+            ten=ten+[6]
+          when "13"
+            ten=ten+[9]
+          when "-13"
+            ten=ten+[8]
+          end
+        }
+      end
+      ten=ten.sort
+      p "#{root} #{ten*','}" if $DEBUG
+      chord=ten.sort.map{|i|base+i}
       chord=self.invert(@lastchord,chord)
       if @firstchordbase && ! ((chord[0]-@firstchordbase).abs<12)
         puts "# chord auto inversion, too far." if $DEBUG && $debuglevel>1
@@ -741,7 +770,7 @@ module MidiHex
     @frestc=0
     @nowtime=0
     accent=false
-    cmd=rundata.scan(/&\([^)]+\)|:[^,]+,|\([^:]*:[^)]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:]]+\.[[:digit:]]+|\*?[[:digit:]]+|[-+[:alpha:]]|\^|./)
+    cmd=rundata.scan(/&\([^)]+\)|:[^\(,]+\([^\)]+\),|:[^,]+,|\([^:]*:[^)]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:]]+\.[[:digit:]]+|\*?[[:digit:]]+|[-+[:alpha:]]|\^|./)
     cmd<<" " # dummy
     p "make start: ",cmd if $DEBUG
     cmd.each{|i|
@@ -807,7 +836,7 @@ module MidiHex
       when /^&\((.+)\)/
         raw=rawHexPart($1)
         @h<<[:raw,raw]
-      when /^:([^,]+),/
+      when /^:([^\(,]+(\([^\)]+\))?),/
         wait<<[:chordName,$1]
       when /^_(([[:digit:]]+)|([[:alnum:]]+))!/
         if $2
@@ -1029,7 +1058,7 @@ def multiplet d,tbase
   else
     total=tbase*rate
   end
-  r=i.scan(/\^?\(x:[^\]]+\)|\^?\(chord:[^)]+\)|\^?\(C:[^)]+\)|\^?:[^,]+,|[[:digit:]\.]+|\^?_[^!]+!|[-+^]?./)
+  r=i.scan(/\^?\(x:[^\]]+\)|\^?\(chord:[^)]+\)|\^?\(C:[^)]+\)|\^?:[^\(,]+\([^\)]+\),|\^?:[^,]+,|[[:digit:]\.]+|\^?_[^!]+!|[-+^]?./)
   wait=[]
   notes=[]
   r.each{|i|
@@ -1107,7 +1136,7 @@ def tie d,tbase
   res=[]
   # if no length word after '~' length is 1
   d.gsub!(/~([^*[:digit:]])?/){$1 ? "~1#{$1}" : $&} while d=~/~[^*[:digit:]]/
-  li=d.scan(/\$\{[^\}]+\}|\$[^ ;\$_*^+-]+|\([^)]*\)|:[^,]+,|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:].]+|~|./)
+  li=d.scan(/\$\{[^\}]+\}|\$[^ ;\$_*^+-]+|\([^)]*\)|:[^\(,]+\([^)]+\),|:[^,]+,|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:].]+|~|./)
   li.each{|i|
     case i
     when /^(\*)?([[:digit:].]+)/
