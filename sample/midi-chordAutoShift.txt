@@ -1,0 +1,12 @@
+(tempo:200)
+
+[:c,:fmaj7,:am,:cm,:g7,:dm7,:c,:d,:a,:em,:c,:cm,:g,:cmaj7,(chordcenter:+24)]4
+(chordcenter:reset)
+[:c,:fmaj7,:am,:cm,:g7,:dm7,:c,:d,:a,:em,:c,:cm,:g,:cmaj7,(chordcenter:-24)]4
+(chordcenter:reset)
+[:c,:fmaj7,:am,:cm,:g7,:dm7,>110:c,:d,:a,:em,:c,:cm,:g,:cmaj7,(chordcenter:+5)>110]10
+
+|||
+
+--(p:bas)
+[cfa-c+gdcdCeccgc]12 
