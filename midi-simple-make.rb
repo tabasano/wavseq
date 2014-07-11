@@ -291,6 +291,8 @@ module MidiHex
     @ch=0
     @velocity=vel
     @velocityOrg=vel
+    @preGate=[]
+    @preVelocity=[]
     @accentPlus=10
     @basekey=0x3C
     @chordCenter=@chordCenterOrg=@basekey
@@ -329,8 +331,8 @@ module MidiHex
       #{tbase}      # 1 拍の分解能 #{@tbase}
     "
   end
-  def self.byGate len
-    l=(len*1.0*@gateRate/100).to_i
+  def self.byGate len,g=@gateRate
+    l=(len*1.0*g/100).to_i
     r=len-l
     [l,r]
   end
@@ -367,6 +369,9 @@ module MidiHex
     "
   end
   def self.oneNote len=@tbase,key=@basekey,velocity=@velocity,ch=@ch
+    velocity=@preVelocity.shift if @preVelocity.size>0
+    gate=@gateRate
+    gate=@preGate.shift if @preGate.size>0
     ch=[ch,0x0f].min
     velocity=[velocity,0x7f].min
     @key=[key,0x7f].min
@@ -376,7 +381,7 @@ module MidiHex
     start=@waitingtime
     @waitingtime=0
     deltaStart=varlenHex(start)
-    slen,r=self.byGate(len)
+    slen,r=self.byGate(len,gate)
     deltaS=varlenHex(slen)
     deltaR=varlenHex(r)
     @nowtime+=len
@@ -727,6 +732,23 @@ module MidiHex
     @chordCenter=[[0,@chordCenter].max,0x7f].min
     @firstchordbase=@chordCenter
   end
+  def self.preVelocity v
+    @preVelocity=v.map{|i|
+      i.size>0 ? i.to_i : @velocity
+    }
+  end
+  def self.preGate v
+    @preGate=v.map{|i|
+      case i
+      when ""
+        @gateRate
+      when "-"
+        @gateRate*0.5
+      else
+        i.to_i
+      end
+    }
+  end
   def self.eventlist2str elist
     r=[]
     # EventList : [func,args]  or [callonly, func,args] or others
@@ -770,7 +792,7 @@ module MidiHex
     @frestc=0
     @nowtime=0
     accent=false
-    cmd=rundata.scan(/&\([^)]+\)|:[^\(,]+\([^\)]+\),|:[^,]+,|\([^:]*:[^)]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:]]+\.[[:digit:]]+|\*?[[:digit:]]+|[-+[:alpha:]]|\^|./)
+    cmd=rundata.scan(/&\([^)]+\)|:[^\(,]+\([^\)\(]+\),|:[^,]+,|\([^:]*:[^)\(]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:]]+\.[[:digit:]]+|\*?[[:digit:]]+|[-+[:alpha:]]|\^|./)
     cmd<<" " # dummy
     p "make start: ",cmd if $DEBUG
     cmd.each{|i|
@@ -817,6 +839,12 @@ module MidiHex
         tr=$2.to_i
         tr*=-1 if $1=="-"
         @h<<[:basekeyPlus,tr]
+      when /^\(V:(.*)\)/
+        vs=$1.split(",")
+        @h<<[:call,:preVelocity,vs]
+      when /^\(G:(.*)\)/
+        gs=$1.split(",")
+        @h<<[:call,:preGate,gs]
       when /^\(key:reset\)/
         @h<<[:call,:basekeySet,@basekeyOrg]
       when /^\(p:(([[:digit:]]+),)?(([[:digit:]]+)|([\?[:alnum:]]+)(,([[:digit:]]))?)\)/
@@ -1143,7 +1171,7 @@ def tie d,tbase
   res=[]
   # if no length word after '~' length is 1
   d.gsub!(/~([^*[:digit:]])?/){$1 ? "~1#{$1}" : $&} while d=~/~[^*[:digit:]]/
-  li=d.scan(/\$\{[^\}]+\}|\$[^ ;\$_*^+-]+|\([^)]*\)|:[^\(,]+\([^)]+\),|:[^,]+,|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:].]+|~|./)
+  li=d.scan(/\$\{[^\}]+\}|\$[^ ;\$_*^+-]+|\([^)\(]*\)|:[^\(,]+\([^)]+\),|:[^,]+,|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:].]+|\(V:[^)]+\)|\(G:[^)]+\)|~|./)
   li.each{|i|
     case i
     when /^(\*)?([[:digit:].]+)/
@@ -1154,22 +1182,37 @@ def tie d,tbase
         res<<[:tick,tick]
       end
     when "~"
-       res<<[:tick,tbase] if res[-1][0]==:e
+      res<<[:tick,tbase] if res[-1][0]==:e
+    when /^\(V:[^)]+|^\(G:[^)]+/
+      res<<[:modifier,i]
     else
       res<<[:e,i]
     end
   }
   line=""
   frest=0
+  (res.size-1).times{|i|
+    next if res[i][0]!=:modifier
+    next if res[i+1][0]!=:tick
+    # if tick after modifier, it must be by tie mark
+    n=i-1
+    n-=1 while res[n][0]!=:tick
+    res[n][1]+=res[i+1][1]
+    res[i+1][0]=:omit
+  }
   res.each{|mark,data|
     case mark
-    when :e
+    when :e , :modifier
       line<<data
     when :tick
       tick=data.to_i
       frest+=data-tick
       (tick+=frest;puts "frest:#{frest}" if $DEBUG && $debuglevel>1;frest=0) if frest>1
       line<<"*#{tick}"
+    when :omit
+      puts "# shift tick data by tie part" if $DEBUG
+    else
+      STDERR.puts "tie?"
     end
   }
   p res,line if $DEBUG && $debuglevel>1
