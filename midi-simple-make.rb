@@ -1104,8 +1104,12 @@ def macroDef data
   s=data.scan(/macro +[^ ;]+ *:=[^;]+|[^ ;]+ *:=[^;]+|./)
   data=s.map{|i|
     case i
-    when /(macro +)?( *[^ ;]+) *:=([^;]+)/
-      macro[$2]=$3
+    when /(macro +)? *([^ ;]+) *:=([^;]+)/
+      r=$3
+      key=$2
+      chord=/([^$]|^)\{([^\{\}]*)\}/
+      r.gsub!(chord){"#{$1}(C:#{$2})"} while r=~chord
+      macro[key]=r
       ""
     else
       i
@@ -1129,8 +1133,11 @@ def nestsearch d,macro
   }
   b=(macro.keys-r).size<macro.keys.size
   c=r.member?(true)
-  p "nest? #{a} #{b} #{c}",r,macro if $DEBUG
-  a||b||c
+  chord=false
+  d=~/([^$]|^)\{([^\}]*)\}/
+  chord=true if $&
+  p "nest? #{a} #{b} #{c} #{chord}",r,macro if $DEBUG
+  a||b||c||chord
 end
 def tie d,tbase
   res=[]
@@ -1172,11 +1179,14 @@ end
 def repCalc line,macro,tbase
   rpt=/\[([^\[\]]*)\] *([[:digit:]]+)/
   line.gsub!(rpt){$1*$2.to_i} while line=~rpt
-  chord=/([^$]|^)\{([^\}]*)\}/
+  chord=/([^$]|^)\{([^\{\}]*)\}/
   line.gsub!(chord){"#{$1}(C:#{$2})"} while line=~chord
-  a=line.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;\$_*^+-]+|./)
+  a=line.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;\$_*^,\)\(+-\/]+|./)
   a=a.map{|i|
     if i=~/^\/[^\/]+\//
+      if i=~/\$/
+        i=i.gsub(/\$\{([^ \{\}]+)\}/){macro[$1]}.gsub(/\$([^ ;\$_*^,\)\(+-\/]+)/){macro[$1]}
+      end
       multiplet(i,tbase)
     else
       i
