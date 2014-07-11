@@ -43,6 +43,8 @@ syntax: ...( will be changed time after time)
     {64}     =tone '64' by absolute tone number. ='(x:64)'
     {c,e,g}    =multi tone. use similar way to tone 'a' etc. = '(on:c)(on:e)(on:g)(wait:1)(off:c)(off:e)(off:g)'
     :cmaj7,       =use chord name. the first letter is tone name 'c'. so using capital one is with sharp.
+    (V:,,110)  =preceding modifier velocities. if next notes are 'abc' ,third tone 'c' is with velocity 110.
+    (G:,,-)    =preceding modifier gate rates. if next notes are 'abc' ,third tone 'c' is with gate rate shorter.
     ||| = track separater
     /// = page separater
     .DC .DS .toCODA .CODA .FINE =coda mark etc.
@@ -722,7 +724,7 @@ module MidiHex
       @chordCenter-=6
     when "-"
       @chordCenter+=6
-    when /^+(.+)/
+    when /^\+(.+)/
       @chordCenter+=$1.to_i
     when /^-(.+)/
       @chordCenter-=$1.to_i
