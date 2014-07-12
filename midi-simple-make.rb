@@ -1328,7 +1328,25 @@ def loadCalc d
     [:seq,rawHexPart(d)]
   end
 end
-
+def modifier t
+  t.scan(/\(V:[^)]+\)|\(G:[^)]+\)|./).map{|i|
+    case i
+    when /^\((V|G):([^)]+)\)/
+      mode=$1
+      n=0
+      v=$2.split(/,/).map{|i|i.split(/ +/)-[""]}.map{|i|
+        i=["o"] if i==[]
+        i.map{|c|
+          c=c.split('') if c=~/^[-\+o]+$/
+          c
+        }
+      }
+      "(#{mode}:#{v*","})"
+    else
+      i
+    end
+  }*""
+end
 data=File.read(infile).trim(" ;") if infile && File.exist?(infile)
 
 (hint;exit) if (! data || ! outfile ) && ! $test
@@ -1362,6 +1380,7 @@ p tracks if $DEBUG && $debuglevel>1
 tracks.map{|track|
     m,track=macroDef(track)
     macro.merge!(m)
+    track=modifier(track)
     repCalc(track,macro,tbase)
   }.each{|t|
     r=loadCalc(t)
