@@ -43,7 +43,7 @@ syntax: ...( will be changed time after time)
     {64}     =tone '64' by absolute tone number. ='(x:64)'
     {c,e,g}    =multi tone. use similar way to tone 'a' etc. = '(on:c)(on:e)(on:g)(wait:1)(off:c)(off:e)(off:g)'
     :cmaj7,       =use chord name. the first letter is tone name 'c'. so using capital one is with sharp.
-    (V:,,110)  =preceding modifier velocities. if next notes are 'abc' ,third tone 'c' is with velocity 110.
+    (V:o,o,110)  =preceding modifier velocities. if next notes are 'abc' ,third tone 'c' is with velocity 110. a blank or 'o' mean default value.
     (G:,,-)    =preceding modifier gate rates. if next notes are 'abc' ,third tone 'c' is with gate rate shorter.
     ||| = track separater
     /// = page separater
@@ -334,13 +334,14 @@ module MidiHex
     "
   end
   def self.byGate len,g=@gateRate
+    g=@preGate.shift if @preGate.size>0
     l=(len*1.0*g/100).to_i
     r=len-l
     [l,r]
   end
   def self.soundOn key=@basekey,velocity=@velocity,ch=@ch
+    key=self.note2key(key) if key.class==String
     key,ch=key if key.class==Array
-    key=self.note2key(key) if key.class==String 
     ch=[ch,0x0f].min
     velocity=[velocity,0x7f].min
     @key=[key,0x7f].min
@@ -356,8 +357,8 @@ module MidiHex
     "
   end
   def self.soundOff key=@basekey,ch=@ch
+    key=self.note2key(key) if key.class==String
     key,ch=key if key.class==Array
-    key=self.note2key(key) if key.class==String 
     ch=[ch,0x0f].min
     @key=[key,0x7f].min
     @onlist-=[@key]
@@ -373,7 +374,6 @@ module MidiHex
   def self.oneNote len=@tbase,key=@basekey,velocity=@velocity,ch=@ch
     velocity=@preVelocity.shift if @preVelocity.size>0
     gate=@gateRate
-    gate=@preGate.shift if @preGate.size>0
     ch=[ch,0x0f].min
     velocity=[velocity,0x7f].min
     @key=[key,0x7f].min
@@ -736,13 +736,22 @@ module MidiHex
   end
   def self.preVelocity v
     @preVelocity=v.map{|i|
-      i.size>0 ? i.to_i : @velocity
+      case i
+      when "o",""
+        @velocity
+      when "-"
+        @velocity-10
+      when "+"
+        @velocity+10
+      else
+        i.to_i
+      end
     }
   end
   def self.preGate v
     @preGate=v.map{|i|
       case i
-      when ""
+      when "o",""
         @gateRate
       when "-"
         @gateRate*0.5
@@ -911,7 +920,7 @@ module MidiHex
       when /^\(chordcenter:(.*)\)/
         @h<<[:call,:chordCenter,$1]
       when /^\((chord|C):(.*)\)/
-        chord=$2.split.join.split(",").map{|i|self.note2key(i)}
+        chord=$2.split.join.split(",") # .map{|i|self.note2key(i)}
         wait<<[:chord,chord]
       when /^\(tempo:(.*)\)/
         @bpm=$1.to_i
@@ -1088,14 +1097,18 @@ def multiplet d,tbase
   else
     total=tbase*rate
   end
-  r=i.scan(/\^?\(x:[^\]]+\)|\^?\(chord:[^)]+\)|\^?\(C:[^)]+\)|\^?:[^\(,]+\([^\)]+\),|\^?:[^,]+,|[[:digit:]\.]+|\^?_[^!]+!|[-+^]?./)
+  r=i.scan(/\(x:[^\]]+\)|\(chord:[^)]+\)|\(C:[^)]+\)|:[^\(,]+\([^\)]+\),|:[^,]+,|[[:digit:]\.]+|_[^!]+!|~|[-+^]|./)
   wait=[]
   notes=[]
+  mod=[]
   r.each{|i|
     case i
+    when "-","+","^"
+      mod<<i
     when /\((x|C|chord):[^\)]+\)|^\^?:[^,]+,/
       wait<<1
-      notes<<i
+      notes<<"#{mod*""}#{i}"
+      mod=[]
     when /^[[:digit:]]+/
       wait[-1]*=i.to_f
     when "="
@@ -1104,7 +1117,8 @@ def multiplet d,tbase
     when " "
     else
       wait<<1
-      notes<<i
+      notes<<"#{mod*""}#{i}"
+      mod=[]
     end
   }
   sum=wait.inject{|s,i|s+i}
