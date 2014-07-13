@@ -1302,7 +1302,7 @@ def repCalc line,macro,tbase
   a=a.map{|i|
     if i=~/^\/[^\/]+\//
       if i=~/\$/
-        i=i.gsub(/\$\{([^ \{\}]+)\}/){macro[$1]}.gsub(/\$([^ ;\$_*^,\)\(+-`'\/]+)/){macro[$1]}
+        i=i.gsub(/\$\{([^ \{\}]+)\}/){macro[$1]}.gsub(/\$([^ ;\$_*^,\)\(`'\/+-]+)/){macro[$1]}
       end
       multiplet(i,tbase)
     else
