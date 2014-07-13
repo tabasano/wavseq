@@ -26,8 +26,9 @@ syntax: ...( will be changed time after time)
     [...] =repeat 2 times for first time
     [...]3 =3 times of inside block []
     /2:abcd/    =(triplet etc.) notes 'abcd' in 2 beats measure
+    /:abc/      =triplet 'a''b''c' in one beat.
     /*120:abcd/ = notes 'abcd' in 120 ticks measure. now, default measure is 480 ticks per one beat.
-    /cd/ ~2e /~fga/    =(tie) each length : c 0.5 d 0.5+2 e 1+0.25 f 0.25 g 0.25 a 0.25
+    /:cd/ ~2e /:~fga/    =(tie) each length : c 0.5 d 0.5+2 e 1+0.25 f 0.25 g 0.25 a 0.25
                         after '~' length needed. if not length 1 is automaticaly inserted.
                         'c~~~' = 'c4'
     =           = same note and length as the previous note. 'c2c2c2c2' = 'c2==='
@@ -45,6 +46,7 @@ syntax: ...( will be changed time after time)
     :cmaj7,       =use chord name. the first letter is tone name 'c'. so using capital one is with sharp.
     (V:o,o,110)  =preceding modifier velocities. if next notes are 'abc' ,third tone 'c' is with velocity 110. a blank or 'o' mean default value.
     (G:,,-)    =preceding modifier gate rates. if next notes are 'abc' ,third tone 'c' is with gate rate shorter.
+               new preceding modifiers cancel old rest preceding values.
     ||| = track separater
     /// = page separater
     .DC .DS .toCODA .CODA .FINE =coda mark etc.
@@ -1087,7 +1089,7 @@ module MidiHex
   end
 end
 def multiplet d,tbase
-  d=~/\/((\*)?([[:digit:].]+):)?(.*)\//
+  d=~/\/((\*)?([[:digit:].]+)?:)?(.*)\//
   tickmode=$2
   i=$4
   rate=$3 ? $3.to_f : 1

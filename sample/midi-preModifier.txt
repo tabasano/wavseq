@@ -16,7 +16,7 @@ BS:=ccecffcfccefgfec fffcffffcccbaacC dcbagGabccaadd-gg
    [
     (V:  o o 110  50,80,40,110 115  60  90 100,50   110,80 90)
     (G:  o - o    -  o -o     30     o   o    o-        o-o)
-     r/ede/~/~~c/  /fD^f/~~/~~D/  r/F~~^g/~/~fD/      /fD~/c~~
+     r/:ede/~/:~~c/  /:fD^f/~~/:~~D/  r/:F~~^g/~/:~fD/      /:fD~/c~~
 
 ||| [$BL]12
 ||| [$RY]12
@@ -24,12 +24,12 @@ BS:=ccecffcfccefgfec fffcffffcccbaacC dcbagGabccaadd-gg
 ///////////////////////////////////////////////////////////////
    (V: o,80,110      90,  o oo  o  oo,o     110,       o  o    oo    oo 100 o,o    o  )
    (G: o oo           o   o oo  o  oo o       -,)
-    rf/ara/~      /~~A//~~c^d~A//a~Ag~^a~//~^ar/      rg/~c~//~Aa/  /fgD//~ef/~/r~~a/
+    rf/:ara/~      /:~~A//:~~c^d~A//:a~Ag~^a~//:~^ar/      rg/:~c~//:~Aa/  /:fgD//:~ef/~/:r~~a/
 
 ///////////////////////////////////////////////////////////////
 
    (V:  o, o,    o,  100,o , o,o,o,    100,90, o             110,  o , o,o,  110,110, )
    (G:  o  o     o     o o   o o o      o  o,80,               -,  o   o - )
-    /~-dd/~~+/ar/   A~/~~a//gfg/ /~~e//~r2+d{e,a,+e}/rr      ~/-crf/~/0.51:~Df//0.49:g2f2D2cD2cAgf/ + ]12
+    /:~-dd/~~+/:ar/   A~/:~~a//:gfg/ /:~~e//:~r2+d{e,a,+e}/rr      ~/:-crf/~/0.51:~Df//0.49:g2f2D2cD2cAgf/ + ]12
 
 
