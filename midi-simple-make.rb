@@ -47,6 +47,9 @@ syntax: ...( will be changed time after time)
     (V:o,o,110)  =preceding modifier velocities. if next notes are 'abc' ,third tone 'c' is with velocity 110. a blank or 'o' mean default value.
     (G:,,-)    =preceding modifier gate rates. if next notes are 'abc' ,third tone 'c' is with gate rate shorter.
                new preceding modifiers cancel old rest preceding values.
+    ^          =accent
+    `          =too fast note, play ahead
+    '          =too late note, lay back
     ||| = track separater
     /// = page separater
     .DC .DS .toCODA .CODA .FINE =coda mark etc.
@@ -353,10 +356,9 @@ module MidiHex
     vel=format("%02x",velocity)
     start=@waitingtime
     @waitingtime=0
-    deltaStart=varlenHex(start)
-    str="
-      #{deltaStart} 9#{ch} #{key} #{vel} # #{start}後, sound on only , note #{@key} velocity #{velocity}
-    "
+    r=[:o]
+    r<<[:e,start," 9#{ch} #{key} #{vel} # #{start}後, sound on only , note #{@key} velocity #{velocity}\n"]
+    r
   end
   def self.soundOff key=@basekey,ch=@ch
     key=self.note2key(key) if key.class==String
@@ -368,12 +370,11 @@ module MidiHex
     ch=format("%01x",ch)
     start=@waitingtime
     @waitingtime=0
-    delta=varlenHex(start)
-    str="
-      #{delta} 8#{ch} #{key} 00 # #{start} sound off only [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]
-    "
+    r=[:off]
+    r<<[:end,start," 8#{ch} #{key} 00 # #{start} sound off only [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]\n"]
+    r
   end
-  def self.oneNote len=@tbase,key=@basekey,velocity=@velocity,ch=@ch
+  def self.oneNote len=@tbase,key=@basekey,velocity=@velocity,ch=@ch,ahead=0
     velocity=@preVelocity.shift if @preVelocity.size>0
     gate=@gateRate
     ch=[ch,0x0f].min
@@ -385,25 +386,20 @@ module MidiHex
     start=@waitingtime
     @waitingtime=0
     deltaStart=varlenHex(start)
-    slen,r=self.byGate(len,gate)
-    deltaS=varlenHex(slen)
-    deltaR=varlenHex(r)
+    slen,rest=self.byGate(len,gate)
     @nowtime+=len
-    str="
-      #{deltaStart} 9#{ch} #{key} #{vel} # #{start}後, soundオン note #{@key} velocity #{velocity}
-      #{deltaS} 8#{ch} #{key} 00 # #{slen}(gate:#{@gateRate})- #{len.to_i}(#{len.round(2)})tick後, soundオフ [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]
-    "
-    rstr=r==0 ? "" : "
-      #{deltaR} 8#{ch} #{key} 00  # #{r} len-gate
-    "
-    str+rstr
+    r=[[:ahead,ahead]]
+    r<<[:e,start," 9#{ch} #{key} #{vel} # #{start}後, soundオン note #{@key} velocity #{velocity}\n"]
+    r<<[:e,slen," 8#{ch} #{key} 00 # #{slen}(gate:#{@gateRate})- #{len.to_i}(#{len.round(2)})tick後, soundオフ [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]\n"]
+    r<<[:end,rest," 8#{ch} #{key} 00  # #{r} len-gate\n"]
+    r
   end
-  def self.byKey key,len,accent=false
+  def self.byKey key,len,accent=false,ahead=0
     vel=@velocity
     vel+=@accentPlus
-    self.oneNote(len,key,vel)
+    self.oneNote(len,key,vel,ahead)
   end
-  def self.notekey key,length=false,accent=false
+  def self.notekey key,length=false,accent=false,ahead=0
     len,velocity,ch=[@tbase,@velocity,@ch]
     velocity+=@accentPlus if accent
     len=length if length
@@ -412,14 +408,14 @@ module MidiHex
       key,ch=key
     end
     key=key+@basekey
-    self.oneNote(len,key,velocity,ch)
+    self.oneNote(len,key,velocity,ch,ahead)
   end
-  def self.percussionNote key,len=@tbase,accent=false
+  def self.percussionNote key,len=@tbase,accent=false,ahead=0
     vel=@velocity
     vel+=@accentPlus if accent
-    self.oneNote(len,key,vel,@rythmChannel)
+    self.oneNote(len,key,vel,@rythmChannel,ahead)
   end
-  def self.notes c,l=false,accent=false
+  def self.notes c,l=false,accent=false,ahead=0
     n=@notes[c]
     if @lastnote
       n+=12 if @lastnote-n>6
@@ -429,7 +425,7 @@ module MidiHex
     (@basekey+=12;@lastnote-=12) if n>=12
     (@basekey-=12;@lastnote+=12) if n<0
     n=@lastnote
-    self.notekey(n,l,accent)
+    self.notekey(n,l,accent,ahead)
   end
   def self.shiftChord chord, base, limit=6
     octave=12
@@ -437,7 +433,7 @@ module MidiHex
     chord=chord.orotate(1) while chord[0]<base-limit
     chord
   end
-  def self.chordName c,l=false,accent=false
+  def self.chordName c,l=false,accent=false,ahead=0
     c=~/(.)([^(]*)(\((.*)\))?/
     root=$1
     type=$2
@@ -523,7 +519,7 @@ module MidiHex
       @firstchord=chord
       @firstchordbase=@firstchord[0]
     end
-    self.chord(chord,l,accent)
+    self.chord(chord,l,accent,ahead)
   end
   def self.invert last,c
     last=c if ! last
@@ -540,25 +536,28 @@ module MidiHex
     cc=c.map{|i|(i-r)%12}.sort.map{|i|i+r}
     cc
   end
-  def self.chord c,l=false,accent=false
+  def self.chord c,l=false,accent=false,ahead=0
     r=[]
     c.each{|i|
-      r<<self.soundOn(i)
+      r+=self.soundOn(i)
     }
     @waitingtime,rest=self.byGate(l)
     c.each{|i|
-      r<<self.soundOff(i)
+      r+=self.soundOff(i)
     }
-    r<<self.rest(rest) if rest>0
-    r*"\n"
+    r+=self.rest(rest) if rest>0
+    r
   end
-  def self.rest len=@tbase, ch=@ch
-    delta=varlenHex(len)
+  def self.rest len=@tbase,ch=@ch
     chx=format("%01x",ch)
     @nowtime+=len
-    "
-      #{delta}  8#{chx} 3C 00 # #{len.to_i}(#{len.round(2)})tick後, オフ:ch#{ch}, key:3C
-    "
+    r=[]
+    r<<[:end,len," 8#{chx} 3C 00 # rest #{len.to_i}(#{len.round(2)})tick後, オフ:ch#{ch}, key:3C\n"]
+    r
+  end
+  def self.restHex len=@tbase,ch=@ch
+    r=self.rest(len,ch).flatten
+    varlenHex(r[1])+r[2]
   end
   def self.tempo bpm, len=0
     delta=varlenHex(len)
@@ -767,7 +766,7 @@ module MidiHex
     # EventList : [func,args]  or [callonly, func,args] or others
     elist.each{|h|
       cmd,*arg=h
-      r<<"# #{cmd} #{arg}"
+      r<<[:c,"# #{cmd} #{arg}"]
       case cmd
       when :basekeyPlus
         @basekey=arg[0]
@@ -794,7 +793,55 @@ module MidiHex
         r<<method(cmd).call(*arg)
       end
     }
-    r
+    rr=[]
+    ahead=0
+    after=0
+    r.each{|e|
+      if e.class==String
+        rr<<e
+      else
+        e.each{|i|
+          case i
+          when Symbol
+            i
+          when Array
+            case i[0]
+            when :ahead
+              ahead=i[1]
+              next if ahead==0
+              n=0
+              n-=1 until rr[n].class==Array && (rr[n][0]>0) || n<-10
+              if n>-10
+                ahead=[ahead,-rr[n][0]].max
+                rr[n][0]+=ahead
+                after=-ahead
+              else
+                after=0
+              end
+            when :end
+              rr<<[i[1]+after,i[2]]
+              after=0
+            when :e
+              rr<<[i[1],i[2]]
+            when :c
+              rr<<i[1]
+            else
+              "? #{i}"
+            end
+          else
+            i
+          end
+        }
+      end
+    }
+    rr.map{|i|
+      case i
+      when String
+        i
+      else
+        varlenHex(i[0])+i[1]
+      end
+    }
   end
   def self.makefraze rundata,tc
     return "" if not rundata
@@ -804,8 +851,10 @@ module MidiHex
     @frest=0
     @frestc=0
     @nowtime=0
+    @ahead=0
+    @shiftbase=40
     accent=false
-    cmd=rundata.scan(/&\([^)]+\)|:[^\(,]+\([^\)\(]+\),|:[^,]+,|\([^:]*:[^)\(]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:]]+\.[[:digit:]]+|\*?[[:digit:]]+|[-+[:alpha:]]|\^|./)
+    cmd=rundata.scan(/&\([^)]+\)|:[^\(,]+\([^\)\(]+\),|:[^,]+,|\([^:]*:[^)\(]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:]]+\.[[:digit:]]+|\*?[[:digit:]]+|[-+[:alpha:]]|\^|`|'|./)
     cmd<<" " # dummy
     p "make start: ",cmd if $DEBUG
     cmd.each{|i|
@@ -831,21 +880,22 @@ module MidiHex
         wait.each{|m,c|
           case m
           when :percussion
-            @h<<[:percussionNote,c,t,accent]
+            @h<<[:percussionNote,c,t,accent,@ahead]
           when :rawsound
-            @h<<[:byKey,c,t,accent]
+            @h<<[:byKey,c,t,accent,@ahead]
           when :sound
-            @h<<[:notes,c,t,accent]
+            @h<<[:notes,c,t,accent,@ahead]
           when :chord
-            @h<<[:chord,c,t,accent]
+            @h<<[:chord,c,t,accent,@ahead]
           when :chordName
-            @h<<[:chordName,c,t,accent]
+            @h<<[:chordName,c,t,accent,@ahead]
           when :rest
             @h<<[:rest,t]
           end
         }
         wait=[]
         accent=false
+        @ahead=0
       end
       case i
       when /^\(key:(-?)\+?([[:digit:]]+)\)/
@@ -858,6 +908,8 @@ module MidiHex
       when /^\(G:(.*)\)/
         gs=$1.split(",")
         @h<<[:call,:preGate,gs]
+      when /^\(roll:(.*)\)/
+        @shiftbase=$1.to_i
       when /^\(key:reset\)/
         @h<<[:call,:basekeySet,@basekeyOrg]
       when /^\(p:(([[:digit:]]+),)?(([[:digit:]]+)|([\?[:alnum:]]+)(,([[:digit:]]))?)\)/
@@ -950,6 +1002,10 @@ module MidiHex
         @h<<[:call,:basekeySet,"+"]
       when /^\*?[0-9]+/
         # (i.to_i-1).times{@h<<@h[-1]}
+      when "`"
+        @ahead=-@shiftbase
+      when "'"
+        @ahead=@shiftbase
       when "^"
         p "accent" if $DEBUG
         accent=true
@@ -1099,13 +1155,13 @@ def multiplet d,tbase
   else
     total=tbase*rate
   end
-  r=i.scan(/\(x:[^\]]+\)|\(chord:[^)]+\)|\(C:[^)]+\)|:[^\(,]+\([^\)]+\),|:[^,]+,|[[:digit:]\.]+|_[^!]+!|~|[-+^]|./)
+  r=i.scan(/\(x:[^\]]+\)|\(chord:[^)]+\)|\(C:[^)]+\)|:[^\(,]+\([^\)]+\),|:[^,]+,|[[:digit:]\.]+|_[^!]+!|~|[-+^`']|./)
   wait=[]
   notes=[]
   mod=[]
   r.each{|i|
     case i
-    when "-","+","^"
+    when "-","+","^","`","'"
       mod<<i
     when /\((x|C|chord):[^\)]+\)|^\^?:[^,]+,/
       wait<<1
@@ -1165,7 +1221,7 @@ def macroDef data
 end
 def nestsearch d,macro
   a=d.scan(/\[[^\[\]]*\] *[[:digit:]]+/)!=[]
-  r=d.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;\$*_^+-]+|;|./).map{|i|
+  r=d.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;\$*_^`'+-]+|;|./).map{|i|
     case i
     when /^\$\{([^\}]+)\}/
       $1
@@ -1189,7 +1245,7 @@ def tie d,tbase
   res=[]
   # if no length word after '~' length is 1
   d.gsub!(/~([^*[:digit:]])?/){$1 ? "~1#{$1}" : $&} while d=~/~[^*[:digit:]]/
-  li=d.scan(/\$\{[^\}]+\}|\$[^ ;\$_*^+-]+|\([^)\(]*\)|:[^\(,]+\([^)]+\),|:[^,]+,|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:].]+|\(V:[^)]+\)|\(G:[^)]+\)|~|./)
+  li=d.scan(/\$\{[^\}]+\}|\$[^ ;\$_*^`'+-]+|\([^)\(]*\)|:[^\(,]+\([^)]+\),|:[^,]+,|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:].]+|\(V:[^)]+\)|\(G:[^)]+\)|~|./)
   li.each{|i|
     case i
     when /^(\*)?([[:digit:].]+)/
@@ -1242,11 +1298,11 @@ def repCalc line,macro,tbase
   line.gsub!(rpt){$1*$2.to_i} while line=~rpt
   chord=/([^$]|^)\{([^\{\}]*)\}/
   line.gsub!(chord){"#{$1}(C:#{$2})"} while line=~chord
-  a=line.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;\$_*^,\)\(+-\/]+|./)
+  a=line.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;\$_*^,\)\(`'\/+-]+|./)
   a=a.map{|i|
     if i=~/^\/[^\/]+\//
       if i=~/\$/
-        i=i.gsub(/\$\{([^ \{\}]+)\}/){macro[$1]}.gsub(/\$([^ ;\$_*^,\)\(+-\/]+)/){macro[$1]}
+        i=i.gsub(/\$\{([^ \{\}]+)\}/){macro[$1]}.gsub(/\$([^ ;\$_*^,\)\(+-`'\/]+)/){macro[$1]}
       end
       multiplet(i,tbase)
     else
@@ -1407,7 +1463,7 @@ tc=0
 tracks<< d_comment + mx.tempo(bpm) + mx.makefraze(rundatas[0],tc) + d_last
 rundatas[1..-1].each{|track|
   tc+=1
-  tracks<< mx.rest + mx.makefraze(track,tc) + d_last
+  tracks<< mx.restHex + mx.makefraze(track,tc) + d_last
 }
 alla=[d_header]+tracks.map{|t|mx.trackMake(t)}.flatten
 puts alla if $DEBUG
