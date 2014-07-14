@@ -95,6 +95,7 @@ opt.on('-t b',"bpm") {|v| bpm=v.to_f }
 opt.on('-T w',"programChange test like instrument name '...'") {|v| $test=v }
 opt.on('-c d',"cycle data for test mode") {|v| $testdata=v }
 opt.on('-p pspl',"page split chars") {|v| pspl=v }
+opt.on('-F i',"fuzzy shift mode") {|v| $fuzzy=v.to_i }
 opt.on('-M i',"debug level") {|v| $debuglevel=v.to_i }
 opt.on('-m i',"mode of test/ 1:GM 2:XG 3:GS") {|v| $testmode=v.to_i }
 opt.parse!(ARGV)
@@ -1433,6 +1434,9 @@ d_last=
 "
 #{delta}  89 3C 00 # 1拍後, オフ:ch10, key:3C
 "
+if $fuzzy && (tbase/$fuzzy<8)
+  STDERR.puts "really?#{"?"*(8*$fuzzy/tbase)}"
+end
 rundatas=[]
 rawdatas=[]
 macro={}
@@ -1445,11 +1449,18 @@ tracks.map{|track|
     repCalc(track,macro,tbase)
   }.each{|t|
     r=loadCalc(t)
+    if $fuzzy
+      n=rand($fuzzy)
+      STDERR.puts "track shift: #{n} tick#{n>1 ? 's' : ''}"
+      pre="r*#{n} "
+    else
+      pre=""
+    end
     case r[0]
     when :raw
       rawdatas<<r[1]
     when :seq
-      rundatas<<r[1]
+      rundatas<<pre+r[1]
     end
 }
 p macro if$DEBUG
