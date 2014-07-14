@@ -82,7 +82,10 @@ opt = OptionParser.new
 opt.on('-i file',"input file") {|v| infile=v }
 opt.on('-o file',"output file") {|v| outfile=v }
 opt.on('-e file',"write down macro etc. expanded data") {|v| expfile=v }
-opt.on('-d d',"input data string") {|v| data=v }
+opt.on('-d d',"input data string") {|v|
+  data=v
+  STDERR.puts data if $DEBUG
+}
 opt.on('-D',"debug") {|v| $DEBUG=v }
 opt.on('-s',"show syntax") {|v|
   hint
@@ -174,6 +177,7 @@ def hex2digit d
   d
 end
 def varlenHex(v)
+  raise if v<0
   v=hex2digit(v)
   b=[varlen(v.round)]
   b=b.flatten
@@ -374,7 +378,7 @@ module MidiHex
     r<<[:end,start," 8#{ch} #{key} 00 # #{start} sound off only [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]\n"]
     r
   end
-  def self.oneNote len=@tbase,key=@basekey,velocity=@velocity,ch=@ch,ahead=0
+  def self.oneNote len=@tbase,key=@basekey,velocity=@velocity,ch=@ch
     velocity=@preVelocity.shift if @preVelocity.size>0
     gate=@gateRate
     ch=[ch,0x0f].min
@@ -388,18 +392,18 @@ module MidiHex
     deltaStart=varlenHex(start)
     slen,rest=self.byGate(len,gate)
     @nowtime+=len
-    r=[[:ahead,ahead]]
+    r=[]
     r<<[:e,start," 9#{ch} #{key} #{vel} # #{start}後, soundオン note #{@key} velocity #{velocity}\n"]
     r<<[:e,slen," 8#{ch} #{key} 00 # #{slen}(gate:#{@gateRate})- #{len.to_i}(#{len.round(2)})tick後, soundオフ [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]\n"]
-    r<<[:end,rest," 8#{ch} #{key} 00  # #{r} len-gate\n"]
+    r<<[:end,rest," 8#{ch} #{key} 00  # #{rest} len-gate\n"]
     r
   end
-  def self.byKey key,len,accent=false,ahead=0
+  def self.byKey key,len,accent=false
     vel=@velocity
     vel+=@accentPlus
-    self.oneNote(len,key,vel,ahead)
+    self.oneNote(len,key,vel)
   end
-  def self.notekey key,length=false,accent=false,ahead=0
+  def self.notekey key,length=false,accent=false
     len,velocity,ch=[@tbase,@velocity,@ch]
     velocity+=@accentPlus if accent
     len=length if length
@@ -408,14 +412,14 @@ module MidiHex
       key,ch=key
     end
     key=key+@basekey
-    self.oneNote(len,key,velocity,ch,ahead)
+    self.oneNote(len,key,velocity,ch)
   end
-  def self.percussionNote key,len=@tbase,accent=false,ahead=0
+  def self.percussionNote key,len=@tbase,accent=false
     vel=@velocity
     vel+=@accentPlus if accent
-    self.oneNote(len,key,vel,@rythmChannel,ahead)
+    self.oneNote(len,key,vel,@rythmChannel)
   end
-  def self.notes c,l=false,accent=false,ahead=0
+  def self.notes c,l=false,accent=false
     n=@notes[c]
     if @lastnote
       n+=12 if @lastnote-n>6
@@ -425,7 +429,7 @@ module MidiHex
     (@basekey+=12;@lastnote-=12) if n>=12
     (@basekey-=12;@lastnote+=12) if n<0
     n=@lastnote
-    self.notekey(n,l,accent,ahead)
+    self.notekey(n,l,accent)
   end
   def self.shiftChord chord, base, limit=6
     octave=12
@@ -433,7 +437,7 @@ module MidiHex
     chord=chord.orotate(1) while chord[0]<base-limit
     chord
   end
-  def self.chordName c,l=false,accent=false,ahead=0
+  def self.chordName c,l=false,accent=false
     c=~/(.)([^(]*)(\((.*)\))?/
     root=$1
     type=$2
@@ -519,7 +523,7 @@ module MidiHex
       @firstchord=chord
       @firstchordbase=@firstchord[0]
     end
-    self.chord(chord,l,accent,ahead)
+    self.chord(chord,l,accent)
   end
   def self.invert last,c
     last=c if ! last
@@ -536,7 +540,7 @@ module MidiHex
     cc=c.map{|i|(i-r)%12}.sort.map{|i|i+r}
     cc
   end
-  def self.chord c,l=false,accent=false,ahead=0
+  def self.chord c,l=false,accent=false
     r=[]
     c.each{|i|
       r+=self.soundOn(i)
@@ -766,12 +770,14 @@ module MidiHex
     # EventList : [func,args]  or [callonly, func,args] or others
     elist.each{|h|
       cmd,*arg=h
-      r<<[:c,"# #{cmd} #{arg}"]
+      r<<[[:c,"# #{cmd} #{arg}"]]
       case cmd
       when :basekeyPlus
         @basekey=arg[0]
       when :raw
         r<<arg[0]
+      when :ahead
+        r<<[[:ahead,arg[0]]]
       when :velocity
         @velocity=arg[0]
       when :ch
@@ -818,10 +824,9 @@ module MidiHex
               else
                 after=0
               end
-            when :end
-              rr<<[i[1]+after,i[2]]
-              after=0
-            when :e
+            when :end,:e
+              (i[1]+=after;after=0) if after>0
+              (i[1]+=after;after=0) if after<0 && i[1]+after>=0
               rr<<[i[1],i[2]]
             when :c
               rr<<i[1]
@@ -851,7 +856,6 @@ module MidiHex
     @frest=0
     @frestc=0
     @nowtime=0
-    @ahead=0
     @shiftbase=40
     accent=false
     cmd=rundata.scan(/&\([^)]+\)|:[^\(,]+\([^\)\(]+\),|:[^,]+,|\([^:]*:[^)\(]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:]]+\.[[:digit:]]+|\*?[[:digit:]]+|[-+[:alpha:]]|\^|`|'|./)
@@ -880,22 +884,21 @@ module MidiHex
         wait.each{|m,c|
           case m
           when :percussion
-            @h<<[:percussionNote,c,t,accent,@ahead]
+            @h<<[:percussionNote,c,t,accent]
           when :rawsound
-            @h<<[:byKey,c,t,accent,@ahead]
+            @h<<[:byKey,c,t,accent]
           when :sound
-            @h<<[:notes,c,t,accent,@ahead]
+            @h<<[:notes,c,t,accent]
           when :chord
-            @h<<[:chord,c,t,accent,@ahead]
+            @h<<[:chord,c,t,accent]
           when :chordName
-            @h<<[:chordName,c,t,accent,@ahead]
+            @h<<[:chordName,c,t,accent]
           when :rest
             @h<<[:rest,t]
           end
         }
         wait=[]
         accent=false
-        @ahead=0
       end
       case i
       when /^\(key:(-?)\+?([[:digit:]]+)\)/
@@ -1003,9 +1006,9 @@ module MidiHex
       when /^\*?[0-9]+/
         # (i.to_i-1).times{@h<<@h[-1]}
       when "`"
-        @ahead=-@shiftbase
+        @h<<[:ahead,-@shiftbase]
       when "'"
-        @ahead=@shiftbase
+        @h<<[:ahead,@shiftbase]
       when "^"
         p "accent" if $DEBUG
         accent=true
