@@ -156,6 +156,35 @@ class Array
     r
   end
 end
+
+class Event
+  attr_accessor :type, :time, :value
+  def initialize ty=:e,*arg
+    @type=ty
+    @pos=0
+    @value=""
+    case @type
+    when :c,:raw
+      @time=0
+      @value=arg[0]
+    when :ahead
+      @time=arg[0]
+    when :o,:off
+    else
+      @time=arg[0]
+      @value=arg[1]
+    end
+  end
+  def data
+    case @type
+    when :c,:raw,:o,:off
+      @value
+    else
+      varlenHex(@time)+@value
+    end
+  end
+end
+
 def trackSizeHex d
   d=d.trim.split.join
   i=(d.size+8)/2
@@ -370,8 +399,8 @@ module MidiHex
     vel=format("%02x",velocity)
     start=@waitingtime
     @waitingtime=0
-    r=[:o]
-    r<<[:e,start," 9#{ch} #{key} #{vel} # #{start}後, sound on only , note #{@key} velocity #{velocity}\n"]
+    r=[Event.new(:o)]
+    r<<Event.new(:e,start," 9#{ch} #{key} #{vel} # #{start}後, sound on only , note #{@key} velocity #{velocity}\n")
     r
   end
   def self.soundOff key=@basekey,ch=@ch
@@ -384,8 +413,8 @@ module MidiHex
     ch=format("%01x",ch)
     start=@waitingtime
     @waitingtime=0
-    r=[:off]
-    r<<[:end,start," 8#{ch} #{key} 00 # #{start} sound off only [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]\n"]
+    r=[Event.new(:off)]
+    r<<Event.new(:end,start," 8#{ch} #{key} 00 # #{start} sound off only [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]\n")
     r
   end
   def self.oneNote len=@tbase,key=@basekey,velocity=@velocity,ch=@ch
@@ -399,13 +428,12 @@ module MidiHex
     vel=format("%02x",velocity)
     start=@waitingtime
     @waitingtime=0
-    deltaStart=varlenHex(start)
     slen,rest=self.byGate(len,gate)
     @nowtime+=len
     r=[]
-    r<<[:e,start," 9#{ch} #{key} #{vel} # #{start}後, soundオン note #{@key} velocity #{velocity}\n"]
-    r<<[:e,slen," 8#{ch} #{key} 00 # #{slen}(gate:#{@gateRate})- #{len.to_i}(#{len.round(2)})tick後, soundオフ [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]\n"]
-    r<<[:end,rest," 8#{ch} #{key} 00  # #{rest} len-gate\n"]
+    r<<Event.new(:e,start," 9#{ch} #{key} #{vel} # #{start}後, soundオン note #{@key} velocity #{velocity}\n")
+    r<<Event.new(:e,slen," 8#{ch} #{key} 00 # #{slen}(gate:#{@gateRate})- #{len.to_i}(#{len.round(2)})tick後, soundオフ [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]\n")
+    r<<Event.new(:end,rest," 8#{ch} #{key} 00  # #{rest} len-gate\n")
     r
   end
   def self.byKey key,len,accent=false
@@ -568,22 +596,19 @@ module MidiHex
     chx=format("%01x",ch)
     @nowtime+=len
     r=[]
-    r<<[:end,len," 8#{chx} 3C 00 # rest #{len.to_i}(#{len.round(2)})tick後, オフ:ch#{ch}, key:3C\n"]
+    r<<Event.new(:end,len," 8#{chx} 3C 00 # rest #{len.to_i}(#{len.round(2)})tick後, オフ:ch#{ch}, key:3C\n")
     r
   end
   def self.restHex len=@tbase,ch=@ch
-    r=self.rest(len,ch).flatten
-    varlenHex(r[1])+r[2]
+    r=self.rest(len,ch)
+    r[0].data
   end
   def self.tempo bpm, len=0
-    delta=varlenHex(len)
     @bpmStart=bpm if ! @bpm
     @bpm=bpm
     d_bpm=self.makebpm(@bpm)
     @nowtime+=len
-    "
-      #{delta} FF 51 03 #{d_bpm} # 四分音符の長さ (bpm: #{@bpm}) マイクロ秒で3byte
-    "
+    Event.new(:e,len," FF 51 03 #{d_bpm} # 四分音符の長さ (bpm: #{@bpm}) マイクロ秒で3byte\n")
   end
   def self.makebpm bpm
     d="000000"+(60_000_000/bpm.to_f).to_i.to_s(16)
@@ -597,7 +622,7 @@ module MidiHex
     ch=format("%01x",ch)
     n=format("%02x",n)
     data=format("%02x",v)
-    "00 B#{ch} #{n} #{data}\n"
+    Event.new(:e,0," B#{ch} #{n} #{data}\n")
   end
   def self.ProgramChange ch,inst,len=0
     ch=@ch if ch==false
@@ -605,32 +630,24 @@ module MidiHex
     inst=[inst,0xff].min
     chx=format("%01x",ch)
     instx=format("%02x",inst)
-    delta=varlenHex(len)
     @nowtime+=len
-    "#{delta} C#{chx} #{instx} # program change ch#{ch} #{inst} [#{@programList[inst][1]}]\n"
+    Event.new(:e,len," C#{chx} #{instx} # program change ch#{ch} #{inst} [#{@programList[inst][1]}]\n")
   end
   # GM,GS,XG wakeup command need over 50milisec. ?
   # if not, midi player may hung up.
   def self.GMsystemOn len=0,mode=1
     # GM1,GM2
     m=mode==2 ? 3 : 1
-    delta=varlenHex(len)
     @nowtime+=len
-    "
-      #{delta} F0 7E 7F 09 0#{m} F7 # GM
-    "
+    Event.new(:sys,len," F0 7E 7F 09 0#{m} F7 # GM\n")
   end
   def self.XGsystemOn len=0
-    delta=varlenHex(len)
     @nowtime+=len
-    "
-      #{delta} F0 43 10 4C 00 00 7E 00 F7 # XG
-    "
+    Event.new(:sys,len," F0 43 10 4C 00 00 7E 00 F7 # XG\n")
   end
   def self.GSreset len=0
-    delta=varlenHex(len)
     @nowtime+=len
-    " #{delta} F0 41 10 42 12 40 00 7F 00 41 F7 # GS \n"
+    Event.new(:sys,len," F0 41 10 42 12 40 00 7F 00 41 F7 # GS \n")
   end
   def self.bankSelect d
     d=~/([^,]*),([^,]*)(,(.*))?/
@@ -642,13 +659,12 @@ module MidiHex
     lsb=format("%02x",lsb)
     ch=@ch
     ch=format("%01x",ch)
-    delta=varlenHex(len)
     @nowtime+=len
     @nowtime+=len
-    "
-      #{delta} B#{ch} 00 #{msb} # BankSelect MSB
-      #{delta} B#{ch} 20 #{lsb} # BankSelect LSB
-    "
+    r=[]
+    r<<Event.new(:sys,len," B#{ch} 00 #{msb} # BankSelect MSB\n")
+    r<<Event.new(:sys,len," B#{ch} 20 #{lsb} # BankSelect LSB\n")
+    r
   end
   def self.bankSelectPC d
     d=~/(([^,]*),([^,]*)),([^,]*)(,(.*))?/
@@ -686,9 +702,8 @@ module MidiHex
     r.size>0 ? r[0][0] : @snare
   end
   def self.bend ch,depth,len=0
-    delta=varlenHex(len)
     @nowtime+=len
-    "#{delta} e#{format"%01x",ch} #{bendHex(depth)}\n"
+    Event.new(:e,len," e#{format"%01x",ch} #{bendHex(depth)}\n")
   end
   def self.note2key i
     # inside parenthesis -+ are octave
@@ -783,14 +798,14 @@ module MidiHex
     # EventList : [func,args]  or [callonly, func,args] or others
     elist.each{|h|
       cmd,*arg=h
-      r<<[[:c,"# #{cmd} #{arg}"]]
+      r<<Event.new(:c,"# #{cmd} #{arg}")
       case cmd
       when :basekeyPlus
         @basekey+=arg[0]
       when :raw
-        r<<arg[0]
+        r<<Event.new(:raw,0,arg[0])
       when :ahead
-        r<<[[:ahead,arg[0]]]
+        r<<Event.new(:ahead,arg[0])
       when :velocity
         @velocity=arg[0]
       when :ch
@@ -815,49 +830,41 @@ module MidiHex
     rr=[]
     ahead=0
     after=0
-    r.each{|e|
-      if e.class==String
-        rr<<e
+    r.flatten!
+    r.each{|i|
+      if i.class==String
+        rr<<i
       else
-        e.each{|i|
-          case i
-          when Symbol
-            i
-          when Array
-            case i[0]
-            when :ahead
-              ahead=i[1]
+          case i.type
+          when :ahead
+              ahead=i.time
               next if ahead==0
               n=0
-              n-=1 until rr[n].class==Array && (rr[n][0]>0) || n<-10
+              n-=1 until (rr[n].time>0) || n<-10
               if n>-10
-                ahead=[ahead,-rr[n][0]].max
-                rr[n][0]+=ahead
+                ahead=[ahead,-rr[n].time].max
+                rr[n].time+=ahead
                 after=-ahead
               else
                 after=0
               end
-            when :end,:e
-              (i[1]+=after;after=0) if after>0
-              (i[1]+=after;after=0) if after<0 && i[1]+after>=0
-              rr<<[i[1],i[2]]
+            when :end,:e,:sys
+              (i.time+=after;after=0) if after>0
+              (i.time+=after;after=0) if after<0 && i.time+after>=0
+              rr<<i
             when :c
-              rr<<i[1]
+              rr<<i
             else
               "? #{i}"
             end
-          else
-            i
-          end
-        }
       end
     }
     rr.map{|i|
       case i
       when String
         i
-      else
-        varlenHex(i[0])+i[1]
+      when Event
+        i.data
       end
     }
   end
@@ -1486,7 +1493,7 @@ d_header=mx.header(format,tracknum,tbase)
 tracks=[]
 # remember starting position check if data exist before sound
 tc=0
-tracks<< d_comment + mx.tempo(bpm) + mx.makefraze(rundatas[0],tc) + d_last
+tracks<< d_comment + mx.tempo(bpm).data + mx.makefraze(rundatas[0],tc) + d_last
 rundatas[1..-1].each{|track|
   tc+=1
   tracks<< mx.restHex + mx.makefraze(track,tc) + d_last
