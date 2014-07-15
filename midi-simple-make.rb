@@ -78,6 +78,7 @@ $debuglevel=1
 data=""
 pspl="///"
 bpm=120
+octaveMode=:near
 opt = OptionParser.new
 opt.on('-i file',"input file") {|v| infile=v }
 opt.on('-o file',"output file") {|v| outfile=v }
@@ -96,6 +97,7 @@ opt.on('-T w',"programChange test like instrument name '...'") {|v| $test=v }
 opt.on('-c d',"cycle data for test mode") {|v| $testdata=v }
 opt.on('-p pspl',"page split chars") {|v| pspl=v }
 opt.on('-F i',"fuzzy shift mode") {|v| $fuzzy=v.to_i }
+opt.on('-O',"octave legacy mode") {|v| octaveMode=:far }
 opt.on('-M i',"debug level") {|v| $debuglevel=v.to_i }
 opt.on('-m i',"mode of test/ 1:GM 2:XG 3:GS") {|v| $testmode=v.to_i }
 opt.parse!(ARGV)
@@ -174,12 +176,18 @@ def varlen(v)
   end
 end
 def hex2digit d
-  d=d.to_i(16) if d.class==String && d=~/^0(x|X)/
+  if d.class==String
+    if d=~/^0(x|X)/
+      d=d.to_i(16)
+    else
+      d=d.to_i
+    end
+  end
   d
 end
 def varlenHex(v)
-  raise if v<0
   v=hex2digit(v)
+  raise if v<0
   b=[varlen(v.round)]
   b=b.flatten
   c=b[0..-2].map{|i| i | 0x80 }
@@ -276,7 +284,8 @@ def rawHexPart d
 end
 module MidiHex
   # 設定のため最初に呼ばなければならない
-  def self.prepare tbase=480,vel=0x40
+  def self.prepare tbase=480,vel=0x40,oct=:near
+    @octmode=oct
     @tbase=tbase
     @gateRate=100
     @nowtime=0
@@ -422,14 +431,16 @@ module MidiHex
   end
   def self.notes c,l=false,accent=false
     n=@notes[c]
-    if @lastnote
-      n+=12 if @lastnote-n>6
-      n-=12 if @lastnote-n<-6
+    if @octmode==:near && n.class != Array
+      if @lastnote
+        n+=12 if @lastnote-n>6
+        n-=12 if @lastnote-n<-6
+      end
+      @lastnote=n
+      (@basekey+=12;@lastnote-=12) if n>=12
+      (@basekey-=12;@lastnote+=12) if n<0
+      n=@lastnote
     end
-    @lastnote=n
-    (@basekey+=12;@lastnote-=12) if n>=12
-    (@basekey-=12;@lastnote+=12) if n<0
-    n=@lastnote
     self.notekey(n,l,accent)
   end
   def self.shiftChord chord, base, limit=6
@@ -589,6 +600,7 @@ module MidiHex
     "00 B#{ch} #{n} #{data}\n"
   end
   def self.ProgramChange ch,inst,len=0
+    ch=@ch if ch==false
     ch=[ch,0x0f].min
     inst=[inst,0xff].min
     chx=format("%01x",ch)
@@ -774,7 +786,7 @@ module MidiHex
       r<<[[:c,"# #{cmd} #{arg}"]]
       case cmd
       when :basekeyPlus
-        @basekey=arg[0]
+        @basekey+=arg[0]
       when :raw
         r<<arg[0]
       when :ahead
@@ -917,7 +929,7 @@ module MidiHex
       when /^\(key:reset\)/
         @h<<[:call,:basekeySet,@basekeyOrg]
       when /^\(p:(([[:digit:]]+),)?(([[:digit:]]+)|([\?[:alnum:]]+)(,([[:digit:]]))?)\)/
-        channel=$1 ? $2.to_i : @ch
+        channel=$1 ? $2.to_i : false
         subNo=false
         if $5
           subNo=$7.to_i if $7
@@ -1387,11 +1399,11 @@ def loadCalc d
     num=$3 ? $3.to_i : false
     [:raw,MidiRead.readtrack(file,num)]
   else
-    [:seq,rawHexPart(d)]
+    [:seq,d]
   end
 end
-def modifier t
-  t.scan(/\(V:[^)]+\)|\(G:[^)]+\)|./).map{|i|
+def modifierComp t
+  rawHexPart(t).scan(/\(V:[^)]+\)|\(G:[^)]+\)|./).map{|i|
     case i
     when /^\((V|G):([^)]+)\)/
       mode=$1
@@ -1420,7 +1432,7 @@ pfile="midi-percussion-map.txt"
 tbase=480 # division
 delta=varlenHex(tbase)
 mx=MidiHex
-mx.prepare(tbase,0x40)
+mx.prepare(tbase,0x40,octaveMode)
 mx.loadProgramChange(file)
 mx.loadPercussionMap(pfile)
 data=mx.test($testdata,$testmode) if $test
@@ -1445,7 +1457,7 @@ p tracks if $DEBUG && $debuglevel>1
 tracks.map{|track|
     m,track=macroDef(track)
     macro.merge!(m)
-    track=modifier(track)
+    track=modifierComp(track)
     repCalc(track,macro,tbase)
   }.each{|t|
     r=loadCalc(t)
