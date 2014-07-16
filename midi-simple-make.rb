@@ -298,7 +298,7 @@ module MidiRead
 end
 
 def rawHexPart d
-  li=d.scan(/\$delta\([^)]*\)|\$bend\([^)]*\)|./)
+  li=d.scan(/\$delta\([^)]*\)|\$bend\([^)]*\)|\(bend:[^)]*\)|./)
   res=[]
   li.map{|i|
     case i
@@ -306,10 +306,30 @@ def rawHexPart d
       varlenHex($1)
     when /\$bend\(([^)]*)\)/
       bendHex($1)
+    when /\(bend:([^)]*)\)/
+      "b__#{$1.split(',')*"_"}__"
     else
       i
     end
   }*""
+end
+def revertPre d
+  case d
+  when /^b__(.*)__/
+    "(bend:#{$1.split("_")*","})"
+  else
+    d
+  end
+end
+def benddata d
+  d=~/^\(bend:(([[:digit:]]+),)?([-,[:digit:]]+)\)/
+  if $&
+    pos=$1 ? $2.to_i : 0
+    depth=$3.split(',').map{|i|i.to_i}
+    [pos,depth]
+  else
+    false
+  end
 end
 module MidiHex
   # 設定のため最初に呼ばなければならない
@@ -341,8 +361,6 @@ module MidiHex
     @ch=0
     @velocity=vel
     @velocityOrg=vel
-    @preGate=[]
-    @preVelocity=[]
     @accentPlus=10
     @basekey=0x3C
     @chordCenter=@chordCenterOrg=@basekey
@@ -358,6 +376,10 @@ module MidiHex
   end
   def self.trackPrepare tc=0
     @tbase,@ch,@velocity,@basekey=@prepareSet
+    @preGate=[]
+    @preVelocity=[]
+    @preBefore=[]
+    @preAfter=[]
     @tracknum=tc+1
     tc+=1 if tc>=9 # ch10 is drum kit channel
     tc=@chmax if tc>@chmax
@@ -432,7 +454,25 @@ module MidiHex
     @nowtime+=len
     r=[]
     r<<Event.new(:e,start," 9#{ch} #{key} #{vel} # #{start}後, soundオン note #{@key} velocity #{velocity}\n")
+    b=@preAfter.shift
+    if b
+      pos,ds=benddata(b)
+      if pos
+        bendlen=pos*(ds.size-1)
+        if slen<bendlen
+          pos=slen/(ds.size-1)
+          bendlen=pos*(ds.size-1)
+        end
+        slen-=bendlen
+        npos=0
+        ds.each{|depth|
+          r<<self.bend(npos,depth)
+          npos=pos
+        }
+      end
+    end
     r<<Event.new(:e,slen," 8#{ch} #{key} 00 # #{slen}(gate:#{@gateRate})- #{len.to_i}(#{len.round(2)})tick後, soundオフ [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]\n")
+    r<<self.bend(0,0) if b
     r<<Event.new(:end,rest," 8#{ch} #{key} 00  # #{rest} len-gate\n")
     r
   end
@@ -701,9 +741,10 @@ module MidiHex
     puts "no percussion name like '#{p}' in list" if $DEBUG && r.size==0
     r.size>0 ? r[0][0] : @snare
   end
-  def self.bend ch,depth,len=0
-    @nowtime+=len
-    Event.new(:e,len," e#{format"%01x",ch} #{bendHex(depth)}\n")
+  def self.bend pos,depth,ch=false
+    ch=@ch if ! ch
+    @nowtime+=pos
+    Event.new(:e,pos," e#{format"%01x",ch} #{bendHex(depth)} # t:#{pos} bend #{depth}\n")
   end
   def self.note2key i
     # inside parenthesis -+ are octave
@@ -790,6 +831,26 @@ module MidiHex
         @gateRate*0.5
       else
         i.to_i
+      end
+    }
+  end
+  def self.preAfter v
+    @preAfter=v.map{|i|
+      case i
+      when "o",""
+        false
+      else
+        revertPre(i)
+      end
+    }
+  end
+  def self.preBefore v
+    @preBefore=v.map{|i|
+      case i
+      when "o",""
+        false
+      else
+        i
       end
     }
   end
@@ -931,6 +992,12 @@ module MidiHex
       when /^\(G:(.*)\)/
         gs=$1.split(",")
         @h<<[:call,:preGate,gs]
+      when /^\(A:(.*)\)/
+        s=$1.split(",")
+        @h<<[:call,:preAfter,s]
+      when /^\(B:(.*)\)/
+        s=$1.split(",")
+        @h<<[:call,:preBefore,s]
       when /^\(roll:(.*)\)/
         @shiftbase=$1.to_i
       when /^\(key:reset\)/
@@ -945,10 +1012,13 @@ module MidiHex
           instrument=$4.to_i
         end
         @h<<[:ProgramChange,channel,instrument]
-      when /^\(bend:(([[:digit:]]+),)?(-?[[:digit:]]+)\)/
-        channel=$1 ? $2.to_i : @ch
-        depth=$3.to_i
-        @h<<[:bend,channel,depth]
+      when /^\(bend:(([[:digit:]]+),)?([-,[:digit:]]+)\)/
+        pos,b=benddata(i)
+        npos=0
+        b.each{|depth|
+          @h<<[:bend,npos,depth]
+          npos=pos
+        }
       when /^&\((.+)\)/
         raw=rawHexPart($1)
         @h<<[:raw,raw]
@@ -1268,7 +1338,7 @@ def tie d,tbase
   res=[]
   # if no length word after '~' length is 1
   d.gsub!(/~([^*[:digit:]])?/){$1 ? "~1#{$1}" : $&} while d=~/~[^*[:digit:]]/
-  li=d.scan(/\$\{[^\}]+\}|\$[^ ;\$_*^`'+-]+|\([^)\(]*\)|:[^\(,]+\([^)]+\),|:[^,]+,|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:].]+|\(V:[^)]+\)|\(G:[^)]+\)|~|./)
+  li=d.scan(/\$\{[^\}]+\}|\$[^ ;\$_*^`'+-]+|\([^)\(]*\)|:[^\(,]+\([^)]+\),|:[^,]+,|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:].]+|\([VGAB]:[^)]+\)|~|./)
   li.each{|i|
     case i
     when /^(\*)?([[:digit:].]+)/
@@ -1280,7 +1350,7 @@ def tie d,tbase
       end
     when "~"
       res<<[:tick,tbase] if res[-1][0]==:e
-    when /^\(V:[^)]+|^\(G:[^)]+/
+    when /^\([VGAB]:[^)]+/
       res<<[:modifier,i]
     else
       res<<[:e,i]
@@ -1410,7 +1480,7 @@ def loadCalc d
   end
 end
 def modifierComp t
-  rawHexPart(t).scan(/\(V:[^)]+\)|\(G:[^)]+\)|./).map{|i|
+  rawHexPart(t).scan(/\([VGAB]:[^)]+\)|./).map{|i|
     case i
     when /^\((V|G):([^)]+)\)/
       mode=$1
@@ -1419,6 +1489,17 @@ def modifierComp t
         i=["o"] if i==[]
         i.map{|c|
           c=c.split('') if c=~/^[-\+o]+$/
+          c
+        }
+      }
+      "(#{mode}:#{v*","})"
+    when /^\((A|B):([^)]+)\)/
+      mode=$1
+      n=0
+      v=$2.split(/,/).map{|i|i.split(/ +/)-[""]}.map{|i|
+        i=["o"] if i==[]
+        i.map{|c|
+          c=c.split('') if c=~/^o+$/
           c
         }
       }

@@ -30,6 +30,7 @@ BS:=ccecffcfccefgfec fffcffffcccbaacC dcbagGabccaadd-gg
 
    (V:  o, o,    o,  100,o , o,o,o,    100,90, o             110,  o , o,o,  110,110, )
    (G:  o  o     o     o o   o o o      o  o,80,               -,  o   o - )
+   (A:  o  o     o     o o   o o o      (bend:200,-5000,-4700,-4700,-400,-200,0,0,10000,-10000)  o, )
     /:~-dd/~~+/:ar/   A~/:~~a//:gfg/ /:~~e//:~r2+d{e,a,+e}/rr      ~/:-crf/~/0.51:~Df//0.49:g2f2D2cD2cAgf/ + ]12
 
 
