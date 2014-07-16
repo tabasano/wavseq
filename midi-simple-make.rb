@@ -655,14 +655,16 @@ module MidiHex
     d[-6..-1]
   end
   def self.controlChange v
-    v=~/(.*),(.*)/
-    n,v=$1.to_i,$2.to_i
+    v=~/^([^,]*),([^,]*)(,(.*))?/
+    n,v,len=$1.to_i,$2.to_i,$4.to_i
     ch=@ch
     v=[0,[v,0x7f].min].max
     ch=format("%01x",ch)
     n=format("%02x",n)
     data=format("%02x",v)
-    Event.new(:e,0," B#{ch} #{n} #{data}\n")
+    t=@waitingtime+len
+    @waitnigtime=0
+    Event.new(:e,t," B#{ch} #{n} #{data}\n")
   end
   def self.ProgramChange ch,inst,len=0
     ch=@ch if ch==false
@@ -712,7 +714,7 @@ module MidiHex
     inst=$4.to_i ##
     bs=self.bankSelect("#{$1},#{len}")
     pc=self.ProgramChange(@ch,inst,len)
-    bs+pc
+    [bs,pc]
   end
   def self.programGet p,num=false
     return 0 if not @programList
@@ -864,7 +866,7 @@ module MidiHex
       when :basekeyPlus
         @basekey+=arg[0]
       when :raw
-        r<<Event.new(:raw,0,arg[0])
+        r<<Event.new(:raw,arg[0])
       when :ahead
         r<<Event.new(:ahead,arg[0])
       when :velocity
@@ -913,7 +915,7 @@ module MidiHex
               (i.time+=after;after=0) if after>0
               (i.time+=after;after=0) if after<0 && i.time+after>=0
               rr<<i
-            when :c
+            when :c,:raw
               rr<<i
             else
               "? #{i}"
