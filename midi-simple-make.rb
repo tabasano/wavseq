@@ -797,6 +797,8 @@ module MidiHex
   end
   def self.bend pos,depth,ch=false
     ch=@ch if ! ch
+    pos+=@waitingtime
+    @waitingtime=0
     @nowtime+=pos
     Event.new(:e,pos," e#{format"%01x",ch} #{bendHex(depth)} # t:#{pos} bend #{depth}\n")
   end
@@ -993,7 +995,7 @@ module MidiHex
     @nowtime=0
     @shiftbase=40
     accent=false
-    cmd=rundata.scan(/&\([^)]+\)|:[^\(,]+\([^\)\(]+\),|:[^,]+,|\([^:]*:[^)\(]*\)|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:]]+\.[[:digit:]]+|\*?[[:digit:]]+|[-+[:alpha:]]|\^|`|'|./)
+    cmd=rundata.scan(/&\([^)]+\)|:[^\(,]+\([^\)\(]+\),|:[^,]+,|\([^:]*:[^)\(]*\)|_[^!_]+!|_[^_]__[^\?]+\?|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:]]+\.[[:digit:]]+|\*?[[:digit:]]+|[-+[:alpha:]]|\^|`|'|./)
     cmd<<" " # dummy
     p "make start: ",cmd if $DEBUG
     cmd.each{|i|
@@ -1066,8 +1068,9 @@ module MidiHex
           instrument=$4.to_i
         end
         @h<<[:ProgramChange,channel,instrument]
-      when /^\(bend:(([[:digit:]]+),)?([-,[:digit:]]+)\)/
-        pos,b=benddata(i)
+      when /^\(bend:(([[:digit:]]+),)?([-,[:digit:]]+)\)|^_b__([^?]+)\?/
+        i="(bend:#{$4.gsub('_'){','}})" if $4
+        x,pos,b=worddata("bend",i)
         npos=0
         b.each{|depth|
           @h<<[:bend,npos,depth]
@@ -1392,7 +1395,7 @@ def tie d,tbase
   res=[]
   # if no length word after '~' length is 1
   d.gsub!(/~([^*[:digit:]])?/){$1 ? "~1#{$1}" : $&} while d=~/~[^*[:digit:]]/
-  li=d.scan(/\$\{[^\}]+\}|\$[^ ;\$_*^`'+-]+|\([^)\(]*\)|:[^\(,]+\([^)]+\),|:[^,]+,|_[^!]+!|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:].]+|\([VGAB]:[^)]+\)|~|./)
+  li=d.scan(/\$\{[^\}]+\}|\$[^ ;\$_*^`'+-]+|\([^)\(]*\)|:[^\(,]+\([^)]+\),|:[^,]+,|_[^!]+!|_[^_]__[^?]+\?|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:].]+|\([VGAB]:[^)]+\)|~|./)
   li.each{|i|
     case i
     when /^(\*)?([[:digit:].]+)/
