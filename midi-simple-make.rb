@@ -184,6 +184,39 @@ class Event
     end
   end
 end
+# arg=[steps],[values]
+def mymerge span,*arg
+  r=[]
+  arg.each{|ar|
+    next if ! ar
+    m,steps,vs=ar
+    steps=[steps] if steps.class!=Array
+    steps=steps*(vs.size-1) if steps.size==1
+    r<<[0,m,vs[0]]
+    if vs.size>1
+      stepsum=steps.inject{|s,i|s+i}
+      vsize=vs.size-1
+      if stepsum>span
+        rate=span*1.0/stepsum
+        steps=steps.map{|i|(i*rate).to_i}
+      end
+      n=1
+      r+=vs[1..-1].map{|i|
+        t=steps.shift*n
+        n+=1
+        [t,m,i]
+      }
+    end
+  }
+  n=0
+  all=r.sort_by{|t,m,e|t}
+  rest=span-all[-1][0]
+  all.map{|t,m,e|
+    tt=t-n
+    n=t
+    [tt,m,e]
+  }+[[rest,:rest]]
+end
 
 def trackSizeHex d
   d=d.trim.split.join
@@ -298,7 +331,7 @@ module MidiRead
 end
 
 def rawHexPart d
-  li=d.scan(/\$delta\([^)]*\)|\$bend\([^)]*\)|\(bend:[^)]*\)|./)
+  li=d.scan(/\$delta\([^)]*\)|\$bend\([^)]*\)|\(bend:[^)]*\)|\(expre:[^)]*\)|./)
   res=[]
   li.map{|i|
     case i
@@ -307,26 +340,24 @@ def rawHexPart d
     when /\$bend\(([^)]*)\)/
       bendHex($1)
     when /\(bend:([^)]*)\)/
-      "b__#{$1.split(',')*"_"}__"
+      "_b__#{$1.split(',')*"_"}?"
+    when /\(expre:([^)]*)\)/
+      "_e__#{$1.split(',')*"_"}?"
     else
       i
     end
   }*""
 end
 def revertPre d
-  case d
-  when /^b__(.*)__/
-    "(bend:#{$1.split("_")*","})"
-  else
-    d
-  end
+  d.gsub(/_b__([^?]*)\?/){"(bend:#{$1.split("_")*","})"}.
+    gsub(/_e__([^?]*)\?/){"(expre:#{$1.split("_")*","})"}
 end
-def benddata d
-  d=~/^\(bend:(([[:digit:]]+),)?([-,[:digit:]]+)\)/
+def worddata word,d
+  d=~/\(#{word}:(([[:digit:]]+),)?([-,[:digit:]]+)\)/
   if $&
     pos=$1 ? $2.to_i : 0
     depth=$3.split(',').map{|i|i.to_i}
-    [pos,depth]
+    [:"#{word}",pos,depth]
   else
     false
   end
@@ -455,24 +486,24 @@ module MidiHex
     r=[]
     r<<Event.new(:e,start," 9#{ch} #{key} #{vel} # #{start}後, soundオン note #{@key} velocity #{velocity}\n")
     b=@preAfter.shift
+    bends=expre=false
     if b
-      pos,ds=benddata(b)
-      if pos
-        bendlen=pos*(ds.size-1)
-        if slen<bendlen
-          pos=slen/(ds.size-1)
-          bendlen=pos*(ds.size-1)
+      bends=worddata("bend",b)
+      expre=worddata("expre",b)
+      mymerge(slen,bends,expre).each{|t,m,d|
+        case m
+        when :bend
+          r<<self.bend(t,d)
+        when :expre
+          r<<self.expre(t,d)
+        when :rest
+          slen=t
         end
-        slen-=bendlen
-        npos=0
-        ds.each{|depth|
-          r<<self.bend(npos,depth)
-          npos=pos
-        }
-      end
+      }
     end
     r<<Event.new(:e,slen," 8#{ch} #{key} 00 # #{slen}(gate:#{@gateRate})- #{len.to_i}(#{len.round(2)})tick後, soundオフ [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]\n")
-    r<<self.bend(0,0) if b
+    r<<self.bend(0,0) if bends
+    r<<self.expre(0,127) if expre
     if rest>0
       r<<Event.new(:end,rest," 8#{ch} #{key} 00  # #{rest} len-gate\n")
     end
@@ -673,6 +704,9 @@ module MidiHex
     t=@waitingtime+len
     @waitnigtime=0
     Event.new(:e,t," B#{ch} #{n} #{data}\n")
+  end
+  def self.expre len,d
+    self.controlChange("11,#{d},#{len}")
   end
   def self.ProgramChange ch,inst,len=0
     ch=@ch if ch==false
