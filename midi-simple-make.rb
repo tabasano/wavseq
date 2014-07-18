@@ -1108,9 +1108,15 @@ module MidiHex
         @h<<[:GMsystemOn,120]
       when /^\(xg:on\)/
         @h<<[:XGsystemOn,120]
-      when /^\(pan:(<|>)(.*)\)/
+      when /^\(pan:(<|>)?(.*)\)/
         pan=$2.to_i
-        pan=$1==">" ? 64+pan : 64-pan
+        case $1
+        when ">"
+          pan+=64
+        when "<"
+          pan-=64
+        else
+        end
         @h<<[:controlChange,"10,#{pan}"]
       when /^\(wait:(\*)?(.*)\)/
         @h<<[:waitingtime,$1? $2.to_i : $2.to_f*@tbase]
