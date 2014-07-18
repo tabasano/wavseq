@@ -64,7 +64,7 @@ syntax: ...( will be changed time after time)
     compile order is : page,track seperate => macro set and replace => repeat check => sound data make
     ; =seperater. same to a new line
     blank =ignored
-    # comment =ignored after # of each line
+    ;; comment =ignored after ';;' of each line
 
     basicaly, one sound is a tone command followed by length number. now, tone type commands are :
       'c',  '{64}', '_snare!', '{d,g,-b}', ':cmaj7,'
@@ -77,6 +77,7 @@ expfile=false
 $debuglevel=1
 data=""
 pspl="///"
+cmark=";;"
 bpm=120
 octaveMode=:near
 opt = OptionParser.new
@@ -95,6 +96,7 @@ opt.on('-s',"show syntax") {|v|
 opt.on('-t b',"bpm") {|v| bpm=v.to_f }
 opt.on('-T w',"programChange test like instrument name '...'") {|v| $test=v }
 opt.on('-c d',"cycle data for test mode") {|v| $testdata=v }
+opt.on('-C d',"comment mark") {|v| cmark=v; puts "comment mark is '#{cmark}'" }
 opt.on('-p pspl',"page split chars") {|v| pspl=v }
 opt.on('-F i',"fuzzy shift mode") {|v| $fuzzy=v.to_i }
 opt.on('-O',"octave legacy mode") {|v| octaveMode=:far }
@@ -119,10 +121,16 @@ class Fixnum
 end
 )
 class String
-  def trim ofs=""
-    d=split("\n").map{|i|i.sub(/#.*/){}.chomp}*ofs
+  def setcmark c
+    @@cmark=c
+  end
+  def trim ofs="",com=@@cmark
+    d=split("\n").map{|i|i.sub(/(#{com}).*/){}.chomp}*ofs
 #    p d
     d
+  end
+  def sharp2cmark
+    self.gsub!("#"){@@cmark}
   end
   def tracks pspl
     tracks={}
@@ -139,6 +147,8 @@ class String
     tracks.keys.sort.map{|k|tracks[k]*";"}
   end
 end
+String.new.setcmark(cmark)
+
 class Array
   def rotatePlus
     self[1..-1]+[self.first+12]
@@ -218,8 +228,8 @@ def mymerge span,*arg
   }+[[rest,:rest]]
 end
 
-def trackSizeHex d
-  d=d.trim.split.join
+def trackSizeHex d,cmark="#"
+  d=d.trim("",cmark).split.join
   i=(d.size+8)/2
 #  p [d,i,i.to_s(16)]
   #("00000000"+i.to_s(16))[-8..-1]
@@ -365,6 +375,7 @@ end
 module MidiHex
   # 設定のため最初に呼ばなければならない
   def self.prepare tbase=480,vel=0x40,oct=:near
+    @cmark="#"
     @octmode=oct
     @tbase=tbase
     @gateRate=100
@@ -1290,7 +1301,7 @@ module MidiHex
 # track header
       4D 54 72 6B # MTrk
     "
-    dsize=trackSizeHex(data)
+    dsize=trackSizeHex(data,@cmark)
     trackend="
       00 FF 2F 00 # end of track
     "
@@ -1642,7 +1653,7 @@ rundatas[1..-1].each{|track|
 }
 alla=[d_header]+tracks.map{|t|mx.trackMake(t)}.flatten
 puts alla if $DEBUG
-all=alla.map(&:trim)*""
+all=alla.map{|i|i.trim("","#")}*""
 array=[all.split.join]
 #puts alla,all,array
 binary = array.pack( "H*" )
