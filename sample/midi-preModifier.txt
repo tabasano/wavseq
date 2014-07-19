@@ -1,3 +1,7 @@
+;; this is a comment.
+;; free for newline
+;; track 1
+
 BL:=:c7,===:f7,===:c7,=== ====    :f7,=== ====:c6,===:am7,==:aaug,   :dm7,===:g7,===:c6,=:a7,=:dm7,=:gaug,=
 RY:=[{_k!,_o!}/:_c!r_o!//:_o!2_s!//:_c!r_o!/ {_k!,_o!}/:_c!r_o!/_o!/:_c!r_o!/]6
 BS:=ccecffcfccefgfec fffcffffcccbaacC dcbagGabccaadd-gg
@@ -7,11 +11,10 @@ BS:=ccecffcfccefgfec fffcffffcccbaacC dcbagGabccaadd-gg
 (accent:25)
 
     (p:sax)v100 
-||| (p:orga) v65 (g:63) r*10
+||| (p:orga)(stroke:4) v65 (g:63) r*10
 ||| v65 r*24
 ||| (p:bas)v80 -- (g:73) r*20
 /////////////////////////////////////////////////////////////////
-
 
    [
     (V:  o o 110  50,80,40,110 115  60  90 100,50   110,80 90)
@@ -26,6 +29,7 @@ BS:=ccecffcfccefgfec fffcffffcccbaacC dcbagGabccaadd-gg
    (G: o oo           o   o oo  o  oo o       -,)
     rf/:ara/~      /:~~A//:~~c^d~A//:a~Ag~^a~//:~^ar/      rg/:~c~//:~Aa/  /:fgD//:~ef/~/:r~~a/
 
+;; track 2 over are omitted by page seperater"///"
 ///////////////////////////////////////////////////////////////
 
    (V:  o, o,    o,  100,o , o,o,o,    100,90, o             110,  o , o,o,  110,110, )

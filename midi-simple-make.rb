@@ -44,6 +44,7 @@ syntax: ...( will be changed time after time)
     {64}     =tone '64' by absolute tone number. ='(x:64)'
     {c,e,g}    =multi tone. use similar way to tone 'a' etc. = '(on:c)(on:e)(on:g)(wait:1)(off:c)(off:e)(off:g)'
     :cmaj7,       =use chord name. the first letter is tone name 'c'. so using capital one is with sharp.
+    (stroke:4)   =chord stroke interval ticks '4'. if '-4' down-up reversed.
     (V:o,o,110)  =preceding modifier velocities. if next notes are 'abc' ,third tone 'c' is with velocity 110. a blank or 'o' mean default value.
     (G:,,-)    =preceding modifier gate rates. if next notes are 'abc' ,third tone 'c' is with gate rate shorter.
                new preceding modifiers cancel old rest preceding values.
@@ -418,6 +419,7 @@ module MidiHex
   end
   def self.trackPrepare tc=0
     @tbase,@ch,@velocity,@basekey=@prepareSet
+    @strokespeed=0
     @preGate=[]
     @preVelocity=[]
     @preBefore=[]
@@ -666,9 +668,14 @@ module MidiHex
   end
   def self.chord c,l=false,accent=false
     r=[]
+    sspeed=@strokespeed
+    sspeed=0 if (c.size-1)*@strokespeed>l
+    (c=c.reverse;sspeed=-sspeed) if sspeed<0
     c.each{|i|
       r+=self.soundOn(i)
+      @waitingtime+=sspeed
     }
+    l-=sspeed*(c.size-1)
     @waitingtime,rest=self.byGate(l)
     c.each{|i|
       r+=self.soundOff(i)
@@ -921,6 +928,10 @@ module MidiHex
       end
     }
   end
+  def self.strokeSpeed s
+    s=s.to_i
+    @strokespeed=s
+  end
   def self.eventlist2str elist
     r=[]
     # EventList : [func,args]  or [callonly, func,args] or others
@@ -939,7 +950,7 @@ module MidiHex
       when :ch
         @ch=arg[0]
       when :waitingtime
-        @waitingtime=arg[0]
+        @waitingtime+=arg[0]
       when :call
         cmd,*arg=arg
         method(cmd).call(*arg)
@@ -1140,6 +1151,8 @@ module MidiHex
         @h<<[:soundOff,$1]
       when /^\(chordcenter:(.*)\)/
         @h<<[:call,:chordCenter,$1]
+      when /^\(stroke:(.*)\)/
+        @h<<[:call,:strokeSpeed,$1]
       when /^\((chord|C):(.*)\)/
         chord=$2.split.join.split(",") # .map{|i|self.note2key(i)}
         wait<<[:chord,chord]
