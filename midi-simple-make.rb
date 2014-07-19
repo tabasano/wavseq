@@ -51,6 +51,10 @@ syntax: ...( will be changed time after time)
     ^          =accent
     `          =too fast note, play ahead
     '          =too late note, lay back
+    (gm:on)
+    (gs:reset)
+    (xg:on)
+    (syswait:) =when using '(gm:on)' etc., this command is needed for all other tracks to adjust wait-time.
     ||| = track separater
     /// = page separater
     .DC .DS .toCODA .CODA .FINE =coda mark etc.
@@ -188,7 +192,9 @@ class Event
   end
   def data
     case @type
-    when :c,:raw,:o,:off
+    when :raw
+      rawdata(@value)
+    when :c,:o,:off
       @value
     else
       varlenHex(@time)+@value
@@ -228,7 +234,9 @@ def mymerge span,*arg
     [tt,m,e]
   }+[[rest,:rest]]
 end
-
+def rawdata d
+  d.gsub(","){" "}
+end
 def trackSizeHex d,cmark="#"
   d=d.trim("",cmark).split.join
   i=(d.size+8)/2
@@ -669,13 +677,14 @@ module MidiHex
   def self.chord c,l=false,accent=false
     r=[]
     sspeed=@strokespeed
-    sspeed=0 if (c.size-1)*@strokespeed>l
     (c=c.reverse;sspeed=-sspeed) if sspeed<0
+    span=c.size
+    sspeed=l/span if span*sspeed>l
     c.each{|i|
       r+=self.soundOn(i)
       @waitingtime+=sspeed
     }
-    l-=sspeed*(c.size-1)
+    l-=sspeed*(span-1)
     @waitingtime,rest=self.byGate(l)
     c.each{|i|
       r+=self.soundOff(i)
@@ -1010,6 +1019,7 @@ module MidiHex
   def self.makefraze rundata,tc
     return "" if not rundata
     self.trackPrepare(tc)
+    @systemWait=120
     @h=[]
     wait=[]
     @frest=0
@@ -1125,11 +1135,16 @@ module MidiHex
       when /^\(bspc:(.*)\)/
         @h<<[:bankSelectPC,$1]
       when /^\(gs:reset\)/
-        @h<<[:GSreset]
+        @h<<[:GSreset,0]
+        @h<<[:rest,@systemWait]
       when /^\(gm:on\)/
-        @h<<[:GMsystemOn,120]
+        @h<<[:GMsystemOn,0]
+        @h<<[:rest,@systemWait]
       when /^\(xg:on\)/
-        @h<<[:XGsystemOn,120]
+        @h<<[:XGsystemOn,0]
+        @h<<[:rest,@systemWait]
+      when /^\(syswait:\)/
+        @h<<[:rest,@systemWait]
       when /^\(pan:(<|>)?(.*)\)/
         pan=$2.to_i
         case $1
@@ -1391,7 +1406,7 @@ def macroDef data
       key=$2
       chord=/([^$]|^)\{([^\{\}]*)\}/
       r.gsub!(chord){"#{$1}(C:#{$2})"} while r=~chord
-      macro[key]=r
+      macro[key]=rawHexPart(r)
       ""
     else
       i
