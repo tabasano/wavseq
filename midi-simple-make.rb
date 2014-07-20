@@ -1448,20 +1448,75 @@ def multiplet d,tbase
   p "multiplet: ",total,ls.inject{|s,i|s+i} if $DEBUG && $debuglevel>1
   result*""
 end
+def calc a
+  li=a.split("\n")
+  r=[]
+  m={}
+  tmp=[]
+  mu=false
+  n=1
+  name=""
+  li.each{|i|
+    case i
+    when /^([^ :]+) *:=\( *$/
+      mu=true
+      name=$1
+    when /^ *\) */
+      mu=false
+      n=1
+      r<<tmp
+      tmp=[]
+    when /^ *$/
+    when /\$\{([^\}]+)\[(.*)\]\}/
+      r<<i.gsub(/\$\{([^\}\[\]]+)\[([^\]]*)\]\}/){m["#{$1}:#{$2}"]}
+    else
+      if mu
+        m["#{name}:#{n}"]=i
+        n+=1
+      else
+        r<<i
+      end
+    end
+  }
+  [r,m]
+end
+
 def macroDef data
   macro={}
-  s=data.scan(/macro +[^ ;]+ *:=[^;]+|[^ ;]+ *:=[^;]+|./)
+  mline=false
+  tmp=[]
+  name=""
+  num=1
+  s=data.scan(/macro +[^ ;:=]+ *:= *\( *;|macro +[^ ;:=]+ *:=[^;]+|[^ ;:=]+ *:= *\( *;|[^ ;:=]+ *:=[^;]+| *\) *;|[^;]+|./)
   data=s.map{|i|
     case i
-    when /(macro +)? *([^ ;]+) *:=([^;]+)/
+    when /^(macro +)? *([^ ;:=]+) *:= *\( *;/
+      mline=true
+      num=1
+      name=$2
+      tmp=[]
+      ""
+    when /^(macro +)? *([^ ;:=]+) *:=([^;]+)/
       r=$3
       key=$2
       chord=/([^$]|^)\{([^\{\}]*)\}/
       r.gsub!(chord){"#{$1}(C:#{$2})"} while r=~chord
       macro[key]=rawHexPart(r,macro)
       ""
-    else
+    when / *\) *;/
+      mline=false
+      name=""
+    when ";",/^ *$/
       i
+    else
+      if mline
+        key="#{name}[#{num}]"
+        macro[key]=i
+        num+=1
+        ""
+      else
+        i
+      end
     end
   }*""
   [macro,data]

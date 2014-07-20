@@ -3,21 +3,20 @@
 ;; track 1
 
 ;; System Exclusive Data
-;; room type
-ROOM:=F0,43,10,4C,02,01,00,01,01,F7
-;; reverb time
-RT:=F0,43,10,4C,02,01,02,40,F7
-;; DRY/WET
-DRY:=F0,43,10,4C,02,01,0B,77,F7
-;; FEEDBACK LEVEL 01h - 7Fh
-FBL:=F0,43,10,4C,02,01,14,70,F7
+
+EFF:=(
+   F0,43,10,4C,02,01,00,01,01,F7  ;; room type
+   F0,43,10,4C,02,01,02,40,F7     ;; reverb
+   F0,43,10,4C,02,01,0B,77,F7     ;; dry/wet
+   F0,43,10,4C,02,01,14,70,F7     ;; feed back level
+)
 
 BL:=:c7,===:f7,===:c7,=== ====    :f7,=== ====:c6,===:am7,==:aaug,   :dm7,===:g7,===:c6,=:a7,=:dm7,=:gaug,=
 RY:=[{_k!,_o!}/:_c!r_o!//:_o!2_s!//:_c!r_o!/ {_k!,_o!}/:_c!r_o!/_o!/:_c!r_o!/]6
 BS:=ccecffcfccefgfec fffcffffcccbaacC dcbagGabccaadd-gg
 
 (xg:on)
-&( $delta(120) $se($ROOM) 00 $se($RT) 00 $se($DRY) 00 $se($FBL))
+&( $delta(120) $se($EFF[1]) 00 $se($EFF[2]) 00 $se($EFF[3]) 00 $se($EFF[4]))
 (tempo:120)
 (accent:25)
 
