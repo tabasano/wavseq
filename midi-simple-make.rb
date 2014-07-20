@@ -17,7 +17,9 @@ syntax: ...( will be changed time after time)
     a     =one beat of note 'a'. default length equals 1 now.
     A*120 =120 ticks of note 'a #'
     v60   =velocity set to 60 (0-127)
-    &(00 00) =set hex data directly. This can include '$delta(240)' for deltaTime data making etc..
+    &(00 00) =set hex data directly. This can include ...
+             '$delta(240)' for deltaTime data making
+             '$se(F0 41 ..)' system exclusive to system exclusive message
     (p:11) =ProgramChange channel here, instrument 11
     (p:organ) =ProgramChange channel here, instrument ?(search word like 'organ' from list if exist)
         map text must start with instrument number
@@ -171,6 +173,14 @@ class Array
     r
   end
 end
+def unirand n,c,reset=false
+  a=[0,n]
+  while c>a.size
+    t=rand(n-2)+1
+    a<<t if ! a.member?(t)
+  end
+  a.sort_by{rand}
+end
 
 class Event
   attr_accessor :type, :time, :value
@@ -279,6 +289,20 @@ def varlenHex(v)
   }
   format("%0#{b.size*2}x",res)
 end
+def hext2hex d
+  ar=d.split(/[ ,]+/)-[""]
+  hex=ar.map{|i|i.size==2}.uniq==[true]
+  lasth=ar.map{|i|true if i=~/h$/}.uniq==[true]
+  zx=ar.map{|i|true if i=~/^0x/}.uniq==[true]
+  r=ar.map{|i|i[0..1]} if lasth
+  r=ar.map{|i|i[2..-1]} if zx
+  r=ar if hex
+  r
+end
+def sysEx2mes d
+  r=hext2hex(d)
+  "#{r[0]} #{varlenHex(r.size-1)} #{r[1..-1]*" "}"
+end
 def txt2hex t
   r=[]
   t.each_byte{|i|
@@ -348,16 +372,34 @@ module MidiRead
     end
   end
 end
-
-def rawHexPart d
-  li=d.scan(/\$delta\([^)]*\)|\$bend\([^)]*\)|\(bend:[^)]*\)|\(expre:[^)]*\)|./)
+def apply d,macro
+  d.scan(/\$\{[^\}]+\}|\$[^ ;]+|./).map{|i|
+    case i
+    when /^\$\{([^\}]+)\}|^\$([^ ;]+)/
+      key=$1||$2
+      if macro.keys.member?(key)
+        macro[key]
+      else
+        i
+      end
+    else
+      i
+    end
+  }*""
+end
+def rawHexPart d,macro={}
+  li=d.scan(/\$se\([^)]*\)|\$delta\([^)]*\)|\$bend\([^)]*\)|\(bend:[^)]*\)|\(expre:[^)]*\)|./)
   res=[]
   li.map{|i|
     case i
+    when /\$se\(([^)]*)\)/
+      d=apply($1,macro)
+      sysEx2mes(d)
     when /\$delta\(([^)]*)\)/
       varlenHex($1)
     when /\$bend\(([^)]*)\)/
-      bendHex($1)
+      d=apply($1,macro)
+      bendHex(d)
     when /\(bend:([^)]*)\)/
       "_b__#{$1.split(',')*"_"}?"
     when /\(expre:([^)]*)\)/
@@ -1406,7 +1448,7 @@ def macroDef data
       key=$2
       chord=/([^$]|^)\{([^\{\}]*)\}/
       r.gsub!(chord){"#{$1}(C:#{$2})"} while r=~chord
-      macro[key]=rawHexPart(r)
+      macro[key]=rawHexPart(r,macro)
       ""
     else
       i
@@ -1581,8 +1623,8 @@ def loadCalc d
     [:seq,d]
   end
 end
-def modifierComp t
-  rawHexPart(t).scan(/\([VGAB]:[^)]+\)|./).map{|i|
+def modifierComp t,macro
+  rawHexPart(t,macro).scan(/\([VGAB]:[^)]+\)|./).map{|i|
     case i
     when /^\((V|G):([^)]+)\)/
       mode=$1
@@ -1641,16 +1683,17 @@ rundatas=[]
 rawdatas=[]
 macro={}
 tracks=data.tracks(pspl)
+fuzz=unirand($fuzzy,tracks.size) if $fuzzy
 p tracks if $DEBUG && $debuglevel>1
 tracks.map{|track|
     m,track=macroDef(track)
     macro.merge!(m)
-    track=modifierComp(track)
+    track=modifierComp(track,macro)
     repCalc(track,macro,tbase)
   }.each{|t|
     r=loadCalc(t)
     if $fuzzy
-      n=rand($fuzzy)
+      n=fuzz.shift
       STDERR.puts "track shift: #{n} tick#{n>1 ? 's' : ''}"
       pre="r*#{n} "
     else
