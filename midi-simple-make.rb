@@ -807,6 +807,14 @@ module MidiHex
     ex=self.sysExEvent("43 10 4C 00 00 7E 00")
     Event.new(:sys,len," #{ex} # XG\n")
   end
+  def self.xgMasterTune d,len=0
+    d=[[d.to_i,-100].max,100].min
+    n=(d+100)*256/200
+    m=n/16
+    l=n%16
+    ex=self.sysExEvent("43 10 27 30 00 00 #{format"%02x",m} #{format"%02x",l} 00")
+    Event.new(:sys,len," #{ex} # XG midi master tune \n")
+  end
   def self.GSreset len=0
     @nowtime+=len
     ex=self.sysExEvent("41 10 42 12 40 00 7F 00 41")
@@ -1187,6 +1195,8 @@ module MidiHex
         @h<<[:rest,@systemWait]
       when /^\(syswait:\)/
         @h<<[:rest,@systemWait]
+      when /^\(xgMasterTune:(.*)\)/
+        @h<<[:xgMasterTune,$1]
       when /^\(pan:(<|>)?(.*)\)/
         pan=$2.to_i
         case $1
