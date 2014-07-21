@@ -1448,39 +1448,6 @@ def multiplet d,tbase
   p "multiplet: ",total,ls.inject{|s,i|s+i} if $DEBUG && $debuglevel>1
   result*""
 end
-def calc a
-  li=a.split("\n")
-  r=[]
-  m={}
-  tmp=[]
-  mu=false
-  n=1
-  name=""
-  li.each{|i|
-    case i
-    when /^([^ :]+) *:=\( *$/
-      mu=true
-      name=$1
-    when /^ *\) */
-      mu=false
-      n=1
-      r<<tmp
-      tmp=[]
-    when /^ *$/
-    when /\$\{([^\}]+)\[(.*)\]\}/
-      r<<i.gsub(/\$\{([^\}\[\]]+)\[([^\]]*)\]\}/){m["#{$1}:#{$2}"]}
-    else
-      if mu
-        m["#{name}:#{n}"]=i
-        n+=1
-      else
-        r<<i
-      end
-    end
-  }
-  [r,m]
-end
-
 def macroDef data
   macro={}
   mline=false

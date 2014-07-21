@@ -11,8 +11,13 @@ EFF:=(
    F0,43,10,4C,02,01,14,70,F7     ;; feed back level
 )
 
+;; blues chord sequence
 BL:=:c7,===:f7,===:c7,=== ====    :f7,=== ====:c6,===:am7,==:aaug,   :dm7,===:g7,===:c6,=:a7,=:dm7,=:gaug,=
+
+;; rythm
 RY:=[{_k!,_o!}/:_c!r_o!//:_o!2_s!//:_c!r_o!/ {_k!,_o!}/:_c!r_o!/_o!/:_c!r_o!/]6
+
+;; base line
 BS:=ccecffcfccefgfec fffcffffcccbaacC dcbagGabccaadd-gg
 
 (xg:on)
