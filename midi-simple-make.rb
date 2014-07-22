@@ -484,7 +484,7 @@ module MidiHex
     @gateRate=[g,100].min
   end
   def self.trackPrepare tc=0
-    @tbase,@ch,@velocity,@basekey=@prepareSet
+    @tbase,@ch,@velocity,@basekey,@gateRate=@prepareSet
     @strokespeed=0
     @preGate=[]
     @preVelocity=[]
@@ -854,6 +854,7 @@ module MidiHex
     r
   end
   def self.bankSelectPC d
+    d="#{rand(0x7f)},rand(0x7f)},#{rand(0x7f)}" if d=="?"
     d=~/(([^,]*),([^,]*)),([^,]*)(,(.*))?/
     len=$6.to_i
     inst=$4.to_i ##
