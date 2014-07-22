@@ -107,6 +107,7 @@ opt.on('-C d',"comment mark") {|v| cmark=v; puts "comment mark is '#{cmark}'" }
 opt.on('-p pspl',"page split chars") {|v| pspl=v }
 opt.on('-F i',"fuzzy shift mode") {|v| $fuzzy=v.to_i }
 opt.on('-O',"octave legacy mode") {|v| octaveMode=:far }
+opt.on('-I',"ignore roland check sum") {|v| $ignoreChecksum=v }
 opt.on('-M i',"debug level") {|v| $debuglevel=v.to_i }
 opt.on('-m i',"mode of test/ 1:GM 2:XG 3:GS") {|v| $testmode=v.to_i }
 opt.parse!(ARGV)
@@ -299,8 +300,23 @@ def hext2hex d
   r=ar if hex
   r
 end
+def rolandcheck d
+  return d if $ignoreChecksum
+  if d[1]=="41"
+    org=d[2]
+    s=0
+    [*5..(d.size-3)].each{|i|s+=d[i].to_i(16)}
+    csum=0x80-s%0x80
+    if $DEBUG && csum!=org.to_i(16)
+      "# sysEx: roland check sum bad?"
+    end
+    d[-2]=format("%02X",csum)
+  end
+  d
+end
 def sysEx2mes d
   r=hext2hex(d)
+  r=rolandcheck(r)
   "#{r[0]} #{varlenHex(r.size-1)} #{r[1..-1]*" "}"
 end
 def txt2hex t
@@ -791,7 +807,7 @@ module MidiHex
   def self.sysExEvent d
     d=d+" F7"
     s=varlenHex(d.split.join.size/2)
-    "F0 #{s} #{d}"
+    " F0 #{s} #{d}"
   end
   # GM,GS,XG wakeup command need over 50milisec. ?
   # if not, midi player may hung up.
@@ -878,6 +894,12 @@ module MidiHex
     @waitingtime=0
     @nowtime+=pos
     Event.new(:e,pos," e#{format"%01x",ch} #{bendHex(depth)} # t:#{pos} bend #{depth}\n")
+  end
+  def self.masterVolume v,pos=0
+    v=[[0,v].max,0x7f].min
+    vol=format("%02x",v)
+    ex=self.sysExEvent("7F 04 01 00 #{vol}")+" # master volume #{v}"
+    Event.new(:e,pos,ex)
   end
   def self.note2key i
     # inside parenthesis -+ are octave
@@ -1174,6 +1196,8 @@ module MidiHex
         @h<<[:velocity,$1.to_i]
       when /^\(g:([0-9]+)\)/
         @h<<[:call,:setGateRate,$1.to_i]
+      when /^\(volume:(.*)\)/
+        @h<<[:masterVolume,$1.to_i]
       when /^\(tempo:reset\)/
         @h<<[:tempo,@bpmStart]
       when /^\(ch:(.*)\)/
@@ -1187,8 +1211,9 @@ module MidiHex
       when /^\(gs:reset\)/
         @h<<[:GSreset,0]
         @h<<[:rest,@systemWait]
-      when /^\(gm:on\)/
-        @h<<[:GMsystemOn,0]
+      when /^\(gm(2)?:on\)/
+        gm=$1 ? 2 : 1
+        @h<<[:GMsystemOn,0,gm]
         @h<<[:rest,@systemWait]
       when /^\(xg:on\)/
         @h<<[:XGsystemOn,0]
