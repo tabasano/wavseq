@@ -1202,7 +1202,9 @@ module MidiHex
       when /^\(tempo:reset\)/
         @h<<[:tempo,@bpmStart]
       when /^\(ch:(.*)\)/
-        @h<<[:ch,$1.to_i]
+        ch=$1.to_i
+        ch=9 if $1=="drum"
+        @h<<[:ch,ch]
       when /^\(cc:(.*)\)/
         @h<<[:controlChange,$1]
       when /^\(bs:(.*)\)/
@@ -1287,6 +1289,8 @@ module MidiHex
       when "r"
         wait<<[:rest,i]
       when " "
+      when "?"
+        wait<<[:rawsound,rand(0x7f)]
       else
         if @notes.keys.member?(i)
           wait<<[:sound,i]
