@@ -488,6 +488,8 @@ module MidiHex
     @strokespeed=0
     @preGate=[]
     @preVelocity=[]
+    @preNote=[]
+    @preLength=[]
     @preBefore=[]
     @preAfter=[]
     @tracknum=tc+1
@@ -587,6 +589,13 @@ module MidiHex
       r<<Event.new(:end,rest," 8#{ch} #{key} 00  # #{rest} len-gate\n")
     end
     r
+  end
+  def self.dummyNote key,len,accent=false
+    vel=@velocity
+    vel+=@accentPlus
+    key=@preNote.shift if @preNote.size>0
+    len=@preLength.shift if @preLength.size>0
+    self.oneNote(len,key,vel)
   end
   def self.byKey key,len,accent=false
     vel=@velocity
@@ -964,6 +973,28 @@ module MidiHex
     @chordCenter=[[0,@chordCenter].max,0x7f].min
     @firstchordbase=@chordCenter
   end
+  def self.preLength v
+    @preLength=v.map{|i|
+      case i
+      when "o",""
+        @tbase
+      when /^\*/
+        $'.to_f*@tbase
+      else
+        i.to_f*@tbase
+      end
+    }
+  end
+  def self.preNote v
+    @preNote=v.map{|i|
+      case i
+      when "?"
+        rand(0x7f)
+      else
+        self.note2key(i)
+      end
+    }
+  end
   def self.preVelocity v
     @preVelocity=v.map{|i|
       case i
@@ -1131,6 +1162,8 @@ module MidiHex
             @h<<[:byKey,c,t,accent]
           when :sound
             @h<<[:notes,c,t,accent]
+          when :dummyNote
+            @h<<[:dummyNote,c,t,accent]
           when :chord
             @h<<[:chord,c,t,accent]
           when :chordName
@@ -1150,6 +1183,12 @@ module MidiHex
       when /^\(V:(.*)\)/
         vs=$1.split(",")
         @h<<[:call,:preVelocity,vs]
+      when /^\(N:(.*)\)/
+        s=$1.split(",")
+        @h<<[:call,:preNote,s]
+      when /^\(L:(.*)\)/
+        s=$1.split(",")
+        @h<<[:call,:preLength,s]
       when /^\(G:(.*)\)/
         gs=$1.split(",")
         @h<<[:call,:preGate,gs]
@@ -1254,6 +1293,17 @@ module MidiHex
       when /^\(tempo:(.*)\)/
         @bpm=$1.to_i
         @h<<[:tempo,@bpm] if @bpm>0
+      when /^\(\?:(.*)\)/
+        ks=$1
+        if ks=~/\-/
+          ks=[*($`.to_i)..($'.to_i)]
+          key=ks[rand(ks.size)]
+          wait<<[:rawsound,key]
+        else
+          ks=ks.split(",")
+          key=ks[rand(ks.size)]
+          wait<<[:sound,key]
+        end
       when /^\(x:(.*)\)/
         key=$1.to_i
         wait<<[:rawsound,key]
@@ -1288,6 +1338,8 @@ module MidiHex
         @h<<@h[-1]
       when "r"
         wait<<[:rest,i]
+      when "o"
+        wait<<[:dummyNote,i]
       when " "
       when "?"
         wait<<[:rawsound,rand(0x7f)]
@@ -1432,7 +1484,7 @@ def multiplet d,tbase
   else
     total=tbase*rate
   end
-  r=i.scan(/\(x:[^\]]+\)|\(chord:[^)]+\)|\(C:[^)]+\)|:[^\(,]+\([^\)]+\),|:[^,]+,|[[:digit:]\.]+|_[^!]+!|~|[-+^`']|./)
+  r=i.scan(/\(\?:[^\]]+\)|\(x:[^\]]+\)|\(chord:[^)]+\)|\(C:[^)]+\)|:[^\(,]+\([^\)]+\),|:[^,]+,|[[:digit:]\.]+|_[^!]+!|~|[-+^`']|./)
   wait=[]
   notes=[]
   mod=[]
@@ -1440,7 +1492,7 @@ def multiplet d,tbase
     case i
     when "-","+","^","`","'"
       mod<<i
-    when /\((x|C|chord):[^\)]+\)|^\^?:[^,]+,/
+    when /\((\?|x|C|chord):[^\)]+\)|^\^?:[^,]+,/
       wait<<1
       notes<<"#{mod*""}#{i}"
       mod=[]
@@ -1544,7 +1596,7 @@ def tie d,tbase
   res=[]
   # if no length word after '~' length is 1
   d.gsub!(/~([^*[:digit:]])?/){$1 ? "~1#{$1}" : $&} while d=~/~[^*[:digit:]]/
-  li=d.scan(/\$\{[^\}]+\}|\$[^ ;\$_*^`'+-]+|\([^)\(]*\)|:[^\(,]+\([^)]+\),|:[^,]+,|_[^!]+!|_[^_]__[^?]+\?|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:].]+|\([VGAB]:[^)]+\)|~|./)
+  li=d.scan(/\$\{[^\}]+\}|\$[^ ;\$_*^`'+-]+|\([^)\(]*\)|:[^\(,]+\([^)]+\),|:[^,]+,|_[^!]+!|_[^_]__[^?]+\?|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:].]+|\([VGABLN]:[^)]+\)|~|./)
   li.each{|i|
     case i
     when /^(\*)?([[:digit:].]+)/
@@ -1556,7 +1608,7 @@ def tie d,tbase
       end
     when "~"
       res<<[:tick,tbase] if res[-1][0]==:e
-    when /^\([VGAB]:[^)]+/
+    when /^\([VGABLN]:[^)]+/
       res<<[:modifier,i]
     else
       res<<[:e,i]
@@ -1686,7 +1738,7 @@ def loadCalc d
   end
 end
 def modifierComp t,macro
-  rawHexPart(t,macro).scan(/\([VGAB]:[^)]+\)|./).map{|i|
+  rawHexPart(t,macro).scan(/\([VGABLN]:[^)]+\)|./).map{|i|
     case i
     when /^\((V|G):([^)]+)\)/
       mode=$1
@@ -1699,7 +1751,7 @@ def modifierComp t,macro
         }
       }
       "(#{mode}:#{v*","})"
-    when /^\((A|B):([^)]+)\)/
+    when /^\((A|B|L|N):([^)]+)\)/
       mode=$1
       n=0
       v=$2.split(/,/).map{|i|i.split(/ +/)-[""]}.map{|i|
