@@ -13,3 +13,4 @@ midi-simple-make.rb
   MMLというものがある。はてなでも記法がある。
   半音上げるのに＋を使うのだが、一つの音は一文字で出したい。なんとなく。
   パッと見はあれだが慣れれば書きやすく読みやすいもの。
+  midiに変換してみる>> http://tabasano.sakura.ne.jp/edmml.htm
