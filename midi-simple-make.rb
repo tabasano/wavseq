@@ -66,7 +66,7 @@ syntax: ...( will be changed time after time)
         similarly, _s!=snare, k:bassKick, o:openHighHat, c:closedHighHat, cc:CrachCymbal, h:highTom, l:lowTom as default.
         map text personaly you set must start with tone number.
     (loadf:filename.mid,2) =load filename.mid, track 2. Track must be this only and seperated by '|||'.
-    W:=abc        =macro definition. One Charactor macro can be used. When macro name is long, use prefix '$' for refering.
+    W:=abc        =macro definition. One Charactor macro can be used. use prefix '$' for refering.
     macro W:=abc  =macro definition.
     compile order is : page,track seperate => macro set and replace => repeat check => sound data make
     ; =seperater. same to a new line
@@ -389,9 +389,9 @@ module MidiRead
   end
 end
 def apply d,macro
-  d.scan(/\$\{[^\}]+\}|\$[^ ;]+|./).map{|i|
+  d.scan(/\$\{[^ ;\$_*^,\)\(`'\/+-]+\}|\$[^ ;\$_*^,\)\(`'\/+-]+|./).map{|i|
     case i
-    when /^\$\{([^\}]+)\}|^\$([^ ;]+)/
+    when /^\$\{([^ ;\$_*^,\)\(`'\/+-]+)\}|^\$([^ ;\$_*^,\)\(`'\/+-]+)/
       key=$1||$2
       if macro.keys.member?(key)
         macro[key]
@@ -1581,7 +1581,7 @@ def nestsearch d,macro
     when /\/[^\/]+\//
       true
     else
-      i
+      ""
     end
   }
   b=(macro.keys-r).size<macro.keys.size
@@ -1649,11 +1649,11 @@ def repCalc line,macro,tbase
   line.gsub!(rpt){$1*$2.to_i} while line=~rpt
   chord=/([^$]|^)\{([^\{\}]*)\}/
   line.gsub!(chord){"#{$1}(C:#{$2})"} while line=~chord
-  a=line.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;\$_*^,\)\(`'\/+-]+|./)
+  a=line.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;\$_*^,\)\(`'\/+-]+|\([^\)]*:|\)|./)
   a=a.map{|i|
     if i=~/^\/[^\/]+\//
       if i=~/\$/
-        i=i.gsub(/\$\{([^ \{\}]+)\}/){macro[$1]}.gsub(/\$([^ ;\$_*^,\)\(`'\/+-]+)/){macro[$1]}
+        i=i.gsub(/\$\{([^ ;\$_*^,\)\(`'\/+-]+)\}/){macro[$1]}.gsub(/\$([^ ;\$_*^,\)\(`'\/+-]+)/){macro[$1]}
       end
       multiplet(i,tbase)
     else
@@ -1717,7 +1717,7 @@ def repCalc line,macro,tbase
     when ";"
       current=""
     else
-      current=macro.keys.member?(current) ? macro[current] : current
+      current
     end
     res<<current
   end
