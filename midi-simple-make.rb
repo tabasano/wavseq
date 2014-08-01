@@ -477,6 +477,7 @@ module MidiHex
     @bendrange=2
     @prepareSet=[@tbase,@ch,@velocity,@basekey,@gateRate,@bendrange]
     @chmax=15
+    @bendrangemax=127
   end
   def self.accent a
     @accentPlus=a.to_i
@@ -493,7 +494,7 @@ module MidiHex
     else
       @bendrange=v.to_i
     end
-    @bendrange=[[@bendrange,12].min,0].max
+    @bendrange=[[@bendrange,@bendrangemax].min,0].max
     r=[]
     r<<self.controlChange("101,0")
     r<<self.controlChange("100,0")
@@ -1366,7 +1367,7 @@ module MidiHex
         if @notes.keys.member?(i)
           wait<<[:sound,i]
         else
-          STDERR.puts "[#{i}] undefined note?" if $DEBUG
+          STDERR.puts "[#{i}] undefined note?" # if $DEBUG
         end
       end
     }
