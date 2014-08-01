@@ -474,7 +474,8 @@ module MidiHex
     @basekey=0x3C
     @chordCenter=@chordCenterOrg=@basekey
     @basekeyRythm=@basekeyOrg=@basekey
-    @prepareSet=[@tbase,@ch,@velocity,@basekey,@gateRate]
+    @bendrange=2
+    @prepareSet=[@tbase,@ch,@velocity,@basekey,@gateRate,@bendrange]
     @chmax=15
   end
   def self.accent a
@@ -483,8 +484,24 @@ module MidiHex
   def self.setGateRate g
     @gateRate=[g,100].min
   end
+  def self.bendRange v
+    case v
+    when /^\+/
+      @bendrange+=$'.to_i
+    when /^\-/
+      @bendrange-=$'.to_i
+    else
+      @bendrange=v.to_i
+    end
+    @bendrange=[[@bendrange,12].min,0].max
+    r=[]
+    r<<self.controlChange("101,0")
+    r<<self.controlChange("100,0")
+    r<<self.controlChange("6,#{@bendrange}")
+    r
+  end
   def self.trackPrepare tc=0
-    @tbase,@ch,@velocity,@basekey,@gateRate=@prepareSet
+    @tbase,@ch,@velocity,@basekey,@gateRate,@bendrange=@prepareSet
     @strokespeed=0
     @preGate=[]
     @preVelocity=[]
@@ -1220,6 +1237,8 @@ module MidiHex
           @h<<[:bend,npos,depth]
           npos=pos
         }
+      when /^\(bendRange:([^\)]*)\)/
+        @h<<[:bendRange,$1]
       when /^&\((.+)\)/
         raw=rawHexPart($1)
         @h<<[:raw,raw]
