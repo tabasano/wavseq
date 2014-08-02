@@ -68,6 +68,9 @@ syntax: ...( will be changed time after time)
     (loadf:filename.mid,2) =load filename.mid, track 2. Track must be this only and seperated by '|||'.
     W:=abc        =macro definition. One Charactor macro can be used. use prefix '$' for refering.
     macro W:=abc  =macro definition.
+    a(x):=ab$x    =macro with args. in this case, '$a(10)' is substituded by 'ab10'.
+                  '$a(:10,20,30)' = 'ab10ab20ab30'.
+                  '$a(4:10,20,30)' = 'ab10(wait:4)ab20(wait:4)ab30'.
     compile order is : page,track seperate => macro set and replace => repeat check => sound data make
     ; =seperater. same to a new line
     blank =ignored
@@ -1550,6 +1553,33 @@ def multiplet d,tbase
   p "multiplet: ",total,ls.inject{|s,i|s+i} if $DEBUG && $debuglevel>1
   result*""
 end
+
+def funcApply m,name,x
+  a=m.keys.select{|k|k=~/^#{name}\(/}[0]
+  fbodyOrg,*default=m[a]
+  return a if ! fbodyOrg
+  x=~/(([^:]+):)?/
+  interval,x=$2,$'
+  x=x.split(",")
+  max=x.size
+  x+=default
+  a=~/\((.*)\)/
+  args=$1.split(',').map{|k|"$#{k}"}
+  n=0
+  # p "x,args,mac:",x,args,fbody
+  r=[]
+  max.times{|i|
+    fbody=fbodyOrg
+    args.each{|k|
+      fbody=fbody.gsub(k){x[n]}
+      n+=1
+    }
+    r<<fbody
+  }
+  sep=""
+  sep="(wait:#{interval})" if interval
+  r*sep
+end
 def macroDef data
   macro={}
   mline=false
@@ -1669,6 +1699,16 @@ def repCalc line,macro,tbase
   line.gsub!(rpt){$1*$2.to_i} while line=~rpt
   chord=/([^$]|^)\{([^\{\}]*)\}/
   line.gsub!(chord){"#{$1}(C:#{$2})"} while line=~chord
+  line=line.scan(/(\.\$)|(\$([[:alnum:]]+)\(([^\)]+)\))|(.)/).map{|a,b,bname,barg,c|
+    if a
+      a 
+    elsif c
+      c
+    else
+      r=funcApply(macro,bname,barg)
+      r ? r : b
+    end
+  }*""
   a=line.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;\$_*^,\)\(`'\/+-]+|\([^\)]*:|\)|./)
   a=a.map{|i|
     if i=~/^\/[^\/]+\//
