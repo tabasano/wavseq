@@ -105,10 +105,7 @@ def pattern a
       }-[nil]
     end
   }
-  dr=[]
-  drum.each{|v|
-    v.size.times{|n|dr[n] ? dr[n]+=[v[n]] : dr[n]=[v[n]]}
-  }
+  dr=drum.transpose
   dr=dr.map{|i|
     i=i-["r",nil]
     i.uniq!
@@ -118,5 +115,7 @@ def pattern a
   size=dr.size/el
   "/#{size}:#{dr*""}/"
 end
+
+data=File.read(ARGV[0]) if ARGV.size>0
 
 puts pattern(data)
