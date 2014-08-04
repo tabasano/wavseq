@@ -898,7 +898,7 @@ module MidiHex
       r=[@programList[rand(@programList.size)]]
       p "random: ",r if $DEBUG
     else
-      r=@programList.select{|num,line|line=~/#{p}/i}
+      r=@programList.select{|n,line|line=~/#{p}/i}
       puts "no instrument name like '#{p}' in list" if $DEBUG && r.size==0
     end
     num=[num,r.size].min if num
