@@ -53,6 +53,10 @@ syntax: ...( will be changed time after time)
     ^          =accent
     `          =too fast note, play ahead
     '          =too late note, lay back
+    (-)a        ='a flat'
+    (+)a        ='a sharp' equals 'A'
+    (+2)a,(++)a ='a ##'
+    (0)a        ='a natural'
     (gm:on)
     (gs:reset)
     (xg:on)
@@ -542,12 +546,13 @@ module MidiHex
     r=len-l
     [l,r]
   end
-  def self.soundOn key=@basekey,velocity=@velocity,ch=@ch
+  def self.soundOn key=@basekey,velocity=@velocity,ch=@ch,sharp=0
     key=self.note2key(key) if key.class==String
     key,ch=key if key.class==Array
     ch=[ch,0x0f].min
     velocity=[velocity,0x7f].min
-    @key=[key,0x7f].min
+    key+=sharp
+    @key=[[key,0x7f].min,0].max
     @onlist<<@key
     key=format("%02x",@key)
     ch=format("%01x",ch)
@@ -558,11 +563,12 @@ module MidiHex
     r<<Event.new(:e,start," 9#{ch} #{key} #{vel} # #{start}後, sound on only , note #{@key} velocity #{velocity}\n")
     r
   end
-  def self.soundOff key=@basekey,ch=@ch
+  def self.soundOff key=@basekey,ch=@ch,sharp=0
     key=self.note2key(key) if key.class==String
     key,ch=key if key.class==Array
     ch=[ch,0x0f].min
-    @key=[key,0x7f].min
+    key+=sharp
+    @key=[[key,0x7f].min,0].max
     @onlist-=[@key]
     key=format("%02x",@key)
     ch=format("%01x",ch)
@@ -572,12 +578,13 @@ module MidiHex
     r<<Event.new(:end,start," 8#{ch} #{key} 00 # #{start} sound off only [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]\n")
     r
   end
-  def self.oneNote len=@tbase,key=@basekey,velocity=@velocity,ch=@ch
+  def self.oneNote len=@tbase,key=@basekey,velocity=@velocity,ch=@ch,sharp=0
     velocity=@preVelocity.shift if @preVelocity.size>0
     gate=@gateRate
     ch=[ch,0x0f].min
     velocity=[velocity,0x7f].min
-    @key=[key,0x7f].min
+    key+=sharp
+    @key=[[key,0x7f].min,0].max
     key=format("%02x",@key)
     ch=format("%01x",ch)
     vel=format("%02x",velocity)
@@ -611,19 +618,19 @@ module MidiHex
     end
     r
   end
-  def self.dummyNote key,len,accent=false
+  def self.dummyNote key,len,accent=false,sharp=0
     vel=@velocity
     vel+=@accentPlus
     key=@preNote.shift if @preNote.size>0
     len=@preLength.shift if @preLength.size>0
-    self.oneNote(len,key,vel)
+    self.oneNote(len,key,vel,sharp)
   end
-  def self.byKey key,len,accent=false
+  def self.byKey key,len,accent=false,sharp=0
     vel=@velocity
     vel+=@accentPlus
-    self.oneNote(len,key,vel)
+    self.oneNote(len,key,vel,@ch,sharp)
   end
-  def self.notekey key,length=false,accent=false
+  def self.notekey key,length=false,accent=false,sharp=0
     len,velocity,ch=[@tbase,@velocity,@ch]
     velocity+=@accentPlus if accent
     len=length if length
@@ -632,14 +639,14 @@ module MidiHex
       key,ch=key
     end
     key=key+@basekey
-    self.oneNote(len,key,velocity,ch)
+    self.oneNote(len,key,velocity,ch,sharp)
   end
-  def self.percussionNote key,len=@tbase,accent=false
+  def self.percussionNote key,len=@tbase,accent=false,sharp=0
     vel=@velocity
     vel+=@accentPlus if accent
-    self.oneNote(len,key,vel,@rythmChannel)
+    self.oneNote(len,key,vel,@rythmChannel,sharp)
   end
-  def self.notes c,l=false,accent=false
+  def self.notes c,l=false,accent=false,sharp=0
     n=@notes[c]
     if @octmode==:near && n.class != Array
       if @lastnote
@@ -651,7 +658,7 @@ module MidiHex
       (@basekey-=12;@lastnote+=12) if n<0
       n=@lastnote
     end
-    self.notekey(n,l,accent)
+    self.notekey(n,l,accent,sharp)
   end
   def self.shiftChord chord, base, limit=6
     octave=12
@@ -659,7 +666,7 @@ module MidiHex
     chord=chord.orotate(1) while chord[0]<base-limit
     chord
   end
-  def self.chordName c,l=false,accent=false
+  def self.chordName c,l=false,accent=false,sharp=0
     c=~/(.)([^(]*)(\((.*)\))?/
     root=$1
     type=$2
@@ -674,7 +681,7 @@ module MidiHex
       end
     else
       @lastchordName=c
-      base=self.note2key(root)
+      base=self.note2key(root)+sharp
       ten=[0]
       case type
       when "power"
@@ -762,20 +769,20 @@ module MidiHex
     cc=c.map{|i|(i-r)%12}.sort.map{|i|i+r}
     cc
   end
-  def self.chord c,l=false,accent=false
+  def self.chord c,l=false,accent=false,sharp=0
     r=[]
     sspeed=@strokespeed
     (c=c.reverse;sspeed=-sspeed) if sspeed<0
     span=c.size
     sspeed=l/span if span*sspeed>l
     c.each{|i|
-      r+=self.soundOn(i)
+      r+=self.soundOn(i,@velocity,@ch,sharp)
       @waitingtime+=sspeed
     }
     l-=sspeed*(span-1)
     @waitingtime,rest=self.byGate(l)
     c.each{|i|
-      r+=self.soundOff(i)
+      r+=self.soundOff(i,@ch,sharp)
     }
     r+=self.rest(rest) if rest>0
     r
@@ -1152,7 +1159,8 @@ module MidiHex
     @nowtime=0
     @shiftbase=40
     accent=false
-    cmd=rundata.scan(/&\([^)]+\)|:[^\(,]+\([^\)\(]+\),|:[^,]+,|\([^:]*:[^)\(]*\)|_[^!_]+!|_[^_]__[^\?]+\?|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:]]+\.[[:digit:]]+|\*?[[:digit:]]+|[-+[:alpha:]]|\^|`|'|./)
+    sharp=0
+    cmd=rundata.scan(/&\([^)]+\)|\([-+]*[[:digit:]]?\)|:[^\(,]+\([^\)\(]+\),|:[^,]+,|\([^:]*:[^)\(]*\)|_[^!_]+!|_[^_]__[^\?]+\?|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:]]+\.[[:digit:]]+|\*?[[:digit:]]+|[-+[:alpha:]]|\^|`|'|./)
     cmd<<" " # dummy
     p "make start: ",cmd if $DEBUG
     cmd.each{|i|
@@ -1178,25 +1186,34 @@ module MidiHex
         wait.each{|m,c|
           case m
           when :percussion
-            @h<<[:percussionNote,c,t,accent]
+            @h<<[:percussionNote,c,t,accent,sharp]
           when :rawsound
-            @h<<[:byKey,c,t,accent]
+            @h<<[:byKey,c,t,accent,sharp]
           when :sound
-            @h<<[:notes,c,t,accent]
+            @h<<[:notes,c,t,accent,sharp]
           when :dummyNote
-            @h<<[:dummyNote,c,t,accent]
+            @h<<[:dummyNote,c,t,accent,sharp]
           when :chord
-            @h<<[:chord,c,t,accent]
+            @h<<[:chord,c,t,accent,sharp]
           when :chordName
-            @h<<[:chordName,c,t,accent]
+            @h<<[:chordName,c,t,accent,sharp]
           when :rest
             @h<<[:rest,t]
           end
         }
         wait=[]
         accent=false
+        sharp=0
       end
       case i
+      when /^\(([-+]*)([[:digit:]])?\)/
+        n=$2 ? $2.to_i : 1
+        if $1.size>1
+          n=$1.size
+        end
+        sh=$1 ? $1[0..0] : "+"
+        sh="#{sh}#{n}".to_i
+        sharp=sh
       when /^\(key:(-?)\+?([[:digit:]]+)\)/
         tr=$2.to_i
         tr*=-1 if $1=="-"
@@ -1507,13 +1524,13 @@ def multiplet d,tbase
   else
     total=tbase*rate
   end
-  r=i.scan(/\(\?:[^\]]+\)|\(x:[^\]]+\)|\(chord:[^)]+\)|\(C:[^)]+\)|:[^\(,]+\([^\)]+\),|:[^,]+,|[[:digit:]\.]+|_[^!]+!|~|[-+^`']|./)
+  r=i.scan(/\(\?:[^\]]+\)|\(x:[^\]]+\)|\(chord:[^)]+\)|\(C:[^)]+\)|:[^\(,]+\([^\)]+\),|:[^,]+,|[[:digit:]\.]+|_[^!]+!|~|\([-+]*[[:digit:]]?\)|[-+^`']|./)
   wait=[]
   notes=[]
   mod=[]
   r.each{|i|
     case i
-    when "-","+","^","`","'"
+    when "-","+","^","`","'",/\([-+]*[[:digit:]]?\)/
       mod<<i
     when /\((\?|x|C|chord):[^\)]+\)|^\^?:[^,]+,/
       wait<<1
