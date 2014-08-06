@@ -38,7 +38,10 @@ syntax: ...( will be changed time after time)
     (ch:1)      =set this track's channel 1
     (cc:10,64) =controlChange number10 value 64. see SMF format.
     (pan:>64)  =panpot right 64. ( pan:>0  set center )
-    (bend:100) =pitch bend 100
+    (bend:100)     =pitch bend 100
+    (bendRange:12) =set bend range 12. default is normaly 2.
+    (bendCent:on)  =set bend value unit cent (half tone = 100). default is 'off' and value is between -8192 and +8192.
+                    '(bendCent:off)(bend:8192)' = '(bendCent:on)(bend:100)'
     (on:a)     =note 'a' sound on only. take no ticks.; the event 'a' is the same as '(on:a)(wait:1)(off:a)'.
     (wait:1)   =set waiting time 1 for next event
     (off:a)    =note 'a' sound off 
@@ -483,7 +486,8 @@ module MidiHex
     @chordCenter=@chordCenterOrg=@basekey
     @basekeyRythm=@basekeyOrg=@basekey
     @bendrange=2
-    @prepareSet=[@tbase,@ch,@velocity,@basekey,@gateRate,@bendrange]
+    @bendCent=1
+    @prepareSet=[@tbase,@ch,@velocity,@basekey,@gateRate,@bendrange,@bendCent]
     @chmax=15
     @bendrangemax=127
   end
@@ -509,8 +513,12 @@ module MidiHex
     r<<self.controlChange("6,#{@bendrange}")
     r
   end
+  def self.bendCent on
+    @bendCent=1
+    @bendCent=8192/@bendrange/100.0 if on
+  end
   def self.trackPrepare tc=0
-    @tbase,@ch,@velocity,@basekey,@gateRate,@bendrange=@prepareSet
+    @tbase,@ch,@velocity,@basekey,@gateRate,@bendrange,@bendCent=@prepareSet
     @strokespeed=0
     @preGate=[]
     @preVelocity=[]
@@ -929,6 +937,7 @@ module MidiHex
   end
   def self.bend pos,depth,ch=false
     ch=@ch if ! ch
+    depth=(depth*@bendCent).to_i
     pos+=@waitingtime
     @waitingtime=0
     @nowtime+=pos
@@ -1259,6 +1268,10 @@ module MidiHex
           @h<<[:bend,npos,depth]
           npos=pos
         }
+      when /^\(bendCent:([^\)]*)\)/
+        $1=~/on/i
+        on=$& ? true : false
+        @h<<[:call,:bendCent,on]
       when /^\(bendRange:([^\)]*)\)/
         @h<<[:bendRange,$1]
       when /^&\((.+)\)/
