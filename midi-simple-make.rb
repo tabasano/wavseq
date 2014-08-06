@@ -441,10 +441,10 @@ def revertPre d
     gsub(/_e__([^?]*)\?/){"(expre:#{$1.split("_")*","})"}
 end
 def worddata word,d
-  d=~/\(#{word}:(([[:digit:]]+),)?([-,[:digit:]]+)\)/
+  d=~/\(#{word}:(([[:digit:].]+),)?([-,.[:digit:]]+)\)/
   if $&
     pos=$1 ? $2.to_i : 0
-    depth=$3.split(',').map{|i|i.to_i}
+    depth=$3.split(',').map{|i|i.to_f}
     [:"#{word}",pos,depth]
   else
     false
@@ -1260,7 +1260,7 @@ module MidiHex
           instrument=$4.to_i
         end
         @h<<[:ProgramChange,channel,instrument]
-      when /^\(bend:(([[:digit:]]+),)?([-,[:digit:]]+)\)|^_b__([^?]+)\?/
+      when /^\(bend:(([[:digit:]]+),)?([-,.[:digit:]]+)\)|^_b__([^?]+)\?/
         i="(bend:#{$4.gsub('_'){','}})" if $4
         x,pos,b=worddata("bend",i)
         npos=0
@@ -1812,7 +1812,7 @@ def repCalc line,macro,tbase
     end
     res<<current
   end
-  res=(res-[".CODA",".DS",".DC",".FINE",".toCODA",".$",".SKIP"])*""
+  res=(res-["[","]",".CODA",".DS",".DC",".FINE",".toCODA",".$",".SKIP"])*""
   res=repCalc(res,macro,tbase) while macro.keys.size>0 && nestsearch(res,macro)
   p res if $DEBUG && $debuglevel>1
   # 空白
