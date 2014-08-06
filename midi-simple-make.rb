@@ -53,10 +53,10 @@ syntax: ...( will be changed time after time)
     ^          =accent
     `          =too fast note, play ahead
     '          =too late note, lay back
-    (-)a        ='a flat'
-    (+)a        ='a sharp' equals 'A'
-    (+2)a,(++)a ='a ##'
-    (0)a        ='a natural'
+    (-)c        =c flat
+    (+)c        =c sharp; equals 'C'
+    (+2)c,(++)c =c double sharp
+    (0)c        =c natural
     (gm:on)
     (gs:reset)
     (xg:on)
@@ -72,9 +72,9 @@ syntax: ...( will be changed time after time)
     (loadf:filename.mid,2) =load filename.mid, track 2. Track must be this only and seperated by '|||'.
     W:=abc        =macro definition. One Charactor macro can be used. use prefix '$' for refering.
     macro W:=abc  =macro definition.
-    a(x):=ab$x    =macro with args. in this case, '$a(10)' is substituded by 'ab10'.
-                  '$a(:10,20,30)' = 'ab10ab20ab30'.
-                  '$a(4:10,20,30)' = 'ab10(wait:4)ab20(wait:4)ab30'.
+    fn(x):=ab$x    =macro with args. in this case, '$fn(10)' is substituded by 'ab10'. similarly,
+                  '$fn(:10,20,30)' = 'ab10ab20ab30'.
+                  '$fn(4:10,20,30)' = 'ab10(wait:4)ab20(wait:4)ab30'.
     compile order is : page,track seperate => macro set and replace => repeat check => sound data make
     ; =seperater. same to a new line
     blank =ignored
@@ -82,6 +82,7 @@ syntax: ...( will be changed time after time)
 
     basicaly, one sound is a tone command followed by length number. now, tone type commands are :
       'c',  '{64}', '_snare!', '{d,g,-b}', ':cmaj7,'
+    and other commands are with parentheses.
 EOF
 end
 
@@ -1530,9 +1531,9 @@ def multiplet d,tbase
   mod=[]
   r.each{|i|
     case i
-    when "-","+","^","`","'",/\([-+]*[[:digit:]]?\)/
+    when "-","+","^","`","'",/^\([-+]*[[:digit:]]?\)/
       mod<<i
-    when /\((\?|x|C|chord):[^\)]+\)|^\^?:[^,]+,/
+    when /^\((\?|x|C|chord):[^\)]+\)|^\^?:[^,]+,/
       wait<<1
       notes<<"#{mod*""}#{i}"
       mod=[]
