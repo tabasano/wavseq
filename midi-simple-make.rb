@@ -139,6 +139,26 @@ class Fixnum
   end
 end
 )
+def multilineTrim l,com
+  r=[]
+  on=false
+  mark=""
+  l.each{|i|
+    if on
+      on=false if i=~/^#{mark}/
+    else
+      i=~/^(#{com}#{com}+)/
+      if $&
+        mark=$1
+        on=true
+      else
+        r<<i
+      end
+    end
+  }
+  puts " ? mismatch end mark of multiline comment."  if on
+  r
+end
 class String
   def setcmark c
     @@cmark=c
@@ -147,8 +167,9 @@ class String
     @@cmark
   end
   def trim ofs="",com=@@cmark
-    d=split("\n").map{|i|i.sub(/(#{com}).*/){}.chomp}*ofs
-#    p d
+    lines=self.split("\n")
+    d=multilineTrim(lines,com)
+    d=d.map{|i|i.sub(/(#{com}).*/){}.chomp}*ofs
     d
   end
   def sharp2cmark
