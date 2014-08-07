@@ -16,7 +16,7 @@ syntax: ...( will be changed time after time)
     a4    =4 beats of note 'a'. in length words, integers or flout numbers can be used.
     a     =one beat of note 'a'. default length equals 1 now.
     A*120 =120 ticks of note 'a #'
-    v60   =velocity set to 60 (0-127)
+    (v:60)  =velocity set to 60 (0-127)
     &(00 00) =set hex data directly. This can include ...
              '$delta(240)' for deltaTime data making
              '$se(F0 41 ..)' system exclusive to system exclusive message
@@ -500,13 +500,14 @@ module MidiHex
     @ch=0
     @velocity=vel
     @velocityOrg=vel
+    @velocityFuzzy=2
     @accentPlus=10
     @basekey=0x3C
     @chordCenter=@chordCenterOrg=@basekey
     @basekeyRythm=@basekeyOrg=@basekey
     @bendrange=2
     @bendCent=1
-    @prepareSet=[@tbase,@ch,@velocity,@basekey,@gateRate,@bendrange,@bendCent]
+    @prepareSet=[@tbase,@ch,@velocity,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent]
     @chmax=15
     @bendrangemax=127
   end
@@ -537,7 +538,7 @@ module MidiHex
     @bendCent=8192/@bendrange/100.0 if on
   end
   def self.trackPrepare tc=0
-    @tbase,@ch,@velocity,@basekey,@gateRate,@bendrange,@bendCent=@prepareSet
+    @tbase,@ch,@velocity,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent=@prepareSet
     @strokespeed=0
     @preGate=[]
     @preVelocity=[]
@@ -578,6 +579,7 @@ module MidiHex
     key=self.note2key(key) if key.class==String
     key,ch=key if key.class==Array
     ch=[ch,0x0f].min
+    velocity-=rand(@velocityFuzzy) if @velocityFuzzy>0
     velocity=[velocity,0x7f].min
     key+=sharp
     @key=[[key,0x7f].min,0].max
@@ -610,6 +612,7 @@ module MidiHex
     velocity=@preVelocity.shift if @preVelocity.size>0
     gate=@gateRate
     ch=[ch,0x0f].min
+    velocity-=rand(@velocityFuzzy) if @velocityFuzzy>0
     velocity=[velocity,0x7f].min
     key+=sharp
     @key=[[key,0x7f].min,0].max
@@ -1126,6 +1129,8 @@ module MidiHex
         r<<Event.new(:ahead,arg[0])
       when :velocity
         @velocity=arg[0]
+      when :velocityFuzzy
+        @velocityFuzzy=arg[0]
       when :ch
         @ch=arg[0]
       when :waitingtime
@@ -1314,7 +1319,9 @@ module MidiHex
           perc=self.percussionGet($3)
         end
         wait<<[:percussion,perc]
-      when /^v([0-9]+)/
+      when /^\(vFuzzy:([0-9]+)\)/
+        @h<<[:velocityFuzzy,$1.to_i]
+      when /^\(v:([0-9]+)\)/, /^v([0-9]+)/
         @h<<[:velocity,$1.to_i]
       when /^\(g:([0-9]+)\)/
         @h<<[:call,:setGateRate,$1.to_i]
