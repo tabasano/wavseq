@@ -143,6 +143,9 @@ class String
   def setcmark c
     @@cmark=c
   end
+  def cmark
+    @@cmark
+  end
   def trim ofs="",com=@@cmark
     d=split("\n").map{|i|i.sub(/(#{com}).*/){}.chomp}*ofs
 #    p d
@@ -167,6 +170,22 @@ class String
   end
 end
 String.new.setcmark(cmark)
+
+def name2title name
+  title,midiname=false,false
+  cmark="".cmark
+  if name && File.exist?(name)
+    list=File.readlines(name).select{|i|i=~/^#{cmark}/}
+    t=list.map{|i|i=~/^#{cmark} *title */;$'}-[nil]
+    title=t[0].chomp if t.size>0
+    m=list.map{|i|i=~/^#{cmark} *midifilename */;$'}-[nil]
+    if m.size>0
+      midiname=m[0].chomp
+      midiname+=".mid" if midiname !~ /\.mid$/
+    end
+  end
+  [title,midiname]
+end
 
 class Array
   def rotatePlus
@@ -1858,7 +1877,9 @@ def modifierComp t,macro
     end
   }*""
 end
+title,midifilename=name2title(infile)
 data=File.read(infile).trim(" ;") if infile && File.exist?(infile)
+outfile=midifilename if ! outfile
 
 (hint;exit) if (! data || ! outfile ) && ! $test
 
