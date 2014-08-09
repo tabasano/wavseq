@@ -83,6 +83,7 @@ syntax: ...( will be changed time after time)
     ; =seperater. same to a new line
     blank =ignored
     ;; comment =ignored after ';;' of each line
+    ;;;;;;     =start mark of multi-line comment. end mark is same or longer mark of ';;'. these must start from the top of line.
 
     basicaly, one sound is a tone command followed by length number. now, tone type commands are :
       'c',  '{64}', '_snare!', '{d,g,-b}', ':cmaj7,'
@@ -497,7 +498,6 @@ def worddata word,d
 end
 def orderby o,a,b
   o.each{|i|
-p i,a,b
     if i.member?(a) && i.member?(b)
       return i.index(a) <=> i.index(b)
     end
@@ -559,19 +559,26 @@ class MarkTrack
     @added={}
     @diff={}
   end
+  def makekey t,m
+    "#{t}_#{m}"
+  end
   def set m,t,pos
     @maxtrack=t if t>@maxtrack
     @marks<<m if not @marks.member?(m)
     @markstracks[t]=[] if not @markstracks[t]
     @markstracks[t]<<m if not @markstracks[t].member?(m)
-    @mt["#{t}_#{m}"]=pos
+    @mt[makekey(t,m)]=pos
+  end
+  def getcount m,t
+    key=makekey(t,m)
+    @mt.keys.select{|k|k==key||k=~/^#{key}@/}.size
   end
   def get m,t
-    @mt["#{t}_#{m}"]
+    @mt[makekey(t,m)]
   end
   def getmax m
     [*1..@maxtrack].map{|t|
-      key="#{t}_#{m}"
+      key=makekey(t,m)
       (@mt[key] ? @mt[key] : 0)+(@added[t] ? @added[t] : 0)
     }.max
   end
@@ -590,7 +597,7 @@ class MarkTrack
       max=getmax(k)
       @maxtrack.times{|i|
         t=i+1
-        key="#{t}_#{k}"
+        key=makekey(t,k)
         if @mt[key]
           @diff[key]=max-@mt[key]-(@added[t]||0)
           @added[t]=@added[t] ? @added[t]+@diff[key] : @diff[key]
@@ -758,7 +765,7 @@ module MidiHex
     start=@waitingtime
     @waitingtime=0
     slen,rest=self.byGate(len,gate)
-    @nowtime+=len+start
+    @nowtime+=start
     r=[]
     r<<Event.new(:e,start," 9#{ch} #{key} #{vel} # #{start}後, soundオン note #{@key} velocity #{velocity}\n")
     b=@preAfter.shift
@@ -777,10 +784,12 @@ module MidiHex
         end
       }
     end
+    @nowtime+=slen
     r<<Event.new(:e,slen," 8#{ch} #{key} 00 # #{slen}(gate:#{@gateRate})- #{len.to_i}(#{len.round(2)})tick後, soundオフ [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]\n")
     r<<self.bend(0,0) if bends
     r<<self.expre(0,127) if expre
     if rest>0
+      @nowtime+=rest
       r<<Event.new(:end,rest," 8#{ch} #{key} 00  # #{rest} len-gate\n")
     end
     r
@@ -1007,6 +1016,7 @@ module MidiHex
     data=format("%02x",v)
     t=@waitingtime+len
     @waitnigtime=0
+    @nowtime+=t
     Event.new(:e,t," B#{ch} #{n} #{data}\n")
   end
   def self.expre len,d
@@ -1257,6 +1267,8 @@ module MidiHex
     @strokespeed=s
   end
   def self.setmark m
+    n=@marktrack.getcount(m,@tracknum)
+    m="#{m}@#{n+1}" if n>0
     @marktrack.set(m,@tracknum,@nowtime)
     Event.new(:mark,m,@tracknum,@nowtime)
   end

@@ -1,5 +1,16 @@
-;; this is a comment.
-;; free for newline
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; comment start
+
+   this is a comment.
+   free for newline
+   multi line comment.     abcdefg
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; comment end by same length ';;'s as start
+
+;; title           jazz-taste-something
+;; midifilename    preModifier.mid
+
+
+
 ;; track 1
 
 ;; System Exclusive Data
@@ -47,6 +58,9 @@ BS:=ccecffcfccefgfec fffcffffcccbaacC dcbagGabccaadd-gg
     rf/:ara/~      /:~~A//:~~c^d~A//:a~Ag~^a~//:~^ar/      rg/:~c~//:~Aa/  /:fgD//:~ef/~/:r~~a/
 
 ;; track 2 over are omitted by page seperater"///"
+;;;;;;;;;
+ tracks time adjust mark is not yet ...
+;;;;;;;;;
 ///////////////////////////////////////////////////////////////
 
    (V:  o, o,    o,  100,o , o,o,o,    100,90, o             110,  o , o,o,  110,110, )
