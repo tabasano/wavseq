@@ -66,6 +66,7 @@ syntax: ...( will be changed time after time)
     (syswait:) =when using '(gm:on)' etc., this command is needed for all other tracks to adjust wait-time.
     ||| = track separater
     /// = page separater
+    (mark:posname) =position name for adjustment of tracks after long rest etc.
     .DC .DS .toCODA .CODA .FINE =coda mark etc.
     .SKIP =skip mark on over second time
     .$ =DS point
@@ -247,6 +248,8 @@ class Event
     when :ahead
       @time=arg[0]
     when :o,:off
+    when :mark
+      @mark,@track,@value=arg
     else
       @time=arg[0]
       @value=arg[1]
@@ -256,6 +259,8 @@ class Event
     case @type
     when :raw
       rawdata(@value)
+    when :mark
+      "# marktrack(#{@track}_#{@mark}) [#{@value}]\n"
     when :c,:o,:off
       @value
     else
@@ -490,10 +495,118 @@ def worddata word,d
     false
   end
 end
+def orderby o,a,b
+  o.each{|i|
+p i,a,b
+    if i.member?(a) && i.member?(b)
+      return i.index(a) <=> i.index(b)
+    end
+  }
+  0
+end
+class OrderdSet
+  def orderby smaller,a,b
+    if smaller[a].member?(b)
+      return -1
+    elsif smaller[b].member?(a)
+      return 1
+    end
+    0
+  end
+  def smerge o
+    all=o.flatten.uniq
+    smaller={}
+    all.each{|i|
+      o.each{|k|
+        if k.member?(i)
+          smaller[i]=smaller[i] ? smaller[i]+k.select{|n|k.index(i)<k.index(n)} : k.select{|n|k.index(i)<k.index(n)}
+        end
+      }
+    }
+    smaller
+  end
+  def calc smaller,ar
+    s=ar.size
+    ar.each{|i|
+      ind=ar.index(i)
+      (s-ind-1).times{|n|
+        j=ar[ind+n+1]
+        r=orderby(smaller,i,j)
+        return false if r>0
+      }
+    }
+    true
+  end
+  def sort o
+    s=smerge(o)
+    f=o.flatten.uniq
+    c=0
+    while 1
+     c+=1
+     break if calc(s,f)
+     f=f.sort_by{|i|rand(f.size*2+c)-s[i].size}
+    end
+    puts "sort try: #{c}" if $DEBUG
+    f
+  end
+end
+class MarkTrack
+  def initialize
+    @mt={}
+    @maxtrack=0
+    @marks=[]
+    @markstracks={}
+    @added={}
+    @diff={}
+  end
+  def set m,t,pos
+    @maxtrack=t if t>@maxtrack
+    @marks<<m if not @marks.member?(m)
+    @markstracks[t]=[] if not @markstracks[t]
+    @markstracks[t]<<m if not @markstracks[t].member?(m)
+    @mt["#{t}_#{m}"]=pos
+  end
+  def get m,t
+    @mt["#{t}_#{m}"]
+  end
+  def getmax m
+    [*1..@maxtrack].map{|t|
+      key="#{t}_#{m}"
+      (@mt[key] ? @mt[key] : 0)+(@added[t] ? @added[t] : 0)
+    }.max
+  end
+  def sortmark
+    marks=@marks
+    s=[]
+    s=@markstracks.keys.map{|k|@markstracks[k]}
+    OrderdSet.new.sort(s)
+  end
+  def calc
+    marks=sortmark
+    p marks if $DEBUG
+    @diff={}
+    @added={}
+    marks.each{|k|
+      max=getmax(k)
+      @maxtrack.times{|i|
+        t=i+1
+        key="#{t}_#{k}"
+        if @mt[key]
+          @diff[key]=max-@mt[key]-(@added[t]||0)
+          @added[t]=@added[t] ? @added[t]+@diff[key] : @diff[key]
+          # p key,@diff,@added
+        end
+      }
+    }
+    puts @diff,@added if $DEBUG
+    @diff
+  end
+end
 module MidiHex
   # 設定のため最初に呼ばなければならない
   def self.prepare tbase=480,vel=0x40,oct=:near
     @cmark="#"
+    @marktrack=MarkTrack.new
     @octmode=oct
     @tbase=tbase
     @gateRate=100
@@ -610,6 +723,7 @@ module MidiHex
     vel=format("%02x",velocity)
     start=@waitingtime
     @waitingtime=0
+    @nowtime+=start
     r=[Event.new(:o)]
     r<<Event.new(:e,start," 9#{ch} #{key} #{vel} # #{start}後, sound on only , note #{@key} velocity #{velocity}\n")
     r
@@ -625,6 +739,7 @@ module MidiHex
     ch=format("%01x",ch)
     start=@waitingtime
     @waitingtime=0
+    @nowtime+=start
     r=[Event.new(:off)]
     r<<Event.new(:end,start," 8#{ch} #{key} 00 # #{start} sound off only [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]\n")
     r
@@ -643,7 +758,7 @@ module MidiHex
     start=@waitingtime
     @waitingtime=0
     slen,rest=self.byGate(len,gate)
-    @nowtime+=len
+    @nowtime+=len+start
     r=[]
     r<<Event.new(:e,start," 9#{ch} #{key} #{vel} # #{start}後, soundオン note #{@key} velocity #{velocity}\n")
     b=@preAfter.shift
@@ -864,6 +979,12 @@ module MidiHex
   end
   def self.metaText d
     self.metaEvent d,1
+  end
+  def self.dummyEvent comment,pos=0,d="00",type=1
+    delta=varlenHex(pos)
+    t=format("%02X",type)
+    len=varlenHex(d.split.join.size/2)
+    "#{delta} FF #{t} #{len} #{d} # #{pos} #{comment}\n"
   end
   def self.tempo bpm, len=0
     @bpmStart=bpm if ! @bpm
@@ -1135,6 +1256,10 @@ module MidiHex
     s=s.to_i
     @strokespeed=s
   end
+  def self.setmark m
+    @marktrack.set(m,@tracknum,@nowtime)
+    Event.new(:mark,m,@tracknum,@nowtime)
+  end
   def self.eventlist2str elist
     r=[]
     # EventList : [func,args]  or [callonly, func,args] or others
@@ -1196,7 +1321,7 @@ module MidiHex
               (i.time+=after;after=0) if after>0
               (i.time+=after;after=0) if after<0 && i.time+after>=0
               rr<<i
-            when :c,:raw
+            when :c,:raw,:mark
               rr<<i
             else
               "? #{i}"
@@ -1282,6 +1407,8 @@ module MidiHex
         tr=$2.to_i
         tr*=-1 if $1=="-"
         @h<<[:basekeyPlus,tr]
+      when /^\(mark:(.*)\)/
+        @h<<[:setmark,$1]
       when /^\(V:(.*)\)/
         vs=$1.split(",")
         @h<<[:call,:preVelocity,vs]
@@ -1569,6 +1696,18 @@ module MidiHex
     end
   end
   def self.trackMake data
+    @marksh||=@marktrack.calc
+    data=data.split("\n").map{|i|
+      i=~/^# marktrack\(([^\)]+)\)/
+      if $&
+        key=$1
+        pos=@marksh[key]
+        c="position mark: #{key}, #{pos*1.0/@tbase}"
+        @marksh.keys.member?(key) ? self.dummyEvent(c,pos) : i
+      else
+        i
+      end
+    }*"\n"
     start="
 # track header
       4D 54 72 6B # MTrk
