@@ -37,11 +37,12 @@ BS:=ccecffcfccefgfec fffcffffcccbaacC dcbagGabccaadd-gg
 (accent:25)
 
 (p:sax)v100 
-/:rr--'g//:+e'dre/~/:rrr-g/ /:+ererrrr//:eabe+berrr/rr-
+     (mark:start) /:rr--'g//:+e'(+)dre/~/:rrr-g/ /:+ererrrr//:eabe+berrr/rr-
 
-||| (syswait:)r*120 (p:orga)(stroke:4) v65 (g:63) r*10 r8
-||| (syswait:)r*120 v65 r*24                           r7/:rr_s!/
-||| (syswait:)r*120 (p:bas)v80 -- (g:73) r*20          r8
+|||  (mark:start) r*120 (p:orga)(stroke:4) v65 (g:63) r*10 r8
+|||  (mark:start) r*120 v65 r*24                           r7/:rr_s!/
+|||  (mark:start) r*120 (p:bas)v80 -- (g:73) r*20          r8
+|||  (mark:start) 
 /////////////////////////////////////////////////////////////////
 
    [
@@ -66,6 +67,21 @@ BS:=ccecffcfccefgfec fffcffffcccbaacC dcbagGabccaadd-gg
    (V:  o, o,    o,  100,o , o,o,o,    100,90, o             110,  o , o,o,  110,110, )
    (G:  o  o     o     o o   o o o      o  o,80,               -,  o   o - )
    (A:  o  o     o     o o   o o o      (bend:200,-5000,-4700,-4700,-400,-200,0,0,10000,-10000)  o, )
-    /:~-dd/~~+/:ar/   A~/:~~a//:gfg/ /:~~e//:~r2+d{e,a,+e}/rr      ~/:-crf/~/0.51:~Df//0.49:g2f2D2cD2cAgf/ + ]12
+    /:~-dd/~~+/:ar/   A~/:~~a//:gfg/ /:~~e//:~r2+d{e,a,+e}/(mark:p)rr      ~/:-crf/~/0.51:~Df//0.49:g2f2D2cD2cAgf/ + ]12
 
+|||
+|||
+|||
+TR(x):=(mark:p@$x) r*120 /2:ergrre/
+|||(p:trum)+(v:90)(g:70)(mark:p) r*120 /2:ergrre/ $TR(:4,9,10,11,12)
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+ NOTE:
+    currently, delta-time data in raw hex part is not added to the total-time.
+    so mark adjusting etc. must be modified by hand.
+    in this case, in the room effect data '$delta(120)' is used, so a rest data 'r*120' will adjust the time shift (120 ticks).
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

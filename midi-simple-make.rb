@@ -541,12 +541,14 @@ class OrderdSet
     s=smerge(o)
     f=o.flatten.uniq
     c=0
+    print "sort" if $DEBUG
     while 1
      c+=1
+     print "," if $DEBUG && c%20==0
      break if calc(s,f)
      f=f.sort_by{|i|rand(f.size*2+c)-s[i].size}
     end
-    puts "sort try: #{c}" if $DEBUG
+    puts " try: #{c}" if $DEBUG
     f
   end
 end
@@ -988,6 +990,12 @@ module MidiHex
   end
   def self.metaText d
     self.metaEvent d,1
+  end
+  def self.text d
+    hex,len=txt2hex(d)
+    t=self.metaText hex
+    delta=varlenHex(0)
+    "#{delta} #{t} # #{d}\n"
   end
   def self.dummyEvent comment,pos=0,d="00",type=1
     delta=varlenHex(pos)
@@ -1539,6 +1547,8 @@ module MidiHex
       when /^\((chord|C):(.*)\)/
         chord=$2.split.join.split(",") # .map{|i|self.note2key(i)}
         wait<<[:chord,chord]
+      when /^\(text:(.*)\)/
+        @h<<[:text,$1]
       when /^\(tempo:(.*)\)/
         @bpm=$1.to_i
         @h<<[:tempo,@bpm] if @bpm>0
@@ -1796,7 +1806,7 @@ def funcApply m,name,x
   a=m.keys.select{|k|k=~/^#{name}\(/}[0]
   fbodyOrg,*default=m[a]
   return false if ! fbodyOrg
-  x=~/(([^:]+):)?/
+  x=~/(([^:]*):)?/
   interval,x=$2,$'
   x=x.split(",")
   max=x.size
