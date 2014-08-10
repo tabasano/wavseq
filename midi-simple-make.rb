@@ -538,52 +538,63 @@ class OrderedSet
     }
     true
   end
+  def common a,b
+    (a+b).uniq-(a-b)-(b-a)
+  end
   def omerge base,o
+    return base if o==[[]]
+    return o[0] if base.size==0 && o.size==1
     rest=o-[base]
     r=base.dup
     rest.each{|i|
       n=i.dup
-      ins0=r.size
-      n.size.times{
-        pop=n.pop
-        if r.member?(pop)
-          ins=r.index(pop)
-          return false if ins>ins0
-          ins0=ins
-        else
+      cmn=common(r,n)
+      if cmn.size>0
+        p1,p2=cmn[0],cmn[-1]
+        r1=r.select{|j|r.index(j)<r.index(p1)}
+        r3=r.select{|j|r.index(j)>r.index(p2)}
+        r2=r-r1-r3-[p1,p2]
+        n1=n.select{|j|n.index(j)<n.index(p1)}
+        n3=n.select{|j|n.index(j)>n.index(p2)}
+        n2=n-n1-n3-[p1,p2]
+        r=omerge(r1,[n1])+[p1]+omerge(r2,[n2])+[p2]+omerge(r3,[n3])
+      else
+        ins0=r.size
+        n.size.times{
+          pop=n.pop
           size=r.size
           ins=[rand(size+1),ins0].min
           r.insert(ins,pop)
           ins0=ins
-        end
-      }
+        }
+      end
     }
     r
   end
   def sort o
+    return [] if o==[]
     stime=Time.now
     o=o.sort_by{|i|i.size}
     base=o[-1]
     s=smerge(o)
     f=o.flatten.uniq
     rest=f-base
-    f=base+rest
     c=0
+    cc=0
     print "sort" if $DEBUG
     while 1
      c+=1
      print "," if $DEBUG && c%20==0
-     break if calc(s,f)
      r=rest.sort_by{|i|rand(rest.size*2+c)-s[i].size}
-     cc=0
      begin
        cc+=1
        f=omerge(base,o)
      end until f
+     break if calc(s,f)
      p f if $DEBUG && $debuglevel>1
     end
     t=Time.now-stime
-    puts " try: #{c} #{t}sec." if $DEBUG || t>10
+    puts " try: #{c} (check #{cc}) #{t}sec." if $DEBUG || t>10
     f
   end
 end
