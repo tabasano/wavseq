@@ -557,7 +557,12 @@ class OrderedSet
         n1=n.select{|j|n.index(j)<n.index(p1)}
         n3=n.select{|j|n.index(j)>n.index(p2)}
         n2=n-n1-n3-[p1,p2]
-        r=omerge(r1,[n1])+[p1]+omerge(r2,[n2])+[p2]+omerge(r3,[n3])
+        if p1==p2
+          mid=[p1]
+        else
+          mid=[p1]+omerge(r2,[n2])+[p2]
+        end
+        r=omerge(r1,[n1])+mid+omerge(r3,[n3])
       else
         ins0=r.size
         n.size.times{
@@ -649,11 +654,10 @@ class MarkTrack
         if @mt[key]
           @diff[key]=max-@mt[key]-(@added[t]||0)
           @added[t]=@added[t] ? @added[t]+@diff[key] : @diff[key]
-          # p key,@diff,@added
         end
       }
     }
-    puts @diff,@added if $DEBUG
+    puts ["mt:",@mt],["diff",@diff],["added",@added] if $DEBUG
     @diff
   end
 end
