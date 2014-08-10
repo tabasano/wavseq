@@ -504,7 +504,7 @@ def orderby o,a,b
   }
   0
 end
-class OrderdSet
+class OrderedSet
   def orderby smaller,a,b
     if smaller[a].member?(b)
       return -1
@@ -532,23 +532,46 @@ class OrderdSet
       (s-ind-1).times{|n|
         j=ar[ind+n+1]
         r=orderby(smaller,i,j)
+        puts "#{r} #{i} #{j}" if $DEBUG && $debuglevel>1
         return false if r>0
       }
     }
     true
   end
+  def omerge base,o
+    rest=o-[base]
+    r=base.dup
+    rest.each{|i|
+      n=i.dup-r
+      ins0=r.size
+      n.size.times{
+        size=r.size
+        ins=[rand(size)+1,ins0].min
+        r.insert(ins,n.pop)
+        ins0=ins
+      }
+    }
+    r
+  end
   def sort o
+    stime=Time.now
+    base=o.sort{|i|i.size}[-1]
     s=smerge(o)
     f=o.flatten.uniq
+    rest=f-base
+    f=base+rest
     c=0
     print "sort" if $DEBUG
     while 1
      c+=1
      print "," if $DEBUG && c%20==0
      break if calc(s,f)
-     f=f.sort_by{|i|rand(f.size*2+c)-s[i].size}
+     r=rest.sort_by{|i|rand(rest.size*2+c)-s[i].size}
+     f=omerge(base,o)
+     p f if $DEBUG && $debuglevel>1
     end
-    puts " try: #{c}" if $DEBUG
+    etime=Time.now
+    puts " try: #{c} #{etime-stime}sec." if $DEBUG
     f
   end
 end
@@ -588,7 +611,7 @@ class MarkTrack
     marks=@marks
     s=[]
     s=@markstracks.keys.map{|k|@markstracks[k]}
-    OrderdSet.new.sort(s)
+    OrderedSet.new.sort(s)
   end
   def calc
     marks=sortmark
