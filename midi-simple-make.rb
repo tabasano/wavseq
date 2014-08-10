@@ -542,20 +542,28 @@ class OrderedSet
     rest=o-[base]
     r=base.dup
     rest.each{|i|
-      n=i.dup-r
+      n=i.dup
       ins0=r.size
       n.size.times{
-        size=r.size
-        ins=[rand(size)+1,ins0].min
-        r.insert(ins,n.pop)
-        ins0=ins
+        pop=n.pop
+        if r.member?(pop)
+          ins=r.index(pop)
+          return false if ins>ins0
+          ins0=ins
+        else
+          size=r.size
+          ins=[rand(size+1),ins0].min
+          r.insert(ins,pop)
+          ins0=ins
+        end
       }
     }
     r
   end
   def sort o
     stime=Time.now
-    base=o.sort{|i|i.size}[-1]
+    o=o.sort_by{|i|i.size}
+    base=o[-1]
     s=smerge(o)
     f=o.flatten.uniq
     rest=f-base
@@ -567,11 +575,15 @@ class OrderedSet
      print "," if $DEBUG && c%20==0
      break if calc(s,f)
      r=rest.sort_by{|i|rand(rest.size*2+c)-s[i].size}
-     f=omerge(base,o)
+     cc=0
+     begin
+       cc+=1
+       f=omerge(base,o)
+     end until f
      p f if $DEBUG && $debuglevel>1
     end
-    etime=Time.now
-    puts " try: #{c} #{etime-stime}sec." if $DEBUG
+    t=Time.now-stime
+    puts " try: #{c} #{t}sec." if $DEBUG || t>10
     f
   end
 end
