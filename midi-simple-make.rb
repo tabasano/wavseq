@@ -123,6 +123,7 @@ opt.on('-O',"octave legacy mode") {|v| octaveMode=:far }
 opt.on('-I',"ignore roland check sum") {|v| $ignoreChecksum=v }
 opt.on('-M i',"debug level") {|v| $debuglevel=v.to_i }
 opt.on('-m i',"mode of test/ 1:GM 2:XG 3:GS") {|v| $testmode=v.to_i }
+opt.on('-n',"test only (dont write outfile)") {|v| $testonly=true }
 opt.parse!(ARGV)
 
 1.round(2) rescue (
@@ -2210,7 +2211,9 @@ array=[all.split.join]
 binary = array.pack( "H*" )
 
 # save data. data = MIDI-header + seq-made MIDI-tracks + loaded extra MIDI-tracks.
-if outfile==""
+if $testonly
+  exit
+elsif outfile==""
   print binary
   rawdatas.each{|i|
     print i
