@@ -5,6 +5,9 @@ rvm:
   - 2.0.0
   - 2.1.2
 # bundler_args: --jobs=2
+
+before_script:
+ - chmod +x /midi-test.sh
 script: ./midi-test.sh
 branches:
   only:
