@@ -498,15 +498,14 @@ def worddata word,d
     false
   end
 end
-def orderby o,a,b
-  o.each{|i|
-    if i.member?(a) && i.member?(b)
-      return i.index(a) <=> i.index(b)
-    end
-  }
-  0
-end
 class OrderedSet
+  def initialize
+    @cyclecheck=false
+  end
+  def cyclecheck on=true
+    @cyclecheck=on
+    self
+  end
   def orderby smaller,a,b
     if smaller[a].member?(b)
       return -1
@@ -515,7 +514,22 @@ class OrderedSet
     end
     0
   end
-  def smerge o
+  def ccheck s,depth=2
+    return false if depth<1 or not @cyclecheck
+    keys=s.keys
+    keys.each{|i|
+      tmp=s[i]
+      depth.times{
+        tmp=tmp.map{|k|[k,s[k]]}.flatten
+      }
+      if tmp.member?(i)
+        p "bad cycle #{i}, depth:#{depth}"
+        return true 
+      end
+    }
+    false
+  end
+  def smerge o, depth=2
     all=o.flatten.uniq
     smaller={}
     all.each{|i|
@@ -525,6 +539,7 @@ class OrderedSet
         end
       }
     }
+    raise if ccheck(smaller,depth)
     smaller
   end
   def calc smaller,ar
@@ -578,12 +593,16 @@ class OrderedSet
     }
     r
   end
-  def sort o
+  def sort o, depth=2
     return [] if o==[]
     stime=Time.now
     o=o.sort_by{|i|i.size}
     base=o[-1]
-    s=smerge(o)
+    begin
+      s=smerge(o,depth)
+    rescue
+      return []
+    end
     f=o.flatten.uniq
     rest=f-base
     c=0
@@ -641,7 +660,7 @@ class MarkTrack
     marks=@marks
     s=[]
     s=@markstracks.keys.map{|k|@markstracks[k]}
-    OrderedSet.new.sort(s)
+    OrderedSet.new.cyclecheck.sort(s)
   end
   def calc
     marks=sortmark
