@@ -95,6 +95,7 @@ end
 infile=false
 outfile=false
 expfile=false
+vfuzzy=2
 $debuglevel=1
 data=""
 pspl="///"
@@ -120,6 +121,7 @@ opt.on('-c d',"cycle data for test mode") {|v| $testdata=v }
 opt.on('-C d',"comment mark") {|v| cmark=v; puts "comment mark is '#{cmark}'" }
 opt.on('-p pspl',"page split chars") {|v| pspl=v }
 opt.on('-F i',"fuzzy shift mode") {|v| $fuzzy=v.to_i }
+opt.on('-v i',"velocity fuzzy value [default 2]") {|v| vfuzzy=v.to_i }
 opt.on('-O',"octave legacy mode") {|v| octaveMode=:far }
 opt.on('-I',"ignore roland check sum") {|v| $ignoreChecksum=v }
 opt.on('-M i',"debug level") {|v| $debuglevel=v.to_i }
@@ -684,7 +686,7 @@ class MarkTrack
 end
 module MidiHex
   # 設定のため最初に呼ばなければならない
-  def self.prepare tbase=480,vel=0x40,oct=:near
+  def self.prepare tbase=480,vel=0x40,oct=:near,vfuzzy=2
     @cmark="#"
     @marktrack=MarkTrack.new
     @octmode=oct
@@ -714,7 +716,7 @@ module MidiHex
     @ch=0
     @velocity=vel
     @velocityOrg=vel
-    @velocityFuzzy=2
+    @velocityFuzzy=vfuzzy
     @accentPlus=10
     @basekey=0x3C
     @chordCenter=@chordCenterOrg=@basekey
@@ -2159,7 +2161,7 @@ pfile="midi-percussion-map.txt"
 tbase=480 # division
 delta=varlenHex(tbase)
 mx=MidiHex
-mx.prepare(tbase,0x40,octaveMode)
+mx.prepare(tbase,0x40,octaveMode,vfuzzy)
 mx.loadProgramChange(file)
 mx.loadPercussionMap(pfile)
 data=mx.test($testdata,$testmode) if $test
