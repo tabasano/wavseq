@@ -7,8 +7,11 @@ rvm:
 # bundler_args: --jobs=2
 
 before_script:
- - chmod +x midi-test.sh
-script: ./midi-test.sh
+ - chmod +x midi-test.sh midi-after-test.sh
+script:
+ - ./midi-test.sh
+after_script:
+ - ./midi-after-test.sh
 branches:
   only:
     - master
