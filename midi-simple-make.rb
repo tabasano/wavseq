@@ -3,12 +3,9 @@
 require 'kconv'
 require 'optparse'
 
-def hint
-  cmd=File.basename($0)
+#################
+def midihint
   puts <<EOF
-usage: #{cmd} -d \"dddd dr3 dddd r4 drdrdrdr dddd dr3\" -o outfile.mid -t bpm
-       #{cmd} -i infile.txt  -o outfile.mid -t bpm
-
 syntax: ...( will be changed time after time)
     abcdefg =tone; capital letters are sharps. followed by number as length. 
     +- =octave change
@@ -92,43 +89,6 @@ syntax: ...( will be changed time after time)
 EOF
 end
 
-infile=false
-outfile=false
-expfile=false
-vfuzzy=2
-$debuglevel=1
-data=""
-pspl="///"
-cmark=";;"
-bpm=120
-octaveMode=:near
-opt = OptionParser.new
-opt.on('-i file',"input file") {|v| infile=v }
-opt.on('-o file',"output file") {|v| outfile=v }
-opt.on('-e file',"write down macro etc. expanded data") {|v| expfile=v }
-opt.on('-d d',"input data string") {|v|
-  data=v
-  STDERR.puts data if $DEBUG
-}
-opt.on('-D',"debug") {|v| $DEBUG=v }
-opt.on('-s',"show syntax") {|v|
-  hint
-  exit
-}
-opt.on('-t b',"bpm") {|v| bpm=v.to_f }
-opt.on('-T w',"programChange test like instrument name '...'") {|v| $test=v }
-opt.on('-c d',"cycle data for test mode") {|v| $testdata=v }
-opt.on('-C d',"comment mark") {|v| cmark=v; puts "comment mark is '#{cmark}'" }
-opt.on('-p pspl',"page split chars") {|v| pspl=v }
-opt.on('-F i',"fuzzy shift mode") {|v| $fuzzy=v.to_i }
-opt.on('-v i',"velocity fuzzy value [default 2]") {|v| vfuzzy=v.to_i }
-opt.on('-O',"octave legacy mode") {|v| octaveMode=:far }
-opt.on('-I',"ignore roland check sum") {|v| $ignoreChecksum=v }
-opt.on('-M i',"debug level") {|v| $debuglevel=v.to_i }
-opt.on('-m i',"mode of test/ 1:GM 2:XG 3:GS") {|v| $testmode=v.to_i }
-opt.on('-n',"test only (dont write outfile)") {|v| $testonly=true }
-opt.parse!(ARGV)
-
 1.round(2) rescue (
 class Float
   def round n=0
@@ -196,7 +156,6 @@ class String
     tracks.keys.sort.map{|k|tracks[k]*";"}
   end
 end
-String.new.setcmark(cmark)
 
 def name2title name
   title,midiname=false,false
@@ -726,6 +685,13 @@ module MidiHex
     @prepareSet=[@tbase,@ch,@velocity,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent]
     @chmax=15
     @bendrangemax=127
+    file="midi-programChange-list.txt"
+    pfile="midi-percussion-map.txt"
+    base=File.dirname(__FILE__)
+    file=File.expand_path(file,base) if not File.exist?(file)
+    pfile=File.expand_path(pfile,base) if not File.exist?(pfile)
+    self.loadProgramChange(file)
+    self.loadPercussionMap(pfile)
   end
   def self.accent a
     @accentPlus=a.to_i
@@ -2148,22 +2114,69 @@ def modifierComp t,macro
     end
   }*""
 end
+
+#####################################
+
+def hint
+  cmd=File.basename($0)
+  puts <<EOF
+usage: #{cmd} -d \"dddd dr3 dddd r4 drdrdrdr dddd dr3\" -o outfile.mid -t bpm
+       #{cmd} -i infile.txt  -o outfile.mid -t bpm
+
+EOF
+end
+
+infile=false
+outfile=false
+expfile=false
+vfuzzy=2
+$debuglevel=1
+data=""
+pspl="///"
+cmark=";;"
+bpm=120
+octaveMode=:near
+opt = OptionParser.new
+opt.on('-i file',"input file") {|v| infile=v }
+opt.on('-o file',"output file") {|v| outfile=v }
+opt.on('-e file',"write down macro etc. expanded data") {|v| expfile=v }
+opt.on('-d d',"input data string") {|v|
+  data=v
+  STDERR.puts data if $DEBUG
+}
+opt.on('-D',"debug") {|v| $DEBUG=v }
+opt.on('-s',"show syntax") {|v|
+  hint
+  exit
+}
+opt.on('-t b',"bpm") {|v| bpm=v.to_f }
+opt.on('-T w',"programChange test like instrument name '...'") {|v| $test=v }
+opt.on('-c d',"cycle data for test mode") {|v| $testdata=v }
+opt.on('-C d',"comment mark") {|v| cmark=v; puts "comment mark is '#{cmark}'" }
+opt.on('-p pspl',"page split chars") {|v| pspl=v }
+opt.on('-F i',"fuzzy shift mode") {|v| $fuzzy=v.to_i }
+opt.on('-v i',"velocity fuzzy value [default 2]") {|v| vfuzzy=v.to_i }
+opt.on('-O',"octave legacy mode") {|v| octaveMode=:far }
+opt.on('-I',"ignore roland check sum") {|v| $ignoreChecksum=v }
+opt.on('-M i',"debug level") {|v| $debuglevel=v.to_i }
+opt.on('-m i',"mode of test/ 1:GM 2:XG 3:GS") {|v| $testmode=v.to_i }
+opt.on('-n',"test only (dont write outfile)") {|v| $testonly=true }
+opt.parse!(ARGV)
+String.new.setcmark(cmark)
+
+
 title,midifilename=name2title(infile)
 data=File.read(infile).trim(" ;") if infile && File.exist?(infile)
 outfile=midifilename if ! outfile
 
-(hint;exit) if (! data || ! outfile ) && ! $test
+(hint;midihint;exit) if (! data || ! outfile ) && ! $test
 
 data=data.toutf8
-file="midi-programChange-list.txt"
-pfile="midi-percussion-map.txt"
 
 tbase=480 # division
 delta=varlenHex(tbase)
 mx=MidiHex
 mx.prepare(tbase,0x40,octaveMode,vfuzzy)
-mx.loadProgramChange(file)
-mx.loadPercussionMap(pfile)
 data=mx.test($testdata,$testmode) if $test
 
 thisVer=File.mtime($0).strftime("%Y-%m-%d")
