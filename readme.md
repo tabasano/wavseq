@@ -26,3 +26,5 @@
 > 8bitは保留
   8bitはunsigned...
   
+
+> sample on YouTube [generated](https://www.youtube.com/watch?v=RIbP-ZAOJMQ)
