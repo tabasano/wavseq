@@ -44,35 +44,34 @@ opt.parse!(ARGV)
 String.new.setcmark(cmark)
 
 
-title,midifilename=name2title(infile)
-data=File.read(infile).trim(" ;") if infile && File.exist?(infile)
-outfile=midifilename if ! outfile
+mx=MidiHex
+ht=HexTracks.new
+mx.setfile(infile)
+mx.setmidiname(outfile) if outfile
+ht.midiname=mx.getmidiname
+mx.setdata(data) if ! mx.getdata
+(hint;exit) if (! mx.getdata || ! ht.midiname ) && ! $test
 
-(hint;exit) if (! data || ! outfile ) && ! $test
-
-data=data.toutf8
 
 tbase=480 # division
-mx=MidiHex
 mx.prepare(tbase,0x40,octaveMode,vfuzzy)
-data=mx.test($testdata,$testmode) if $test
+mx.test($testdata,$testmode) if $test
 
 if $fuzzy && (tbase/$fuzzy<8)
   STDERR.puts "really?#{"?"*(8*$fuzzy/tbase)}"
 end
 
-mtr=MmlTracks.new(data,tbase,pspl,expfile)
+mtr=MmlTracks.new(mx.getdata,tbase,pspl,expfile)
 mtr.fuzzy($fuzzy)
 mtr.showtracks if $DEBUG && $debuglevel>1
 mtr.macro
 
 tc=0
 # remember starting position check if data exist before sound
-ht=HexTracks.new
-ht.add( mx.metaTitle(title) + mx.generaterText + mx.tempo(bpm).data + mx.makefraze(mtr.rundatas[0],tc) + mx.lastrest )
+ht.add( mx.metaTitle + mx.generaterText + mx.tempo(bpm).data + mx.makefraze(mtr.rundatas[0],tc) + mx.lastrest )
 mtr.rundatas[1..-1].each{|track|
   tc+=1
   ht.add( mx.restHex + mx.makefraze(track,tc) + mx.lastrest )
 }
 ht.pack(mx.header(1, mtr.tracknum, mtr.tbase),mx)
-ht.save(outfile,mtr.rawdatas) if not $testonly
+ht.save(mtr.rawdatas) if not $testonly

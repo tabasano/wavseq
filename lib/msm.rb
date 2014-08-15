@@ -160,21 +160,6 @@ class String
   end
 end
 
-def name2title name
-  title,midiname=false,false
-  cmark="".cmark
-  if name && File.exist?(name)
-    list=File.readlines(name).select{|i|i=~/^#{cmark}/}
-    t=list.map{|i|i=~/^#{cmark} *title */;$'}-[nil]
-    title=t[0].chomp if t.size>0
-    m=list.map{|i|i=~/^#{cmark} *midifilename */;$'}-[nil]
-    if m.size>0
-      midiname=m[0].chomp
-      midiname+=".mid" if midiname !~ /\.mid$/
-    end
-  end
-  [title,midiname]
-end
 
 class Array
   def rotatePlus
@@ -649,6 +634,7 @@ end
 module MidiHex
   # 設定のため最初に呼ばなければならない
   def self.prepare tbase=480,vel=0x40,oct=:near,vfuzzy=2
+    @midiname=""
     @cmark="#"
     @marktrack=MarkTrack.new
     @octmode=oct
@@ -695,6 +681,33 @@ module MidiHex
     pfile=File.expand_path(pfile,base) if not File.exist?(pfile)
     self.loadProgramChange(file)
     self.loadPercussionMap(pfile)
+  end
+  def self.setmidiname name
+    @midiname=name
+  end
+  def self.getmidiname
+    @midiname
+  end
+  def self.setfile name
+    @title=false
+    cmark="".cmark
+    if name && File.exist?(name)
+      list=File.readlines(name).select{|i|i=~/^#{cmark}/}
+      t=list.map{|i|i=~/^#{cmark} *title */;$'}-[nil]
+      @title=t[0].chomp if t.size>0
+      m=list.map{|i|i=~/^#{cmark} *midifilename */;$'}-[nil]
+      if m.size>0
+        @midiname=m[0].chomp
+        @midiname+=".mid" if @midiname !~ /\.mid$/
+      end
+    end
+    @data=File.read(name).trim(" ;").toutf8 if name && File.exist?(name)
+  end
+  def self.getdata
+    @data
+  end
+  def self.setdata d
+    @data=d
   end
   def self.accent a
     @accentPlus=a.to_i
@@ -1030,7 +1043,7 @@ module MidiHex
     e=self.metaEvent hexd,type
     "#{delta} #{e} # #{d}\n"
   end
-  def self.metaTitle d,pos=0
+  def self.metaTitle d=@title,pos=0
     return "" if not d
     self.metaHook d,3,pos
   end
@@ -1728,34 +1741,36 @@ module MidiHex
         v64(x:#{h})0.68(x:#{l})0.66(x:#{l})0.66
         v42(x:#{o})0.34v32(x:#{c})0.33(x:#{c})0.33 v20(x:#{o})0.12(x:#{c})0.11(x:#{c})0.11v92(x:#{o})0.66v64"
     mode=1 if ! mode
-    case mode
-    when 1 || "gm"
-      d=@programList.select{|i,v|v=~/#{key}/i}.map{|i,data|"(p:#{i})#{cycle}"}*""
-      perc=scaleAll
-      "(gm:on)r14 "+d+"(ch:9)"+intro+perc
-    when 2 || "xg"
-      d=@programList.select{|i,v|v=~/#{key}/i}.map{|i,data|
-        [0,1,18,32,33,34,40,41,45,64,65,70,71,97,98].map{|lsb|
-          [0].map{|msb|
-            #msb*=8
-            "(bspc:#{msb},#{lsb},#{i},4) #{cycle}"
+    @data=(
+      case mode
+      when 1 || "gm"
+        d=@programList.select{|i,v|v=~/#{key}/i}.map{|i,data|"(p:#{i})#{cycle}"}*""
+        perc=scaleAll
+        "(gm:on)r14 "+d+"(ch:9)"+intro+perc
+      when 2 || "xg"
+        d=@programList.select{|i,v|v=~/#{key}/i}.map{|i,data|
+          [0,1,18,32,33,34,40,41,45,64,65,70,71,97,98].map{|lsb|
+            [0].map{|msb|
+              #msb*=8
+              "(bspc:#{msb},#{lsb},#{i},4) #{cycle}"
+            }*""
           }*""
         }*""
-      }*""
-      lsb=0
-      msb=127
-      perc0=[0].map{|p| "(bspc:#{msb},#{lsb},#{p},4) #{scaleAll}"}*""
-      scale=([*28..79]-[51,52,54,55,58,60,61,65,66,67,68,69,71,72,73,74]).map{|i|"(x:#{i})"}*"" # main unique sound maybe
-      perc=[*1..48].map{|p| "(bspc:#{msb},#{lsb},#{p},4) #{intro} #{scaleAll}"}*""
-      msb=126
-      scale=([*36..42]+[*52..62]+[*68..73]+[*84..91]).map{|i|"(x:#{i})"}*""
-      perc2=[*0..1].map{|p| "(bspc:#{msb},#{lsb},#{p},4) #{intro} #{scale}"}*""
-      d="(xg:on)r14 "+d+"(ch:9)"+perc+perc2+perc0
-    when 3 || "gs"
-      mapnum=3 # 0(gm),1(sc-55),2(sc-88),3(sc-88pro),4(sc-8850)
-      self.testGs(cycle,key,scaleAll,intro,mapnum)
-    else
-    end
+        lsb=0
+        msb=127
+        perc0=[0].map{|p| "(bspc:#{msb},#{lsb},#{p},4) #{scaleAll}"}*""
+        scale=([*28..79]-[51,52,54,55,58,60,61,65,66,67,68,69,71,72,73,74]).map{|i|"(x:#{i})"}*"" # main unique sound maybe
+        perc=[*1..48].map{|p| "(bspc:#{msb},#{lsb},#{p},4) #{intro} #{scaleAll}"}*""
+        msb=126
+        scale=([*36..42]+[*52..62]+[*68..73]+[*84..91]).map{|i|"(x:#{i})"}*""
+        perc2=[*0..1].map{|p| "(bspc:#{msb},#{lsb},#{p},4) #{intro} #{scale}"}*""
+        d="(xg:on)r14 "+d+"(ch:9)"+perc+perc2+perc0
+      when 3 || "gs"
+        mapnum=3 # 0(gm),1(sc-55),2(sc-88),3(sc-88pro),4(sc-8850)
+        self.testGs(cycle,key,scaleAll,intro,mapnum)
+      else
+      end
+    )
   end
   def self.loadPercussionMap file
     @snare=35
@@ -2176,9 +2191,11 @@ class MmlTracks
   end
 end
 class HexTracks
+  attr_accessor :midiname
   def initialize
     #@tc=0
     @tracks=[]
+    @midiname=nil
   end
   def add t
     @tracks<<t
@@ -2191,7 +2208,7 @@ class HexTracks
     array=[all.split.join]
     @binary = array.pack( "H*" )
   end
-  def save outfile,raws
+  def save raws, outfile=@midiname
     # save data. data = MIDI-header + seq-made MIDI-tracks + loaded extra MIDI-tracks.
     if outfile==""
       print @binary
