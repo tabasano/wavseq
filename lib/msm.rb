@@ -635,7 +635,7 @@ module MidiHex
   # 設定のため最初に呼ばなければならない
   def self.prepare bpm,tbase=480,vel=0x40,oct=:near,vfuzzy=2
     @startBpm=bpm
-    @midiname=""
+    @midiname=false
     @cmark="#"
     @marktrack=MarkTrack.new
     @octmode=oct
@@ -2147,20 +2147,39 @@ def modifierComp t,macro
   }*""
 end
 class MmlTracks
-  attr_accessor :tracknum, :tbase, :rundatas, :rawdatas
-  def initialize data,tbase,pagesep,expfile
+  attr_accessor :tracknum, :tbase, :rundatas, :rawdatas, :mx
+  attr_accessor :bpm, :velocity, :octave, :vfuzzy, :data, :infile, :outfile
+  def initialize tbase,pagesep,expfile
+    @mx=MidiHex
     @rundatas=[]
     @rawdatas=[]
     @macro={}
     @tbase=tbase
-    @tracks=data.tracks(pagesep)
+    @tracks=[]
     @fuzzymode=false
     @fuzz=false
     @expfile=expfile
+    @pagesep=pagesep
+    showtracks if $DEBUG && $debuglevel>1
   end
-  def fuzzy f
-    @fuzzymode=f
-    @fuzz=unirand(f,tracks.size) if f
+  def init
+    @mx.prepare(@bpm,@tbase,@velocity,@octave,@vfuzzy)
+    @mx.setfile(@infile)
+    @mx.setmidiname(@outfile) if @outfile
+    @mx.setdata(@data) if ! @mx.getdata
+    (hint;exit) if (! @mx.getdata || ! @mx.getmidiname ) && ! $test
+    @tracks=@mx.getdata.tracks(@pagesep)
+  end
+  def settest
+    @mx.test($testdata,$testmode)
+    @tracks=@mx.getdata.tracks(pagesep)
+  end
+  def fuzzy fz
+    @fuzzymode=fz
+    @fuzz=unirand(fz,@tracks.size) if fz
+    if fz && (@tbase/fz<8)
+      STDERR.puts "really?#{"?"*(8*fz/@tbase)}"
+    end
   end
   def showtracks
     p @tracks
@@ -2193,6 +2212,14 @@ class MmlTracks
     @tracknum=@rawdatas.size+@rundatas.size
     @tracknum=@tracks.size
   end
+  def make
+    macro
+    @ht=HexTracks.new
+    @ht.make(self)
+  end
+  def save
+    @ht.save
+  end
 end
 class HexTracks
   attr_accessor :midiname, :header
@@ -2222,9 +2249,10 @@ class HexTracks
     array=[all.split.join]
     @binary = array.pack( "H*" )
   end
-  def make mtr,mx
+  def make mtr
     @mtr=mtr
-    @mx=mx
+    @mx=MidiHex
+    @midiname=@mx.getmidiname
     @header=@mx.header(1, @mtr.tracknum, @mtr.tbase)
     settracks
     pack

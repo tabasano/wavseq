@@ -9,11 +9,13 @@ infile=false
 outfile=false
 expfile=false
 vfuzzy=2
+velocity=0x40
 $debuglevel=1
 data=""
 pspl="///"
 cmark=";;"
 bpm=120
+tbase=480 # division
 octaveMode=:near
 opt = OptionParser.new
 opt.on('-i file',"input file") {|v| infile=v }
@@ -43,27 +45,16 @@ opt.on('-n',"test only (dont write outfile)") {|v| $testonly=true }
 opt.parse!(ARGV)
 String.new.setcmark(cmark)
 
-
-mx=MidiHex
-ht=HexTracks.new
-mx.setfile(infile)
-mx.setmidiname(outfile) if outfile
-ht.midiname=mx.getmidiname
-mx.setdata(data) if ! mx.getdata
-(hint;exit) if (! mx.getdata || ! ht.midiname ) && ! $test
-
-
-tbase=480 # division
-mx.prepare(bpm,tbase,0x40,octaveMode,vfuzzy)
-mx.test($testdata,$testmode) if $test
-
-if $fuzzy && (tbase/$fuzzy<8)
-  STDERR.puts "really?#{"?"*(8*$fuzzy/tbase)}"
-end
-
-mtr=MmlTracks.new(mx.getdata,tbase,pspl,expfile)
+mtr=MmlTracks.new(tbase,pspl,expfile)
+mtr.infile=infile
+mtr.outfile=outfile
+mtr.data=data
+mtr.velocity=velocity
+mtr.bpm=bpm
+mtr.octave=octaveMode
+mtr.vfuzzy=vfuzzy
+mtr.init
+mtr.settest if $test
 mtr.fuzzy($fuzzy)
-mtr.showtracks if $DEBUG && $debuglevel>1
-mtr.macro
-ht.make(mtr,mx)
-ht.save if not $testonly
+mtr.make
+mtr.save if not $testonly
