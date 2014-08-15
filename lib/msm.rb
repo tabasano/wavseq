@@ -633,7 +633,8 @@ class MarkTrack
 end
 module MidiHex
   # 設定のため最初に呼ばなければならない
-  def self.prepare tbase=480,vel=0x40,oct=:near,vfuzzy=2
+  def self.prepare bpm,tbase=480,vel=0x40,oct=:near,vfuzzy=2
+    @startBpm=bpm
     @midiname=""
     @cmark="#"
     @marktrack=MarkTrack.new
@@ -1074,6 +1075,9 @@ module MidiHex
     d_bpm=self.makebpm(@bpm)
     @nowtime+=len
     Event.new(:e,len,"#{self.metaEvent(d_bpm,0x51)} # 四分音符の長さ (bpm: #{@bpm}) マイクロ秒で3byte\n")
+  end
+  def self.starttempo
+    self.tempo(@startBpm)
   end
   def self.makebpm bpm
     d="000000"+(60_000_000/bpm.to_f).to_i.to_s(16)
@@ -2191,34 +2195,51 @@ class MmlTracks
   end
 end
 class HexTracks
-  attr_accessor :midiname
+  attr_accessor :midiname, :header
   def initialize
     #@tc=0
     @tracks=[]
+    @header=nil
     @midiname=nil
   end
   def add t
     @tracks<<t
     #@tc+=1
   end
-  def pack header,mx
-    alla=[header]+@tracks.map{|t|mx.trackMake(t)}.flatten
+  def settracks
+    tc=0
+    # remember starting position check if data exist before sound
+    add( @mx.metaTitle + @mx.generaterText + @mx.starttempo.data + @mx.makefraze(@mtr.rundatas[0],tc) + @mx.lastrest )
+    @mtr.rundatas[1..-1].each{|track|
+      tc+=1
+      add( @mx.restHex + @mx.makefraze(track,tc) + @mx.lastrest )
+    }
+  end
+  def pack
+    alla=[@header]+@tracks.map{|t|@mx.trackMake(t)}.flatten
     puts alla if $DEBUG
     all=alla.map{|i|i.trim("","#")}*""
     array=[all.split.join]
     @binary = array.pack( "H*" )
   end
-  def save raws, outfile=@midiname
+  def make mtr,mx
+    @mtr=mtr
+    @mx=mx
+    @header=@mx.header(1, @mtr.tracknum, @mtr.tbase)
+    settracks
+    pack
+  end
+  def save outfile=@midiname
     # save data. data = MIDI-header + seq-made MIDI-tracks + loaded extra MIDI-tracks.
     if outfile==""
       print @binary
-      raws.each{|i|
+      @mtr.rawdatas.each{|i|
         print i
       }
     else
       open(outfile,"wb"){|f|
         f.write @binary
-        raws.each{|i|
+        @mtr.rawdatas.each{|i|
           f.write i
         }
       }

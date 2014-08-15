@@ -54,7 +54,7 @@ mx.setdata(data) if ! mx.getdata
 
 
 tbase=480 # division
-mx.prepare(tbase,0x40,octaveMode,vfuzzy)
+mx.prepare(bpm,tbase,0x40,octaveMode,vfuzzy)
 mx.test($testdata,$testmode) if $test
 
 if $fuzzy && (tbase/$fuzzy<8)
@@ -65,13 +65,5 @@ mtr=MmlTracks.new(mx.getdata,tbase,pspl,expfile)
 mtr.fuzzy($fuzzy)
 mtr.showtracks if $DEBUG && $debuglevel>1
 mtr.macro
-
-tc=0
-# remember starting position check if data exist before sound
-ht.add( mx.metaTitle + mx.generaterText + mx.tempo(bpm).data + mx.makefraze(mtr.rundatas[0],tc) + mx.lastrest )
-mtr.rundatas[1..-1].each{|track|
-  tc+=1
-  ht.add( mx.restHex + mx.makefraze(track,tc) + mx.lastrest )
-}
-ht.pack(mx.header(1, mtr.tracknum, mtr.tbase),mx)
-ht.save(mtr.rawdatas) if not $testonly
+ht.make(mtr,mx)
+ht.save if not $testonly
