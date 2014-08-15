@@ -2149,7 +2149,8 @@ end
 class MmlTracks
   attr_accessor :tracknum, :tbase, :rundatas, :rawdatas, :mx
   attr_accessor :bpm, :velocity, :octave, :vfuzzy, :data, :infile, :outfile
-  def initialize tbase,pagesep,expfile
+  def initialize tbase,pagesep,expfile,cmark
+    String.new.setcmark(cmark)
     @mx=MidiHex
     @rundatas=[]
     @rawdatas=[]

@@ -17,6 +17,7 @@ cmark=";;"
 bpm=120
 tbase=480 # division
 octaveMode=:near
+
 opt = OptionParser.new
 opt.on('-i file',"input file") {|v| infile=v }
 opt.on('-o file',"output file") {|v| outfile=v }
@@ -43,9 +44,8 @@ opt.on('-M i',"debug level") {|v| $debuglevel=v.to_i }
 opt.on('-m i',"mode of test/ 1:GM 2:XG 3:GS") {|v| $testmode=v.to_i }
 opt.on('-n',"test only (dont write outfile)") {|v| $testonly=true }
 opt.parse!(ARGV)
-String.new.setcmark(cmark)
 
-mtr=MmlTracks.new(tbase,pspl,expfile)
+mtr=MmlTracks.new(tbase,pspl,expfile,cmark)
 mtr.infile=infile
 mtr.outfile=outfile
 mtr.data=data
