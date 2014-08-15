@@ -4,19 +4,10 @@ require 'kconv'
 require 'optparse'
 require './lib/msm'
 
-def hint
-  cmd=File.basename($0)
-  puts <<EOF
-usage: #{cmd} -d \"dddd dr3 dddd r4 drdrdrdr dddd dr3\" -o outfile.mid -t bpm
-       #{cmd} -i infile.txt  -o outfile.mid -t bpm
-
-EOF
-end
 
 infile=false
 outfile=false
 expfile=false
-title=""
 vfuzzy=2
 $debuglevel=1
 data=""
@@ -57,7 +48,7 @@ title,midifilename=name2title(infile)
 data=File.read(infile).trim(" ;") if infile && File.exist?(infile)
 outfile=midifilename if ! outfile
 
-(hint;midihint;exit) if (! data || ! outfile ) && ! $test
+(hint;exit) if (! data || ! outfile ) && ! $test
 
 data=data.toutf8
 
@@ -69,103 +60,19 @@ data=mx.test($testdata,$testmode) if $test
 if $fuzzy && (tbase/$fuzzy<8)
   STDERR.puts "really?#{"?"*(8*$fuzzy/tbase)}"
 end
-class MmlTracks
-  attr_accessor :tracknum, :tbase, :rundatas, :rawdatas
-  def initialize data,tbase,pagesep,expfile
-    @rundatas=[]
-    @rawdatas=[]
-    @macro={}
-    @tbase=tbase
-    @tracks=data.tracks(pagesep)
-    @fuzzymode=false
-    @fuzz=false
-    @expfile=expfile
-  end
-  def fuzzy f
-    @fuzzymode=f
-    @fuzz=unirand(f,tracks.size) if f
-  end
-  def showtracks
-    p @tracks
-  end
-  def macro
-    @tracks.map{|track|
-      m,track=macroDef(track)
-      @macro.merge!(m)
-      track=modifierComp(track,@macro)
-      repCalc(track,@macro,tbase)
-    }.each{|t|
-      r=loadCalc(t)
-      if @fuzzymode
-        n=@fuzz.shift
-        STDERR.puts "track shift: #{n} tick#{n>1 ? 's' : ''}"
-        pre="r*#{n} "
-      else
-        pre=""
-      end
-      case r[0]
-      when :raw
-        @rawdatas<<r[1]
-      when :seq
-        @rundatas<<pre+r[1]
-      end
-    }
-    p @macro if$DEBUG
-    @rawdatas.flatten!
-    open(@expfile,"w"){|f|f.puts @rundatas*"|||"} if @expfile
-    @tracknum=@rawdatas.size+@rundatas.size
-    @tracknum=@tracks.size
-  end
-end
-class HexTracks
-  def initialize
-    #@tc=0
-    @tracks=[]
-  end
-  def add t
-    @tracks<<t
-    #@tc+=1
-  end
-  def pack header,mx
-    alla=[header]+@tracks.map{|t|mx.trackMake(t)}.flatten
-    puts alla if $DEBUG
-    all=alla.map{|i|i.trim("","#")}*""
-    array=[all.split.join]
-    @binary = array.pack( "H*" )
-  end
-  def save outfile,raws
-    # save data. data = MIDI-header + seq-made MIDI-tracks + loaded extra MIDI-tracks.
-    if outfile==""
-      print @binary
-      raws.each{|i|
-        print i
-      }
-    else
-      open(outfile,"wb"){|f|
-        f.write @binary
-        raws.each{|i|
-          f.write i
-        }
-      }
-    end
-  end
-end
 
 mtr=MmlTracks.new(data,tbase,pspl,expfile)
 mtr.fuzzy($fuzzy)
 mtr.showtracks if $DEBUG && $debuglevel>1
 mtr.macro
 
-format=1
-d_header=mx.header(format, mtr.tracknum, mtr.tbase) 
 tc=0
-d_last=mx.metaText("data end",tbase)
 # remember starting position check if data exist before sound
 ht=HexTracks.new
-ht.add( mx.metaTitle(title) + mx.generaterText + mx.tempo(bpm).data + mx.makefraze(mtr.rundatas[0],tc) + d_last )
+ht.add( mx.metaTitle(title) + mx.generaterText + mx.tempo(bpm).data + mx.makefraze(mtr.rundatas[0],tc) + mx.lastrest )
 mtr.rundatas[1..-1].each{|track|
   tc+=1
-  ht.add( mx.restHex + mx.makefraze(track,tc) + d_last )
+  ht.add( mx.restHex + mx.makefraze(track,tc) + mx.lastrest )
 }
-ht.pack(d_header,mx)
+ht.pack(mx.header(1, mtr.tracknum, mtr.tbase),mx)
 ht.save(outfile,mtr.rawdatas) if not $testonly
