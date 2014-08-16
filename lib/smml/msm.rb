@@ -67,6 +67,7 @@ syntax: ...( will be changed time after time)
     (syswait:) =when using '(gm:on)' etc., this command is needed for all other tracks to adjust wait-time.
     ||| = track separater
     /// = page separater
+          series of page seperaters insert unique '(mark:all track mark)' to allready running tracks automaticaly.
     (mark:posname) =position name for adjustment of tracks after long rest etc.
     .DC .DS .toCODA .CODA .FINE =coda mark etc.
     .SKIP =skip mark on over second time
@@ -128,6 +129,9 @@ def multilineTrim l,com
   puts " ? mismatch end mark of multiline comment."  if on
   r
 end
+def allTrackMark c
+  "(mark:.ALL_TRACK_MARK_#{c}.)"
+end
 class String
   def setcmark c
     @@cmark=c
@@ -144,17 +148,24 @@ class String
   def sharp2cmark
     self.gsub!("#"){@@cmark}
   end
-  def tracks pspl
+  def tracksep pspl
     tracks={}
     pages=self.split(/#{pspl}+/)
+    markc=0
     pages.each{|p|
-      p.split('|||').each_with_index{|t,i|
-        if tracks[i]
-          tracks[i] << t
-        else
-          tracks[i] = [t]
-        end
-      }
+      if p=~/^[ ;]+$/
+        p=allTrackMark(markc)
+        tracks.values.each{|v| v << p }
+        markc+=1
+      else
+        p.split('|||').each_with_index{|t,i|
+          if tracks[i]
+            tracks[i] << t
+          else
+            tracks[i] = [t]
+          end
+        }
+      end
     }
     tracks.keys.sort.map{|k|tracks[k]*";"}
   end
@@ -2175,7 +2186,7 @@ class MmlTracks
     @mx.setdata(@data) if ! @mx.getdata
     (hint;exit) if (! @mx.getdata || ! @mx.getmidiname ) && ! test
     settest if test
-    @tracks=@mx.getdata.tracks(@pagesep)
+    @tracks=@mx.getdata.tracksep(@pagesep)
     showtracks if $DEBUG && $debuglevel>1
     fuzzy(fz)
   end

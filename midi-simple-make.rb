@@ -5,9 +5,10 @@ require 'optparse'
 
 # gem
 begin
-  require'smml'
-rescue LoadError
   require'./lib/smml/msm'
+rescue LoadError
+  require'smml'
+  p Smml::VERSION
 end
 
 infile=false
