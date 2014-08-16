@@ -2,7 +2,13 @@
 # -*- encoding: utf-8 -*-
 require 'kconv'
 require 'optparse'
-require './lib/smml'
+
+# gem
+begin
+  require'smml'
+rescue LoadError
+  require'./lib/smml/msm'
+end
 
 infile="infile.mml"
 outfile="mml.mid"
