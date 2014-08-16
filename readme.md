@@ -10,6 +10,9 @@
   midiに変換してみる>> [edit mml and make midi](http://tabasano.sakura.ne.jp/edmml.htm)
   
   
+> [smml-0.0.1.1.gem](http://tabasano.sakura.ne.jp/mono/smml-0.0.1.1.gem)
+  
+
 >  [![Build Status](https://travis-ci.org/tabasano/wavseq.svg?branch=master)](https://travis-ci.org/tabasano/wavseq)
   
 
