@@ -1055,7 +1055,7 @@ module MidiHex
     self.metaHook d,1,pos
   end
   def self.generaterText
-    file= $0=="-e" ? __FILE__ : $0
+    file=__FILE__
     thisVer=File.mtime(file).strftime("%Y-%m-%d")
     thisVer="" if $debuglevel && $debuglevel>1
     pos=@tbase
@@ -2151,7 +2151,7 @@ end
 class MmlTracks
   attr_accessor :tracknum, :tbase, :rundatas, :rawdatas, :mx
   attr_accessor :bpm, :velocity, :octave, :vfuzzy, :data, :infile, :outfile
-  def initialize tbase=480,pagesep='///',expfile='expfile.txt',cmark=';;'
+  def initialize tbase=480,pagesep='///',expfile=false,cmark=';;'
     String.new.setcmark(cmark)
     @mx=MidiHex
     @rundatas=[]
