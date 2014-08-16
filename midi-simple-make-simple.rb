@@ -15,8 +15,4 @@ opt.on('-d d',"input data string") {|v| data=v }
 opt.parse!(ARGV)
 
 mtr=MmlTracks.new
-mtr.infile=infile
-mtr.outfile=outfile
-mtr.data=data
-mtr.make
-mtr.save
+mtr.compile(infile,outfile,data)
