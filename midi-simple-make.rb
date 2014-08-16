@@ -53,8 +53,5 @@ mtr.velocity=velocity
 mtr.bpm=bpm
 mtr.octave=octaveMode
 mtr.vfuzzy=vfuzzy
-mtr.init
-mtr.settest if $test
-mtr.fuzzy($fuzzy)
-mtr.make
+mtr.make($test,$fuzzy)
 mtr.save if not $testonly
