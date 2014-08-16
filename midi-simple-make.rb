@@ -2,7 +2,7 @@
 # -*- encoding: utf-8 -*-
 require 'kconv'
 require 'optparse'
-require './lib/msm'
+require './lib/smml'
 
 
 infile=false
