@@ -4,6 +4,9 @@ simple Music Macro Language to MIDI
 
 ## Installation
 
+
+[![Gem Version](https://badge.fury.io/rb/smml.svg)](http://badge.fury.io/rb/smml)
+
 Add this line to your application's Gemfile:
 
 ```ruby

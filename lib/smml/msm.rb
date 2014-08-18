@@ -39,6 +39,7 @@ syntax: ...( will be changed time after time)
     (ch:1)      =set this track's channel 1
     (cc:10,64) =controlChange number10 value 64. see SMF format.
     (pan:>64)  =panpot right 64. ( pan:>0  set center )
+    (oct:2)      =set octave 2
     (bend:100)     =pitch bend 100
     (bendRange:12) =set bend range 12. default is normaly 2.
     (bendCent:on)  =set bend value unit cent (half tone = 100). default is 'off' and value is between -8192 and +8192.
@@ -1530,6 +1531,9 @@ module MidiHex
         @h<<[:call,:preBefore,s]
       when /^\(roll:(.*)\)/
         @shiftbase=$1.to_i
+      when /^\(oct(ave)?:(.*)\)/
+        oct=($2.to_i+2)*12
+        @h<<[:call,:basekeySet,oct]
       when /^\(key:reset\)/
         @h<<[:call,:basekeySet,@basekeyOrg]
       when /^\(p:(([[:digit:]]+),)?(([[:digit:]]+)|([\?[:alnum:]]+)(,([[:digit:]]))?)\)/
@@ -1572,8 +1576,9 @@ module MidiHex
         @h<<[:velocityFuzzy,$1.to_i]
       when /^\(v:([0-9]+)\)/, /^v([0-9]+)/
         @h<<[:velocity,$1.to_i]
-      when /^\(g:([0-9]+)\)/
-        @h<<[:call,:setGateRate,$1.to_i]
+      when /^\(g(ate)?:([0-9]+)\)/
+        g=$2.to_i
+        @h<<[:call,:setGateRate,g]
       when /^\(volume:(.*)\)/
         @h<<[:masterVolume,$1.to_i]
       when /^\(tempo:reset\)/

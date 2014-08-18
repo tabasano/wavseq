@@ -10,14 +10,14 @@ Gem::Specification.new do |spec|
   spec.email         = ["pianotoieba+smml@gmail.com"]
   spec.summary       = %q{Simple MML to MIDI}
   spec.description   = %q{compile a Music Macro Language file to a Standard MIDI file.}
-  spec.homepage      = ""
+  spec.homepage      = "https://github.com/tabasano/wavseq"
   spec.license       = "MIT"
 
-  spec.files         = Dir.glob("lib/*")+Dir.glob("lib/smml/*")+["Gemfile","Rakefile","LICENSE.txt","smml.gemspec","README_smml.md"]
+  spec.files         = Dir.glob("lib/*")+Dir.glob("lib/smml/*")+["Gemfile","Rakefile","LICENSE.txt","smml.gemspec","README_smml.md"]+["sample/midi-preModifier.txt","sample/midi-test.mml"]
   spec.executables   = spec.files.grep(%r{^bin/}) { |f| File.basename(f) }
   spec.test_files    = spec.files.grep(%r{^(test|spec|features)/})
   spec.require_paths = ["lib"]
-
+  spec.required_ruby_version = '>= 1.8.7' 
   spec.add_development_dependency "bundler", "~> 1.6"
   spec.add_development_dependency "rake", "~> 10.0"
 end
