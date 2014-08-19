@@ -3,6 +3,8 @@
 require 'kconv'
 require 'optparse'
 
+$debuglevel=0
+
 def hint
   cmd=File.basename($0)
   puts <<EOF
