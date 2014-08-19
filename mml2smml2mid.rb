@@ -20,6 +20,9 @@ def help
   syntax:
     A: a2bc dref => track A, MML data
     B: c2de frga => track B, MML data
+
+    #  comment
+    +- sharp,flat
   )
 end
 
@@ -78,6 +81,9 @@ def mml2smml data
         octave-=1
         v="-"
         p "oct= #{octave} : #{v}"
+      when "L"
+        digdef=dig
+        p "defaault length : #{dig}"
       when "O"
         v="(oct:#{dig})"
         p "octave #{dig} : #{v}"
@@ -127,13 +133,16 @@ def mml2smml data
   tracks.values*"\n|||\n"
 end
 
+m=MmlTracks.new
 puts
-data=data.size>0 ? data : (File.read(infile) rescue help)
+data=data.size>0 ? data.split(';')*"\n" : (File.read(infile) rescue help)
+p data
+data=data.split("\n").map{|i|i.commentoff("\n",'#')}*"\n"
+p data
 smml=mml2smml(data)
 puts smml if $smmlshow || $DEBUG
-m=MmlTracks.new
 m.octave=:far
 m.data=smml
-m.outfile="tes.mid"
+m.outfile=outfile
 m.make
 m.save

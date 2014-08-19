@@ -142,7 +142,7 @@ class String
   def cmark
     @@cmark
   end
-  def trim ofs="",com=@@cmark
+  def commentoff ofs="",com=@@cmark
     lines=self.split("\n")
     d=multilineTrim(lines,com)
     d=d.map{|i|i.sub(/(#{com}).*/){}.chomp}*ofs
@@ -271,7 +271,7 @@ def rawdata d
   d.gsub(","){" "}
 end
 def trackSizeHex d,cmark="#"
-  d=d.trim("",cmark).split.join
+  d=d.commentoff("",cmark).split.join
   i=(d.size+8)/2
 #  p [d,i,i.to_s(16)]
   #("00000000"+i.to_s(16))[-8..-1]
@@ -716,7 +716,7 @@ module MidiHex
         @midiname+=".mid" if @midiname !~ /\.mid$/
       end
     end
-    @data=File.read(name).trim(" ;").toutf8 if name && File.exist?(name)
+    @data=File.read(name).commentoff(" ;").toutf8 if name && File.exist?(name)
   end
   def self.getdata
     @data
@@ -2252,7 +2252,7 @@ class MmlTracks
     @header=@mx.header(1, @tracknum, @tbase)
     alla=[@header]+@htracks.map{|t|@mx.trackMake(t)}.flatten
     puts alla if $DEBUG
-    all=alla.map{|i|i.trim("","#")}*""
+    all=alla.map{|i|i.commentoff("","#")}*""
     array=[all.split.join]
     @binary = array.pack( "H*" )
   end
