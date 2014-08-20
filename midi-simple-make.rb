@@ -15,6 +15,7 @@ infile=false
 outfile=false
 expfile=false
 vfuzzy=2
+autopan=true
 velocity=0x40
 $debuglevel=1
 data=""
@@ -44,6 +45,10 @@ opt.on('-C d',"comment mark") {|v| cmark=v; puts "comment mark is '#{cmark}'" }
 opt.on('-p pspl',"page split chars") {|v| pspl=v }
 opt.on('-F i',"fuzzy shift mode") {|v| $fuzzy=v.to_i }
 opt.on('-v i',"velocity fuzzy value [default 2]") {|v| vfuzzy=v.to_i }
+opt.on('-V',"dont use all fuzzy or auto feature") {|v|
+  vfuzzy=0
+  autopan=false
+}
 opt.on('-O',"octave legacy mode") {|v| octaveMode=:far }
 opt.on('-I',"ignore roland check sum") {|v| $ignoreChecksum=v }
 opt.on('-M i',"debug level") {|v| $debuglevel=v.to_i }
@@ -59,5 +64,6 @@ mtr.velocity=velocity
 mtr.bpm=bpm
 mtr.octave=octaveMode
 mtr.vfuzzy=vfuzzy
+mtr.autopan=autopan
 mtr.make($test,$fuzzy)
 mtr.save if not $testonly

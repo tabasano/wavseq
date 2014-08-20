@@ -648,6 +648,7 @@ end
 module MidiHex
   # 設定のため最初に呼ばなければならない
   def self.prepare bpm,tbase=480,vel=0x40,oct=:near,vfuzzy=2
+    @autopan=true
     @startBpm=bpm
     @midiname=false
     @cmark="#"
@@ -686,6 +687,7 @@ module MidiHex
     @basekeyRythm=@basekeyOrg=@basekey
     @bendrange=2
     @bendCent=1
+    @pancenter=64
     @prepareSet=[@tbase,@ch,@velocity,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent]
     @chmax=15
     @bendrangemax=127
@@ -760,8 +762,9 @@ module MidiHex
     @preBefore=[]
     @preAfter=[]
     @tracknum=tc+1
-    tc+=1 if tc>=9 # ch10 is drum kit channel
+    tc+=1 if tc>=@rythmChannel # ch10 is drum kit channel
     tc=@chmax if tc>@chmax
+    @panoftrack=panbytrack(tc)
     @ch=tc
   end
   def self.header format,track,tbase=@tbase
@@ -1354,6 +1357,19 @@ module MidiHex
       end
     }
   end
+  def self.autopan v
+    @autopan=v
+  end
+  def self.autopanset tnum
+    @panstep=0x7f/(tnum+2)
+  end
+  def self.panbytrack tc
+    if @autopan
+      tc==@rythmChannel ? @pancenter : (tc+1)*@panstep
+    else
+      @pancenter
+    end
+  end
   def self.strokeSpeed s
     s=s.to_i
     @strokespeed=s
@@ -1453,6 +1469,7 @@ module MidiHex
     @shiftbase=40
     accent=false
     sharp=0
+    @h<<[:controlChange,"10,#{@panoftrack}"] if @autopan
     cmd=rundata.scan(/&\([^)]+\)|\([-+]*[[:digit:]]?\)|:[^\(,]+\([^\)\(]+\),|:[^,]+,|\([^:]*:[^)\(]*\)|_[^!_]+!|_[^_]__[^\?]+\?|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:]]+\.[[:digit:]]+|\*?[[:digit:]]+|[-+[:alpha:]]|\^|`|'|./)
     cmd<<" " # dummy
     p "make start: ",cmd if $DEBUG
@@ -2168,7 +2185,7 @@ end
 
 class MmlTracks
   attr_accessor :tracknum, :tbase, :rundatas, :rawdatas, :mx
-  attr_accessor :bpm, :velocity, :octave, :vfuzzy, :data, :infile, :outfile
+  attr_accessor :bpm, :velocity, :octave, :vfuzzy, :data, :infile, :outfile, :autopan
   def initialize tbase=480,pagesep='///',expfile=false,cmark=';;'
     String.new.setcmark(cmark)
     @mx=MidiHex
@@ -2185,6 +2202,7 @@ class MmlTracks
     @velocity=0x40
     @octave=:near
     @vfuzzy=2
+    @autopan=true
   end
   def init test,fz
     @mx.prepare(@bpm,@tbase,@velocity,@octave,@vfuzzy)
@@ -2240,6 +2258,9 @@ class MmlTracks
   end
   def settracks
     @htracks=[]
+    tcall=@rundatas.size
+    @mx.autopanset(tcall)
+    @mx.autopan(@autopan)
     tc=0
     # remember starting position check if data exist before sound
     @htracks << @mx.metaTitle + @mx.generaterText + @mx.starttempo.data + @mx.makefraze(@rundatas[0],tc) + @mx.lastrest
