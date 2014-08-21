@@ -647,7 +647,8 @@ class MarkTrack
 end
 module MidiHex
   # 設定のため最初に呼ばなければならない
-  def self.prepare bpm,tbase=480,vel=0x40,oct=:near,vfuzzy=2
+  def self.prepare bpm=120,tbase=480,vel=0x40,oct=:near,vfuzzy=2
+    @ready=true
     @autopan=true
     @startBpm=bpm
     @midiname=false
@@ -1212,6 +1213,14 @@ module MidiHex
     r=@percussionList.select{|num,line|line=~/#{p}/i}
     puts "no percussion name like '#{p}' in list" if $DEBUG && r.size==0
     r.size>0 ? r[0][0] : @snare
+  end
+  def self.percussionList
+    self.prepare if not @ready
+    @percussionList.map{|i,v|"#{i} #{v}"}
+  end
+  def self.programList
+    self.prepare if not @ready
+    @programList.map{|i,v|"#{i} #{v}"}
   end
   def self.bend pos,depth,ch=false
     ch=@ch if ! ch
@@ -2209,6 +2218,18 @@ class MmlTracks
     @octave=:near
     @vfuzzy=2
     @autopan=true
+  end
+  def pmap
+    puts @mx.programList
+  end
+  def dmap
+    puts @mx.percussionList
+  end
+  def psearch k
+    puts @mx.programList.select{|i|i=~/#{k}/i}
+  end
+  def dsearch k
+    puts @mx.percussionList.select{|i|i=~/#{k}/i}
   end
   def init test,fz
     @mx.prepare(@bpm,@tbase,@velocity,@octave,@vfuzzy)
