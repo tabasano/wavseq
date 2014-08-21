@@ -1463,6 +1463,7 @@ module MidiHex
     @systemWait=120
     @h=[]
     wait=[]
+    lastwait=[]
     @frest=0
     @frestc=0
     @nowtime=0
@@ -1511,6 +1512,7 @@ module MidiHex
             @h<<[:rest,t]
           end
         }
+        lastwait=wait
         wait=[]
         accent=false
         sharp=0
@@ -1699,7 +1701,11 @@ module MidiHex
         p "accent" if $DEBUG
         accent=true
       when "="
-        @h<<@h[-1]
+        if lastwait.size>0
+          wait+=lastwait
+        else
+          @h<<@h[-1]
+        end
       when "r"
         wait<<[:rest,i]
       when "o"
@@ -1862,23 +1868,23 @@ def multiplet d,tbase
   else
     total=tbase*rate
   end
-  r=i.scan(/\(\?:[^\]]+\)|\(x:[^\]]+\)|\(chord:[^)]+\)|\(C:[^)]+\)|:[^\(,]+\([^\)]+\),|:[^,]+,|[[:digit:]\.]+|_[^!]+!|~|\([-+]*[[:digit:]]?\)|[-+^`'<>]|./)
+  r=i.scan(/=|\(\?:[^\]]+\)|\(x:[^\]]+\)|\(chord:[^)]+\)|\(C:[^)]+\)|:[^\(,]+\([^\)]+\),|:[^,]+,|[[:digit:]\.]+|_[^!]+!|~|\([-+]*[[:digit:]]?\)|[-+^`'<>]|./)
   wait=[]
   notes=[]
   mod=[]
   r.each{|i|
     case i
+    # modifier
     when /^[-+^`',<>]/,/^\([-+]*[[:digit:]]?\)/
       mod<<i
-    when /^\((\?|x|C|chord):[^\)]+\)|^\^?:[^,]+,/
+    # note
+    when /^\((\?|x|C|chord):[^\)]+\)|^\^?:[^,]+,|^=/
       wait<<1
       notes<<"#{mod*""}#{i}"
       mod=[]
+    # length
     when /^[[:digit:]]+/
       wait[-1]*=i.to_f
-    when "="
-      wait<<wait[-1]
-      notes<<notes[-1]
     when " "
     else
       wait<<1

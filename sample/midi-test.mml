@@ -1,7 +1,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
  
  for CI test script.
- ver. 1.0
+ ver. 1.1
  
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -9,7 +9,9 @@
 t:=abcde
 tt(x):=ee$xff
 
-a`b'cd (stroke:86) [ef{e,f,g}g_c!:cmaj7,<(stroke:3)]4>>>> (p:flut)(g:80)[/2:aAbcCdef/(g:20)-]2 (bendCent:off)[c(bend:200.2)/cc/(bend:0)c(bendCent:on)]2 (mark:tes)/2:c2gc/ (g:100) f*240e*120d*60 --(p:organ) $t (+3)a(+)b(0)c $tt(4:1,2,3)
+a`b'cd (stroke:86) [ef{e,f,g}g_c!:cmaj7,<(stroke:3)]4>>>> (p:flut)(g:80)[/2:aAbcCdef/(g:20)-]2
+ (bendCent:off)[c(bend:200.2)/cc/(bend:0)c(bendCent:on)]2
+ (mark:tes)(p:guit)/2:c2gc/[/2:~{e,g}=f/] (g:100) f*240e*120d*60 --(p:organ) $t (+3)a(+)b(0)c $tt(4:1,2,3)
 
 
 //////////////////////////////////////////////////////////////////////
