@@ -7,6 +7,7 @@ $debuglevel=0
 
 def hint
   cmd=File.basename($0)
+  puts "Smml v#{Smml::VERSION}"
   puts <<EOF
 usage: #{cmd} -d \"dddd dr3 dddd r4 drdrdrdr dddd dr3\" -o outfile.mid -t bpm
        #{cmd} -i infile.txt  -o outfile.mid -t bpm
@@ -2198,7 +2199,7 @@ def modifierComp t,macro
   }*""
 end
 
-class MmlTracks
+class Smml
   attr_accessor :tracknum, :tbase, :rundatas, :rawdatas, :mx
   attr_accessor :bpm, :velocity, :octave, :vfuzzy, :data, :infile, :outfile, :autopan
   def initialize tbase=480,pagesep='///',expfile=false,cmark=';;'
@@ -2333,4 +2334,105 @@ class MmlTracks
     make
     save
   end
+end
+
+module Mml
+def self.calclen len,digdef,last
+  if last == :sound
+    htn=0
+    if len=~/\.+/
+      len=$`.to_i
+      len=digdef if len==0
+      htn=$&.size
+    end
+    len=4.0/len.to_i
+    baselen=len/2.0
+    htn.times{len+=baselen;baselen/=2.0}
+    len=len.round if len==len.round
+    len="" if len==1
+  end
+  len
+end
+def self.tosmml data
+  tracks={}
+  tr=0
+  last=:no
+  lines=data.split("\n")
+  lines.each{|mml|
+    octave=3
+    digdef=4
+    mml.scan(/([[:alpha:]]):|([[:alpha:]<>])([#\+\-])?([[:digit:]\.]+)?|@([[:alpha:]]+|[[:digit:]]+)|([[:digit:]\.]+)|([\[\]])| |/).each{|tname,al,sharp,dig,sname,dig2,same|
+      valueAr=[tname,al,sharp,dig,sname,dig2,same]
+      value=valueAr*""
+      (tr=tname;next) if tname
+      len=dig|| digdef
+      len=calclen(len,digdef,:sound)
+      dig2=calclen(dig2,digdef,last) if dig2
+      last=:no
+      v=""
+      case al ? al.upcase : al
+      when ">"
+        octave+=1
+        v="+"
+        p "oct= #{octave} : #{v}"
+      when "<"
+        octave-=1
+        v="-"
+        p "oct= #{octave} : #{v}"
+      when "L"
+        digdef=dig
+        p "defaault length : #{dig}"
+      when "O"
+        v="(oct:#{dig})"
+        p "octave #{dig} : #{v}"
+      when "Q"
+        v="(gate:#{dig})"
+        p "gate #{dig} : #{v}"
+      when "P"
+        v="(pan:#{dig})"
+        p "pan #{dig} : #{v}"
+      when "N"
+        v="{#{dig}}"
+        p "note #{dig}  : #{v}"
+      when "T"
+        v="(tempo:#{dig})"
+        p "tempo #{dig} : #{v}"
+      when "V"
+        v="(v:#{dig})"
+        p "velocity #{dig} : #{v}"
+      when "R"
+        v="r#{len}"
+        p "rest  #{len} : #{v}"
+        last=:sound
+      when nil
+        if sname
+          v="(p:#{sname})"
+          p "sound name #{sname} : #{v}"
+        elsif same
+          v=same
+          p "same : #{v}"
+        end
+      when "A".."G"
+        note=al.downcase
+        case sharp
+        when "#","+"
+          note=note.upcase
+        when "-"
+          note="(-)"+note
+        end
+        v="#{note}#{len}"
+        p "note #{al} #{sharp}  #{len} : #{v}"
+        last=:sound
+      end
+      v="#{dig2}" if dig2
+      STDERR.puts "[#{value}] undefined?" if v=="" && value.size>0
+      if tracks[tr]
+        tracks[tr]<<v
+      else
+        tracks[tr]=v
+      end
+    }
+  }
+  tracks.keys.sort.map{|k|tracks[k]}*"\n|||\n"
+end
 end

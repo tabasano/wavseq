@@ -1,0 +1,61 @@
+#!/usr/bin/ruby
+# -*- encoding: utf-8 -*-
+
+begin
+  require'./lib/smml/msm'
+rescue LoadError
+  require'smml'
+end
+
+def help
+  puts Smml::VERSION
+  puts %Q(
+  ARGS:
+    -i infile.mml -o outfile.mid 
+  or
+    -d "MML data" -o outfile.mid
+  for dump smml
+    -s
+
+  syntax:
+    A: a2bc dref => track A, MML data
+    B: c2de frga => track B, MML data
+
+    #  comment
+    +- sharp,flat
+    []3 repeat 3 times
+  )
+end
+
+infile="infile.mml"
+outfile="mml.mid"
+data=""
+
+opt = OptionParser.new
+opt.on('-i file',"input file") {|v| infile=v }
+opt.on('-o file',"output file") {|v| outfile=v }
+opt.on('-s',"dump smml data") {|v| $smmlshow=v }
+opt.on('-d d',"input data string") {|v| data=v }
+opt.on('-h',"help") {|v|
+  help
+}
+opt.parse!(ARGV)
+
+def p *v
+  super v if $DEBUG
+end
+
+
+m=Smml.new
+puts
+data=data.size>0 ? data.split(';')*"\n" : (File.read(infile) rescue (help;exit))
+p data
+data=data.split("\n").map{|i|i.commentoff("\n",'#')}*"\n"
+p data
+smml=Mml.tosmml(data)
+puts smml if $smmlshow || $DEBUG
+m.octave=:far
+m.data=smml
+m.outfile=outfile
+m.make
+m.save

@@ -8,7 +8,6 @@ begin
   require'./lib/smml/msm'
 rescue LoadError
   require'smml'
-  p Smml::VERSION
 end
 
 infile=false
@@ -56,14 +55,14 @@ opt.on('-m i',"mode of test/ 1:GM 2:XG 3:GS") {|v| $testmode=v.to_i }
 opt.on('-n',"test only (dont write outfile)") {|v| $testonly=true }
 opt.parse!(ARGV)
 
-mtr=MmlTracks.new(tbase,pspl,expfile,cmark)
-mtr.infile=infile
-mtr.outfile=outfile
-mtr.data=data
-mtr.velocity=velocity
-mtr.bpm=bpm
-mtr.octave=octaveMode
-mtr.vfuzzy=vfuzzy
-mtr.autopan=autopan
-mtr.make($test,$fuzzy)
-mtr.save if not $testonly
+m=Smml.new(tbase,pspl,expfile,cmark)
+m.infile=infile
+m.outfile=outfile
+m.data=data
+m.velocity=velocity
+m.bpm=bpm
+m.octave=octaveMode
+m.vfuzzy=vfuzzy
+m.autopan=autopan
+m.make($test,$fuzzy)
+m.save if not $testonly

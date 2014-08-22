@@ -23,8 +23,15 @@ Or install it yourself as:
 
 ## Usage
 
-    m=MmlTracks.new
+in a ruby script,
+
+    m=Smml.new
     m.compile('infile.mml','outfile.mid')
+
+Or exec command
+
+    $ smml -i infile.mml -o outfile.mid
+    $ smml -d "cdefgab"  -o outfile.mid
 
 ## Contributing
 

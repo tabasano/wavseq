@@ -8,7 +8,6 @@ begin
   require'./lib/smml/msm'
 rescue LoadError
   require'smml'
-  p Smml::VERSION
 end
 
 infile="infile.mml"
@@ -21,5 +20,5 @@ opt.on('-o file',"output file") {|v| outfile=v }
 opt.on('-d d',"input data string") {|v| data=v }
 opt.parse!(ARGV)
 
-mtr=MmlTracks.new
-mtr.compile(infile,outfile,data)
+m=Smml.new
+m.compile(infile,outfile,data)
