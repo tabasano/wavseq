@@ -13,7 +13,7 @@ Gem::Specification.new do |spec|
   spec.homepage      = "https://github.com/tabasano/wavseq"
   spec.license       = "MIT"
 
-  spec.files         = Dir.glob("lib/*")+Dir.glob("lib/smml/*")+["Gemfile","Rakefile","LICENSE.txt","smml.gemspec","README_smml.md"]+["sample/midi-preModifier.txt","sample/midi-test.mml"]
+  spec.files         = Dir.glob("lib/*")+Dir.glob("lib/smml/*")+Dir.glob("bin/*")+["Gemfile","Rakefile","LICENSE.txt","smml.gemspec","README_smml.md"]+["sample/midi-preModifier.txt","sample/midi-test.mml"]
   spec.executables   = spec.files.grep(%r{^bin/}) { |f| File.basename(f) }
   spec.test_files    = spec.files.grep(%r{^(test|spec|features)/})
   spec.extra_rdoc_files =%w[README_smml.md LICENSE.txt]
