@@ -202,25 +202,74 @@ def unirand n,c,reset=false
   a.sort_by{rand}
 end
 
+# accumulated time with event
+class TotalTime
+  def initialize t=0
+    @t=t
+    @series={}
+  end
+  def set num,t
+    add(t)
+    @series[num]=@t
+  end
+  def addtime num,t
+    add(t)
+    @series[num]+=t
+  end
+  def add t
+    @t+=t
+  end
+  def get num
+    @series[num]
+  end
+  def all
+    @series
+  end
+end
+# midi event etc.
 class Event
-  attr_accessor :type, :time, :value
-  def initialize ty=:e,*arg
+  @@counter=0
+  @@tt=TotalTime.new
+  attr_accessor :type, :value
+  attr_reader :time, :number
+  def initialize ty,*arg
+    @number=@@counter
+    @@counter+=1
     @type=ty
     @pos=0
     @value=""
     case @type
-    when :c,:raw
-      @time=0
+    # event without time;  except ':e'
+    when :comment,:raw
+      settime(0)
       @value=arg[0]
     when :ahead
-      @time=arg[0]
-    when :o,:off
+      settime(arg[0])
+    when :on,:off
     when :mark
       @mark,@track,@value=arg
-    else
-      @time=arg[0]
+    # event with delta time;  ':e'
+    when :dummy
+    when :e, :end, :sys
+      settime(arg[0])
       @value=arg[1]
+    else
     end
+  end
+  def settime t
+    @time=t
+    @@tt.set(@number,@time)
+  end
+  def addtime t
+    @time+=t
+    @@tt.addtime(@number,t)
+  end
+  def showTotalTime
+    a=@@tt.all
+    a.keys.sort.map{|k|"#{k}: #{a[k]}"}
+  end
+  def reset
+    @@tt=TotalTime.new
   end
   def data
     case @type
@@ -228,13 +277,14 @@ class Event
       rawdata(@value)
     when :mark
       "# marktrack(#{@track}_#{@mark}) [#{@value}]\n"
-    when :c,:o,:off
+    when :comment,:on,:off
       @value
     else
       varlenHex(@time)+@value
     end
   end
 end
+
 # arg=[steps],[values]
 def mymerge span,*arg
   r=[]
@@ -768,6 +818,7 @@ module MidiHex
     tc=@chmax if tc>@chmax
     @panoftrack=panbytrack(tc)
     @ch=tc
+    Event.new(:dummy).reset
   end
   def self.header format,track,tbase=@tbase
     format=[format,0xff].min
@@ -808,7 +859,7 @@ module MidiHex
     start=@waitingtime
     @waitingtime=0
     @nowtime+=start
-    r=[Event.new(:o)]
+    r=[Event.new(:on)]
     r<<Event.new(:e,start," 9#{ch} #{key} #{vel} # #{start}後, sound on only , note #{@key} velocity #{velocity}\n")
     r
   end
@@ -1395,7 +1446,7 @@ module MidiHex
     # EventList : [func,args]  or [callonly, func,args] or others
     elist.each{|h|
       cmd,*arg=h
-      r<<Event.new(:c,"# #{cmd} #{arg}")
+      r<<Event.new(:comment,"# #{cmd} #{arg}")
       case cmd
       when :basekeyPlus
         @basekey+=arg[0]
@@ -1434,6 +1485,7 @@ module MidiHex
       if i.class==String
         rr<<i
       else
+          # Event class
           case i.type
           when :ahead
               ahead=i.time
@@ -1442,16 +1494,16 @@ module MidiHex
               n-=1 until (rr[n].time>0) || n<-10
               if n>-10
                 ahead=[ahead,-rr[n].time].max
-                rr[n].time+=ahead
+                rr[n].addtime(ahead)
                 after=-ahead
               else
                 after=0
               end
             when :end,:e,:sys
-              (i.time+=after;after=0) if after>0
-              (i.time+=after;after=0) if after<0 && i.time+after>=0
+              (i.addtime(after);after=0) if after>0
+              (i.addtime(after);after=0) if after<0 && i.time+after>=0
               rr<<i
-            when :c,:raw,:mark
+            when :comment,:raw,:mark
               rr<<i
             else
               "? #{i}"
@@ -1483,7 +1535,7 @@ module MidiHex
     @h<<[:controlChange,"10,#{@panoftrack}"] if @autopan
     cmd=rundata.scan(/&\([^)]+\)|\([-+]*[[:digit:]]?\)|:[^\(,]+\([^\)\(]+\),|:[^,]+,|\([^:]*:[^)\(]*\)|_[^!_]+!|_[^_]__[^\?]+\?|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:]]+\.[[:digit:]]+|\*?[[:digit:]]+|[-+[:alpha:]]|\^|`|'|./)
     cmd<<" " # dummy
-    p "make start: ",cmd if $DEBUG
+    p "track hex; start making: ",cmd if $DEBUG
     cmd.each{|i|
       if wait.size>0
         t=@tbase
@@ -1734,6 +1786,7 @@ module MidiHex
     p @h if $DEBUG
     puts "float rest add times: #{@frestc}" if $DEBUG
     @h=self.eventlist2str(@h)
+    p [:number_with_totaltime, Event.new(:dummy).showTotalTime] if $DEBUG
     @h*"\n# track: #{@tracknum} ==== \n"
   end
   def self.loadMap file, base=0
@@ -1840,6 +1893,7 @@ module MidiHex
       @snare=self.percussionGet("snare")
     end
   end
+  # substitute mark comment lines with shift delta time and dummy event hex data to adjust to most preceding track.
   def self.trackMake data
     @marksh||=@marktrack.calc
     data=data.split("\n").map{|i|
