@@ -1,5 +1,5 @@
 
-# midi-simple-make.rb
+# smml
 
 > midi file作成。
   midiは環境によってだいぶ聞こえるものが変わってきます。
@@ -7,14 +7,11 @@
   MMLというものがある。はてなでも記法がある。
   半音上げるのに＋を使うのだが、一つの音は一文字で出したい。なんとなく。
   パッと見はあれだが慣れれば書きやすく読みやすいもの。
-  midiに変換してみる>> [edit mml and make midi](http://tabasano.sakura.ne.jp/edmml.htm)
+  midiに変換してみる>> [edit smml and make midi](http://tabasano.sakura.ne.jp/edmml.htm)
   
   
 > [![Gem Version](https://badge.fury.io/rb/smml.svg)](http://badge.fury.io/rb/smml)
-
-  
-
->  [![Build Status](https://travis-ci.org/tabasano/wavseq.svg?branch=master)](https://travis-ci.org/tabasano/wavseq)
+  [![Build Status](https://travis-ci.org/tabasano/wavseq.svg?branch=master)](https://travis-ci.org/tabasano/wavseq)
   
 
 

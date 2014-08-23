@@ -28,7 +28,7 @@ def help
 end
 
 infile="infile.mml"
-outfile="mml.mid"
+outfile=""
 data=""
 
 opt = OptionParser.new
@@ -53,7 +53,9 @@ p data
 data=data.split("\n").map{|i|i.commentoff("\n",'#')}*"\n"
 p data
 smml=Mml.tosmml(data)
-puts smml if $smmlshow || $DEBUG
+puts smml if $smmlshow || $DEBUG || outfile==""
+exit if outfile==""
+
 m.octave=:far
 m.data=smml
 m.outfile=outfile
