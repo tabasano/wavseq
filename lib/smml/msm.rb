@@ -92,7 +92,12 @@ syntax: ...( will be changed time after time)
     ;;;;;;     =start mark of multi-line comment. end mark is same or longer mark of ';;'. these must start from the top of line.
 
     basicaly, one sound is a tone command followed by length number. now, tone type commands are :
-      'c',  '{64}', '_snare!', '{d,g,-b}', ':cmaj7,'
+      'c'        => single note
+      '(-)d'     => single note with flat/sharp modifier
+      '{64}'     => single note by absolute note number
+      '_snare!'  => drum note by instrument name
+      '{d,g,-b}' => multi note
+      ':cmaj7,'  => chord name
     and other commands are with parentheses.
 EOF
 end
@@ -193,6 +198,22 @@ class Array
     r
   end
 end
+class ScaleNotes < Array
+  def setSampleRate c
+    @samplerate=c
+  end
+  # todo: use sample rate
+  def sample
+    self[rand(self.size)]
+  end
+  def sampleNote
+    if self.size==0
+      rand(0x7f)
+    else
+      self.sample
+    end
+  end
+end
 def unirand n,c,reset=false
   a=[0,n]
   while c>a.size
@@ -259,10 +280,15 @@ class Event
   def settime t
     @time=t
     @@tt.set(@number,@time)
+    posset
   end
   def addtime t
     @time+=t
     @@tt.addtime(@number,t)
+    posset
+  end
+  def posset
+    @pos=@@tt.get(@number)
   end
   def showTotalTime
     a=@@tt.all
@@ -282,6 +308,9 @@ class Event
     else
       varlenHex(@time)+@value
     end
+  end
+  def display
+    "#{@pos}(#{@time}) #{@type} => #{@value}"
   end
 end
 
@@ -740,7 +769,8 @@ module MidiHex
     @bendrange=2
     @bendCent=1
     @pancenter=64
-    @prepareSet=[@tbase,@ch,@velocity,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent]
+    @scalenotes=ScaleNotes.new
+    @prepareSet=[@tbase,@ch,@velocity,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent,@scalenotes]
     @chmax=15
     @bendrangemax=127
     file="midi-programChange-list.txt"
@@ -805,7 +835,7 @@ module MidiHex
     @bendCent=8192/@bendrange/100.0 if on
   end
   def self.trackPrepare tc=0
-    @tbase,@ch,@velocity,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent=@prepareSet
+    @tbase,@ch,@velocity,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent,@scalenotes=@prepareSet
     @strokespeed=0
     @preGate=[]
     @preVelocity=[]
@@ -925,6 +955,10 @@ module MidiHex
   def self.dummyNote key,len,accent=false,sharp=0
     vel=@velocity
     vel+=@accentPlus
+    if key=="?"
+      key=rand(0x7f)
+      key=self.note2key(@scalenotes.sample) if @scalenotes.size>0
+    end
     key=@preNote.shift if @preNote.size>0
     len=@preLength.shift if @preLength.size>0
     self.oneNote(len,key,vel,sharp)
@@ -1350,6 +1384,12 @@ module MidiHex
     @chordCenter=[[0,@chordCenter].max,0x7f].min
     @firstchordbase=@chordCenter
   end
+  def self.scale s
+    s=s.split(",")
+    s.each{|i|
+      @scalenotes<<i
+    }
+  end
   def self.preLength v
     @preLength=v.map{|i|
       case i
@@ -1442,7 +1482,8 @@ module MidiHex
     Event.new(:mark,m,@tracknum,@nowtime)
   end
   def self.eventlist2str elist
-    r=[]
+    @eventlist=[]
+    r=@eventlist
     # EventList : [func,args]  or [callonly, func,args] or others
     elist.each{|h|
       cmd,*arg=h
@@ -1709,6 +1750,8 @@ module MidiHex
         @h<<[:soundOn,i]
       when /^\(off:(.*)\)/
         @h<<[:soundOff,$1]
+      when /^\(scale:(.*)\)/
+        @h<<[:call,:scale,$1]
       when /^\(chordcenter:(.*)\)/
         @h<<[:call,:chordCenter,$1]
       when /^\(stroke:(.*)\)/
@@ -1774,7 +1817,7 @@ module MidiHex
         wait<<[:dummyNote,i]
       when " "
       when "?"
-        wait<<[:rawsound,rand(0x7f)]
+        wait<<[:dummyNote,"?"]
       else
         if @notes.keys.member?(i)
           wait<<[:sound,i]
@@ -1786,7 +1829,7 @@ module MidiHex
     p @h if $DEBUG
     puts "float rest add times: #{@frestc}" if $DEBUG
     @h=self.eventlist2str(@h)
-    p [:number_with_totaltime, Event.new(:dummy).showTotalTime] if $DEBUG
+    p [:number_with_totaltime, Event.new(:dummy).showTotalTime],[:allevent,@eventlist.map{|i|i.display}] if $DEBUG && $debuglevel>2
     @h*"\n# track: #{@tracknum} ==== \n"
   end
   def self.loadMap file, base=0
