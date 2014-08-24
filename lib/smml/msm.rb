@@ -1398,19 +1398,19 @@ module MidiHex
     end
     k
   end
-  def self.basekeySet d
+  def self.basekeySet d,num=1
     case d
     when "-"
-      if @basekey<12
+      if @basekey-12*num < 0
         STDERR.puts "octave too low."
       else
-        @basekey-=12
+        @basekey-=12*num
       end
     when "+"
-      if @basekey>0x7f-12
+      if @basekey+12*num > 0x7f
         STDERR.puts "octave too high."
       else
-        @basekey+=12
+        @basekey+=12*num
       end
     else
       @basekey=d
@@ -1630,7 +1630,7 @@ module MidiHex
     accent=false
     sharp=0
     @h<<[:controlChange,"10,#{@panoftrack}"] if @autopan
-    cmd=rundata.scan(/&\([^)]+\)|\([-+]*[[:digit:]]?\)|:[^\(,]+\([^\)\(]+\),|:[^,]+,|\([^:]*:[^)\(]*\)|_[^!_]+!|_[^_]__[^\?]+\?|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:]]+\.[[:digit:]]+|\*?[[:digit:]]+|[-+[:alpha:]]|\^|`|'|./)
+    cmd=rundata.scan(/&\([^)]+\)|\([-+]*[[:digit:]]?\)|:[^\(,]+\([^\)\(]+\),|:[^,]+,|\([^:]*:[^)\(]*\)|_[^!_]+!|_[^_]__[^\?]+\?|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:]]+\.[[:digit:]]+|[-+][[:digit:]]*|\*?[[:digit:]]+|[[:alpha:]]|\^|`|'|./)
     cmd<<" " # dummy
     p "track hex; start making: ",cmd if $DEBUG
     cmd.each{|i|
@@ -1848,10 +1848,10 @@ module MidiHex
         end
         @bpm=@bpm*rate
         @h<<[:tempo,@bpm]
-      when "-"
-        @h<<[:call,:basekeySet,"-"]
-      when "+"
-        @h<<[:call,:basekeySet,"+"]
+      when /([-+])([[:digit:]]+)?/
+        plus=$1
+        num=$2 ? $2.to_i : 1
+        @h<<[:call,:basekeySet,plus,num]
       when /^\*?[0-9]+/
         # (i.to_i-1).times{@h<<@h[-1]}
       when "`"
@@ -2031,32 +2031,32 @@ def multiplet d,tbase
   else
     total=tbase*rate
   end
-  r=i.scan(/=|\(\?:[^\]]+\)|\(x:[^\]]+\)|\(chord:[^)]+\)|\(C:[^)]+\)|:[^\(,]+\([^\)]+\),|:[^,]+,|[[:digit:]\.]+|_[^!]+!|~|\([-+]*[[:digit:]]?\)|[-+^`'<>]|./)
-  wait=[]
+  r=i.scan(/=|\(\?:[^\]]+\)|\(x:[^\]]+\)|\(chord:[^)]+\)|\(C:[^)]+\)|:[^\(,]+\([^\)]+\),|:[^,]+,|[[:digit:]\.]+|_[^!]+!|~|\([-+]*[[:digit:]]?\)|[-+]+[[:digit:]]*|[\^`'<>]|./)
+  lengths=[]
   notes=[]
   mod=[]
   r.each{|i|
     case i
     # modifier
-    when /^[-+^`',<>]/,/^\([-+]*[[:digit:]]?\)/
+    when /^[-+]+[[:digit:]]*/,/^[\^`',<>]/,/^\([-+]*[[:digit:]]?\)/
       mod<<i
     # note
     when /^\((\?|x|C|chord):[^\)]+\)|^\^?:[^,]+,|^=/
-      wait<<1
+      lengths<<1
       notes<<"#{mod*""}#{i}"
       mod=[]
     # length
     when /^[[:digit:]]+/
-      wait[-1]*=i.to_f
+      lengths[-1]*=i.to_f
     when " "
     else
-      wait<<1
+      lengths<<1
       notes<<"#{mod*""}#{i}"
       mod=[]
     end
   }
-  sum=wait.inject{|s,i|s+i}
-  ls=wait.map{|i|(i*1.0/sum*total).round} # .map{|i|i.round(dep)}
+  sum=lengths.inject{|s,i|s+i}
+  ls=lengths.map{|i|(i*1.0/sum*total).round} # .map{|i|i.round(dep)}
   er=(total-ls.inject{|s,i|s+i}).to_i
   if er>0
     er.times{|i|
@@ -2074,6 +2074,8 @@ def multiplet d,tbase
     result<<notes[i]
     result<<"*#{ls[i]}"
   }
+  # rest of mod
+  result+=mod
   p "multiplet: ",total,ls.inject{|s,i|s+i} if $DEBUG && $debuglevel>1
   result*""
 end
@@ -2170,7 +2172,7 @@ def tie d,tbase
   res=[]
   # if no length word after '~' length is 1
   d.gsub!(/~([^*[:digit:]])?/){$1 ? "~1#{$1}" : $&} while d=~/~[^*[:digit:]]/
-  li=d.scan(/\$\{[^\}]+\}|\$[^ ;\$_*^`'+-]+|\([^)\(]*\)|:[^\(,]+\([^)]+\),|:[^,]+,|_[^!]+!|_[^_]__[^?]+\?|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:].]+|\([VGABLN]:[^)]+\)|~|./)
+  li=d.scan(/\$\{[^\}]+\}|\$[^ ;\$_*^`'+-]+|\([^)\(]*\)|:[^\(,]+\([^)]+\),|:[^,]+,|_[^!]+!|_[^_]__[^?]+\?|v[[:digit:]]+|[<>\-+][[:digit:]]*|\*?[[:digit:].]+|\([VGABLN]:[^)]+\)|~|./)
   li.each{|i|
     case i
     when /^(\*)?([[:digit:].]+)/
