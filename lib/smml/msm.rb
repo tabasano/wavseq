@@ -131,6 +131,13 @@ class Fixnum
   end
 end
 )
+[].rotate rescue (
+class Array
+  def rotate
+    self.size>0 ? self[1..-1]+self[0..0] : []
+  end
+end
+)
 def multilineTrim l,com
   r=[]
   on=false
@@ -265,6 +272,25 @@ class ScaleNotes < Array
   def setSampleRate c
     @samplerate=c
   end
+  def modeinit
+    return if defined?(@@mode)
+    s=[:ionian,:dorian,:phrygian,:lydian,:mixolydian,:aeorian,:locrian,:ionian]
+    @@mode={}
+    @@mode[:ionian]=[0,2,4,5,7,9,11]
+    6.times{|i|
+      tmp=@@mode[s[i]].rotate
+      root=tmp[0]
+      tmp=tmp.map{|t|(t-root+12)%12}
+      @@mode[s[i+1]]=tmp
+    }
+  end
+  def keys
+    @@mode.keys
+  end
+  def setmode first,mode=:ionian
+    self<<first
+    @@mode[mode][1..-1].each{|i|self<<Notes.get(first,"+#{i}")}
+  end
   # todo: use sample rate
   def sample
     self[rand(self.size)]
@@ -277,6 +303,7 @@ class ScaleNotes < Array
     end
   end
   def reset
+    modeinit
     initialize
   end
 end
@@ -819,7 +846,7 @@ module MidiHex
     @bendrange=2
     @bendCent=1
     @pancenter=64
-    @scalenotes=ScaleNotes.new
+    @scalenotes=ScaleNotes.new.reset
     @prepareSet=[@tbase,@ch,@velocity,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent,@scalenotes]
     @chmax=15
     @bendrangemax=127
@@ -1439,11 +1466,16 @@ module MidiHex
     @scalenotes.reset
     s=s.split(",")
     first=s.first
-    s.each{|i|
-      note=i
-      note=Notes.get(first,i) if i=~/^[-+]+[[:digit:]]+$/
-      @scalenotes<<note
-    }
+    mode=s[1]
+    if @scalenotes.keys.member?(:"#{mode}")
+      @scalenotes.setmode(first,:"#{mode}")
+    else
+      s.each{|i|
+        note=i
+        note=Notes.get(first,i) if i=~/^[-+]+[[:digit:]]+$/
+        @scalenotes<<note
+      }
+    end
     p @scalenotes if $DEBUG
   end
   def self.preLength v
