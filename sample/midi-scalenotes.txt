@@ -1,0 +1,14 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+  SCALE NOTES test.
+
+  '?' means a random note. if there is a scale defined, use it.
+  on the scale definition, note name or shift number from base note (in the first plase) is used.
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(tempo:260)
+(scale:+f,+3,+4,+6,+9,+12,+15,+16,+21,+33)
+
+[ a /2:???????/ (key:-1) ] 42
+
