@@ -5,12 +5,21 @@ require 'optparse'
 
 $debuglevel=0
 
-def hint
-  cmd=File.basename($0)
+def hintminimum
+  cmd="smml"
   puts "Smml v#{Smml::VERSION}"
   puts <<EOF
-usage: #{cmd} -d \"dddd dr3 dddd r4 drdrdrdr dddd dr3\" -o outfile.mid -t bpm
-       #{cmd} -i infile.txt  -o outfile.mid -t bpm
+usage:
+   data to mid
+       #{cmd} -d \"cdef gabc cbag rfed c4\" -o outfile.mid
+   file to mid
+       #{cmd} -i infile.txt  -o outfile.mid
+   show syntax
+       #{cmd} -s
+EOF
+end
+def showsyntax
+  puts <<EOF
 
 syntax: ...( will be changed time after time)
     abcdefg =tone; capital letters are sharps. followed by number as length. 
@@ -101,6 +110,10 @@ syntax: ...( will be changed time after time)
     and other commands are with parentheses.
 EOF
 end
+def hint
+  hintminimum
+  showsyntax
+end
 
 1.round(2) rescue (
 class Float
@@ -145,8 +158,17 @@ class String
   def setcmark c
     @@cmark=c
   end
+  def setpagesep c
+    @@pagesep=c
+  end
+  def settracksep c
+    @@tracksep=c
+  end
   def cmark
     @@cmark
+  end
+  def pagesep
+    @@pagesep
   end
   def commentoff ofs="",com=@@cmark
     lines=self.split("\n")
@@ -157,7 +179,7 @@ class String
   def sharp2cmark
     self.gsub!("#"){@@cmark}
   end
-  def tracksep pspl
+  def tracksep pspl=@@pagesep
     tracks={}
     pages=self.split(/#{pspl}+/)
     markc=0
@@ -167,7 +189,7 @@ class String
         tracks.values.each{|v| v << p }
         markc+=1
       else
-        p.split('|||').each_with_index{|t,i|
+        p.split(@@tracksep).each_with_index{|t,i|
           if tracks[i]
             tracks[i] << t
           else
@@ -200,7 +222,7 @@ class Array
 end
 class Notes < Hash
   @@rythmChannel=9
-  @@n={
+  @@notes={
     "c"=>0,
     "C"=>1,
     "d"=>2,
@@ -217,17 +239,17 @@ class Notes < Hash
     "s"=>[3,@@rythmChannel],
     "u"=>[6,@@rythmChannel]
   }
-  @@invert=@@n.invert
+  @@invert=@@notes.invert
   @@octave=12
   def initialize
-    @@n.each{|k,v|self[k]=v}
+    @@notes.each{|k,v|self[k]=v}
   end
-  def self.get last,n=0
+  def self.get last,dist=0
     last=~/(\-*)(\+*)([[:alpha:]])/
     oct=$1.size*(-1)+$2.size
     last=$3
-    lastnote=@@n[last]+oct*@@octave
-    num=lastnote+n.to_i
+    lastnote=@@notes[last]+oct*@@octave
+    num=lastnote+dist.to_i
     octave= num / @@octave
     pre=if octave>0
           "+"*octave
@@ -834,7 +856,7 @@ module MidiHex
     @data
   end
   def self.setdata d
-    @data=d
+    @data=d.size>0 ? d : false
   end
   def self.accent a
     @accentPlus=a.to_i
@@ -2334,7 +2356,10 @@ class Smml
   attr_accessor :tracknum, :tbase, :rundatas, :rawdatas, :mx
   attr_accessor :bpm, :velocity, :octave, :vfuzzy, :data, :infile, :outfile, :autopan
   def initialize tbase=480,pagesep='///',expfile=false,cmark=';;'
+    @tracksep='|||'
     String.new.setcmark(cmark)
+    String.new.setpagesep(pagesep)
+    String.new.settracksep(@tracksep)
     @mx=MidiHex
     @rundatas=[]
     @rawdatas=[]
@@ -2350,6 +2375,9 @@ class Smml
     @octave=:near
     @vfuzzy=2
     @autopan=true
+  end
+  def self.syntax
+    hintminimum
   end
   def pmap
     puts @mx.programList
@@ -2368,9 +2396,9 @@ class Smml
     @mx.setfile(@infile)
     @mx.setmidiname(@outfile) if @outfile
     @mx.setdata(@data) if ! @mx.getdata
-    (hint;exit) if (! @mx.getdata || ! @mx.getmidiname ) && ! test
+    (hintminimum;exit) if (! @mx.getdata || ! @mx.getmidiname ) && ! test
     settest if test
-    @tracks=@mx.getdata.tracksep(@pagesep)
+    @tracks=@mx.getdata.tracksep
     showtracks if $DEBUG && $debuglevel>1
     fuzzy(fz)
   end
@@ -2411,7 +2439,7 @@ class Smml
     }
     p @macro if$DEBUG
     @rawdatas.flatten!
-    open(@expfile,"w"){|f|f.puts @rundatas*"|||"} if @expfile
+    open(@expfile,"w"){|f|f.puts @rundatas*@tracksep} if @expfile
     @tracknum=@rawdatas.size+@rundatas.size
     @tracknum=@tracks.size
   end
