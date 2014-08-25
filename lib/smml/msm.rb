@@ -818,6 +818,9 @@ class MarkTrack
     @diff
   end
 end
+def guitarTuning
+  %W[-e -a d g b +e]
+end
 module MidiHex
   # 設定のため最初に呼ばなければならない
   def self.prepare bpm=120,tbase=480,vel=0x40,oct=:near,vfuzzy=2
@@ -847,7 +850,8 @@ module MidiHex
     @bendCent=1
     @pancenter=64
     @scalenotes=ScaleNotes.new.reset
-    @prepareSet=[@tbase,@ch,@velocity,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent,@scalenotes]
+    @gtune=guitarTuning
+    @prepareSet=[@tbase,@ch,@velocity,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent,@scalenotes,@gtune]
     @chmax=15
     @bendrangemax=127
     file="midi-programChange-list.txt"
@@ -857,6 +861,13 @@ module MidiHex
     pfile=File.expand_path(pfile,base) if not File.exist?(pfile)
     self.loadProgramChange(file)
     self.loadPercussionMap(pfile)
+    self.dumpstatus if $DEBUG && $debuglevel>3
+  end
+  def self.dumpstatus
+    self.instance_variables.each{|i|
+      val=self.instance_variable_get(i)
+      p [i, val] if "#{val}".size<100
+    }
   end
   def self.setmidiname name
     @midiname=name
@@ -912,7 +923,7 @@ module MidiHex
     @bendCent=8192/@bendrange/100.0 if on
   end
   def self.trackPrepare tc=0
-    @tbase,@ch,@velocity,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent,@scalenotes=@prepareSet
+    @tbase,@ch,@velocity,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent,@scalenotes,@gtune=@prepareSet
     @strokespeed=0
     @preGate=[]
     @preVelocity=[]
@@ -1478,6 +1489,10 @@ module MidiHex
     end
     p @scalenotes if $DEBUG
   end
+  def self.gtuning s
+    @gtune=s.split(",")
+p @gtune
+  end
   def self.preLength v
     @preLength=v.map{|i|
       case i
@@ -1840,6 +1855,8 @@ module MidiHex
         @h<<[:soundOff,$1]
       when /^\(scale:(.*)\)/
         @h<<[:call,:scale,$1]
+      when /^\(gtune:(.*)\)/
+        @h<<[:call,:gtuning,$1]
       when /^\(chordcenter:(.*)\)/
         @h<<[:call,:chordCenter,$1]
       when /^\(stroke:(.*)\)/
