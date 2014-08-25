@@ -15,6 +15,7 @@ outfile=false
 expfile=false
 vfuzzy=2
 autopan=true
+strictmode=false
 velocity=0x40
 $debuglevel=1
 data=""
@@ -45,8 +46,7 @@ opt.on('-p pspl',"page split chars") {|v| pspl=v }
 opt.on('-F i',"fuzzy shift mode") {|v| $fuzzy=v.to_i }
 opt.on('-v i',"velocity fuzzy value [default 2]") {|v| vfuzzy=v.to_i }
 opt.on('-V',"dont use all fuzzy or auto feature") {|v|
-  vfuzzy=0
-  autopan=false
+  strictmode=true
 }
 opt.on('-O',"octave legacy mode") {|v| octaveMode=:far }
 opt.on('-I',"ignore roland check sum") {|v| $ignoreChecksum=v }
@@ -62,7 +62,11 @@ m.data=data
 m.velocity=velocity
 m.bpm=bpm
 m.octave=octaveMode
-m.vfuzzy=vfuzzy
-m.autopan=autopan
+if strictmode
+  m.strict if strictmode
+else
+  m.vfuzzy=vfuzzy
+  m.autopan=autopan
+end
 m.make($test,$fuzzy)
 m.save if not $testonly

@@ -823,9 +823,11 @@ def guitarTuning
 end
 module MidiHex
   # 設定のため最初に呼ばなければならない
-  def self.prepare bpm=120,tbase=480,vel=0x40,oct=:near,vfuzzy=2
+  def self.prepare bpm=120,tbase=480,vel=0x40,oct=:near,vfuzzy=2,strict=false
     @ready=true
-    @autopan=true
+    @strictmode=strict
+    @autopan= strict ? false : true
+    @strokefaster= strict ? 1 : 3
     @startBpm=bpm
     @midiname=false
     @cmark="#"
@@ -925,6 +927,7 @@ module MidiHex
   def self.trackPrepare tc=0
     @tbase,@ch,@velocity,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent,@scalenotes,@gtune=@prepareSet
     @strokespeed=0
+    @strokeUpDown=1
     @preGate=[]
     @preVelocity=[]
     @preNote=[]
@@ -1198,9 +1201,9 @@ module MidiHex
   def self.chord c,l=false,accent=false,sharp=0
     r=[]
     sspeed=@strokespeed
-    (c=c.reverse;sspeed=-sspeed) if sspeed<0
+    c=c.reverse if @strokeUpDown<0
     span=c.size
-    sspeed=l/span if span*sspeed>l
+    sspeed=l/span/@strokefaster if span*sspeed>l/@strokefaster
     c.each{|i|
       r+=self.soundOn(i,@velocity,@ch,sharp)
       @waitingtime+=sspeed
@@ -1210,8 +1213,12 @@ module MidiHex
     c.each{|i|
       r+=self.soundOff(i,@ch,sharp)
     }
+    self.strokeUpDownReset
     r+=self.rest(rest) if rest>0
     r
+  end
+  def self.strokeUpDownReset
+    @strokeUpDown=1
   end
   def self.rest len=@tbase,ch=@ch
     chx=format("%01x",ch)
@@ -1491,7 +1498,6 @@ module MidiHex
   end
   def self.gtuning s
     @gtune=s.split(",")
-p @gtune
   end
   def self.preLength v
     @preLength=v.map{|i|
@@ -1575,8 +1581,16 @@ p @gtune
     end
   end
   def self.strokeSpeed s
-    s=s.to_i
-    @strokespeed=s
+    case s
+    when "-"
+      @strokeUpDown=-1
+    when "+"
+      @strokeUpDown=1
+    else
+      s=s.to_i
+      @strokeUpDown= s<0 ? -1 : 1
+      @strokespeed=s.abs
+    end
   end
   def self.setmark m
     n=@marktrack.getcount(m,@tracknum)
@@ -1897,7 +1911,7 @@ p @gtune
         end
         @bpm=@bpm*rate
         @h<<[:tempo,@bpm]
-      when /([-+])([[:digit:]]+)?/
+      when /^([-+])([[:digit:]]+)?/
         plus=$1
         num=$2 ? $2.to_i : 1
         @h<<[:call,:basekeySet,plus,num]
@@ -2080,7 +2094,7 @@ def multiplet d,tbase
   else
     total=tbase*rate
   end
-  r=i.scan(/=|\(\?:[^\]]+\)|\(x:[^\]]+\)|\(chord:[^)]+\)|\(C:[^)]+\)|:[^\(,]+\([^\)]+\),|:[^,]+,|[[:digit:]\.]+|_[^!]+!|~|\([-+]*[[:digit:]]?\)|[-+]+[[:digit:]]*|[\^`'<>]|./)
+  r=i.scan(/=|\(\?:[^\]]+\)|\(x:[^\]]+\)|\(chord:[^)]+\)|\(C:[^)]+\)|:[^\(,]+\([^\)]+\),|:[^,]+,|[[:digit:]\.]+|_[^!]+!|~|\([-+]*[[:digit:]]?\)|[-+]+[[:digit:]]*|[\^`'<>]|\([^\)]*\)|./)
   lengths=[]
   notes=[]
   mod=[]
@@ -2098,6 +2112,8 @@ def multiplet d,tbase
     when /^[[:digit:]]+/
       lengths[-1]*=i.to_f
     when " "
+    when /^\([^\)]*\)/
+      mod<<i
     else
       lengths<<1
       notes<<"#{mod*""}#{i}"
@@ -2269,6 +2285,7 @@ def tie d,tbase
   line
 end
 # repeat block analysis: no relation with MIDI format
+# '(:..)' => '(lastcmd:..)'
 def repCalc line,macro,tbase
   rpt=/\[([^\[\]]*)\] *([[:digit:]]+)/
   line.gsub!(rpt){$1*$2.to_i} while line=~rpt
@@ -2284,17 +2301,18 @@ def repCalc line,macro,tbase
       r ? r : b
     end
   }*""
-  a=line.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;\$_*^,\)\(`'\/+-]+|\([^\)]*:|\)|./)
+  regex=/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;\$_*^,\)\(`'\/+-]+|\([^\)]*:|\)|./
+  a=line.scan(regex)
   a=a.map{|i|
     if i=~/^\/[^\/]+\//
       if i=~/\$/
         i=i.gsub(/\$\{([^ ;\$_*^,\)\(`'\/+-]+)\}/){macro[$1]}.gsub(/\$([^ ;\$_*^,\)\(`'\/+-]+)/){macro[$1]}
       end
-      multiplet(i,tbase)
+      multiplet(i,tbase).scan(regex)
     else
       i
     end
-  }
+  }.flatten
   hs={}
   a.each_with_index{|d,i|hs[i]=d}
   hs=hs.invert
@@ -2351,6 +2369,10 @@ def repCalc line,macro,tbase
       pointDS=countertmp
     when ";"
       current=""
+    when /^\(([^\)]+):$/
+      lastcmd=$1 if $1 != "C"
+    when "(:"
+      current="(#{lastcmd}:"
     else
       current
     end
@@ -2426,6 +2448,12 @@ class Smml
     @octave=:near
     @vfuzzy=2
     @autopan=true
+    @strictmode=false
+  end
+  def strict
+    @autopan=false
+    @vfuzzy=0
+    @strictmode=true
   end
   def self.syntax
     hintminimum
@@ -2443,7 +2471,7 @@ class Smml
     puts @mx.percussionList.select{|i|i=~/#{k}/i}
   end
   def init test,fz
-    @mx.prepare(@bpm,@tbase,@velocity,@octave,@vfuzzy)
+    @mx.prepare(@bpm,@tbase,@velocity,@octave,@vfuzzy,@strictmode)
     @mx.setfile(@infile)
     @mx.setmidiname(@outfile) if @outfile
     @mx.setdata(@data) if ! @mx.getdata
