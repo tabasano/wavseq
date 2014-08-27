@@ -1,6 +1,6 @@
 require'pp'
 
-s="m(x):=tes$xtes2 ; a*321s;;comment 1 ; def|||mac:=abcd ef(tes:34) ; d~f(gh)&(00 11 22)i||| ; |||j{kl} ; (oi)ab[cd]4 /3:ef/ gv++89<b(stroke:1,2,3)(:-).SKIP >`'c23$m(2)_snare!$mac_c!123.$:cmaj7, b45 ; abc///defg ; ;; comment ; "
+s="m(x):=tes$xtes2 ; a*321s;;comment 1 ; def|||mac:=abcd ef(tes:34) ; (+2)d~f(gh)&(00 11 22)i||| ; |||j{kl}{m,n}{70} ; (oi)ab[cd]4 /3:ef/ gv++89<b(stroke:1,2,3)(:-).SKIP >`'c23$m(2)_snare!$mac_c!123.$:cmaj7, b45 ; a+b-c///defG ; ;; comment ; "
 s=File.read(ARGV[0]) if ARGV.size>0
 
 # todo: multiline macro, nest parenthesis
@@ -23,29 +23,49 @@ module MmlReg
     :repStart,
     :repEnd,
     :word,
+    :sharp,
+    :wordStart,
+    :word?,
     :chord,
+    :velocity,
     :sound,
-    :mark,
+    :DCmark,
     :mod,
+    :octave,
     :num,
     :blank,
     :valueSep,
     :parenStart,
     :parenEnd,
-    :cvSep,
+    :cmdValSep,
+    :note,
+    :dummyNote,
+    :randNote,
+    :note?,
+    :sound?,
   ]
   @@h[:comment]="\\( *comment[^\(\)]*\\)"
-  @@h[:word]="\\([^\(\)]*\\)"
-  @@h[:chord]="\\{[^\{\}]*\\}|:[[:alpha:]][[:alnum:]]*,"
-  @@h[:sound]="[[:alpha:]]|_[^!]+!|=|~"
-  @@h[:mark]="\\.\\$|\\.[[:alpha:]]+"
-  @@h[:mod]="[`'^><\+\-]"
+  @@h[:word]="\\([^\(\):]*:[^\(\)]*\\)"
+  @@h[:wordStart]="\\([^\(\):]*:"
+  @@h[:sharp]="\\([+-]+[[:digit:]]*\\)"
+  @@h[:word?]="\\([^\(\)]*\\)"
+  @@h[:chord]="\\{[^\{\}]+,[^\{\},]+\\}|:[[:alpha:]][[:alnum:]]*,"
+  @@h[:velocity]="v"
+  @@h[:note]="[abcdefgACDFGr]|\\{[[:digit:]]+\\}"
+  @@h[:note?]="[BE]"
+  @@h[:dummyNote]="o"
+  @@h[:randNote]="\\?"
+  @@h[:sound]="_[^!]+!|=|~"
+  @@h[:sound?]="[[:alpha:]]"
+  @@h[:DCmark]="\\.\\$|\\.[[:alpha:]]+"
+  @@h[:mod]="[`'^><]"
+  @@h[:octave]="[+-][[:digit:]]*"
   @@h[:sep]="\\|\\|\\||\\/\\/\\/+"
   @@h[:repStart]="\\["
   @@h[:repEnd]="\\]"
   @@h[:multipletStart]="\\/\\*?[[:digit:]\\.]*:"
   @@h[:multipletmark]="\\/"
-  @@h[:num]="\\*?[[:digit:]]+|[[:digit:]\\.]*[[:digit:]]+"
+  @@h[:num]="[[:digit:]]+\\.[[:digit:]]+|[[:digit:]]+|\\*?[[:digit:]]+"
   @@h[:hexraw]="&\\([^()]*\\)"
   @@h[:hexrawStart]="&\\("
   @@h[:keyword]="macro +"
@@ -59,12 +79,12 @@ module MmlReg
   @@h[:valueSep]=","
   @@h[:parenStart]="\\("
   @@h[:parenEnd]="\\)"
-  @@h[:cvSep]=":"
+  @@h[:cmdValSep]=":"
   r=@@keys.map{|i|@@h[i]}*"|"
   Rwc=/#{r}|./
   p Rwc if $DEBUG
   def self.event m
-    (@@keys.map{|k|m=~/#{@@h[k]}/ ? k : nil}-[nil])[0]
+    (@@keys.map{|k|m=~/\A#{@@h[k]}\z/ ? k : nil}-[nil])[0]
   end
 end
 class String
@@ -112,7 +132,8 @@ class String
   end
   def nilEvents
     @evmap||=self.mmlEvents
-    @evmap.select{|e,v|e==nil}
+    question=[nil,:note?,:sound?,:word?]
+    @evmap.select{|e,v|question.member?(e)}
   end
 end
 s=s.gsub(/\n/m){" ; "}.gsub(";;"){"##"}.split(" ; ").map{|i|i.trim("##") }.join("\n")
@@ -120,5 +141,6 @@ p s
 # m=s.mmlscan
 # p m*" ;; "
 pp s.mmlEvents
+puts
 n=s.nilEvents
 p n if n.size>0

@@ -49,9 +49,9 @@ end
 m=Smml.new
 puts
 data=data.size>0 ? data.split(';')*"\n" : (File.read(infile) rescue (help;exit))
-p data
+STDERR.puts data if $DEBUG
 data=data.split("\n").map{|i|i.commentoff("\n",'#')}*"\n"
-p data
+STDERR.puts data if $DEBUG
 smml=Mml.tosmml(data)
 puts smml if $smmlshow || $DEBUG || outfile==""
 exit if outfile==""
