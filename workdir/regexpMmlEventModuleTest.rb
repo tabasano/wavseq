@@ -1,6 +1,6 @@
 require'pp'
 
-s="m(x):=tes$xtes2 ; a*321s;;comment 1 ; def|||mac:=abcd ef(tes:34) ; (+2)d~f(gh)&(00 11 22)i||| ; |||j{kl}{m,n}{70} ; (oi)ab[cd]4 /3:ef/ gv++89<b(stroke:1,2,3)(:-).SKIP >`'c23$m(2)_snare!$mac_c!123.$:cmaj7, b45 ; a+b-c///defG ; ;; comment ; "
+s="m(x):=tes$xtes2 ; a*321s;;comment 1 ; def|||mac:=abcd ef(tes:34) ; (+2)d~f(gh)&(00 11 22)i||| ; |||j{kl}{m,n}{70} ; (oi)ab[cd]4 /3:ef/ gv++89<b(stroke:1,2,3)(:-).SKIP >`'c23$m(2)_snare!$mac_c!123.$:cmaj7, b45 ; a+b-c///de(0)fG ; ;; comment ; "
 s=File.read(ARGV[0]) if ARGV.size>0
 
 # todo: multiline macro, nest parenthesis
@@ -15,7 +15,8 @@ module MmlReg
     :macrodef,
     :hexraw,
     :hexrawStart,
-    :sep,
+    :tSep,
+    :pSep,
     :multipletStart,
     :multipletmark,
     :macroA,
@@ -23,7 +24,7 @@ module MmlReg
     :repStart,
     :repEnd,
     :word,
-    :sharp,
+    :sharps,
     :wordStart,
     :word?,
     :chord,
@@ -47,7 +48,7 @@ module MmlReg
   @@h[:comment]="\\( *comment[^\(\)]*\\)"
   @@h[:word]="\\([^\(\):]*:[^\(\)]*\\)"
   @@h[:wordStart]="\\([^\(\):]*:"
-  @@h[:sharp]="\\([+-]+[[:digit:]]*\\)"
+  @@h[:sharps]="\\([+-]*[[:digit:]]*\\)"
   @@h[:word?]="\\([^\(\)]*\\)"
   @@h[:chord]="\\{[^\{\}]+,[^\{\},]+\\}|:[[:alpha:]][[:alnum:]]*,"
   @@h[:velocity]="v"
@@ -60,7 +61,8 @@ module MmlReg
   @@h[:DCmark]="\\.\\$|\\.[[:alpha:]]+"
   @@h[:mod]="[`'^><]"
   @@h[:octave]="[+-][[:digit:]]*"
-  @@h[:sep]="\\|\\|\\||\\/\\/\\/+"
+  @@h[:tSep]="\\|\\|\\|"
+  @@h[:pSep]="\\/\\/\\/+"
   @@h[:repStart]="\\["
   @@h[:repEnd]="\\]"
   @@h[:multipletStart]="\\/\\*?[[:digit:]\\.]*:"
@@ -143,4 +145,9 @@ p s
 pp s.mmlEvents
 puts
 n=s.nilEvents
-p n if n.size>0
+if n.size>0
+  p n
+  puts " syntax warning."
+else
+  puts " seems to be no bad word."
+end

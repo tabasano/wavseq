@@ -123,13 +123,14 @@ strange ways can be affective currently. '(+4)a' etc.
 ```
 {64} 
 {50,54,58}
-## instrument
 ```
+
+## instrument; program change
 ;; drum sound can be used anywhere. but this is not MIDI way. use instrument name.
 ```
 _snare! = = =
 ```
-;; set instrument. automaticaly searched by even not exact name.
+;; set instrument. automaticaly searched by even not exact name. (MIDI program change command)
 ```
 (p:piano) c d e f (p:guitar) f e d c
 ```
@@ -292,7 +293,7 @@ end mark is same or longer mark of ';' than start mark. these must start from th
 ```
 in this case, active sound commands are 'abc' only.
 
-## elements
+## sound elements
 use parts split note hight, length, velocity, gate time, pre modifier; sound elements. 
 ```
 (L: ...)
@@ -304,7 +305,7 @@ use parts split note hight, length, velocity, gate time, pre modifier; sound ele
 the first value of each part will used for the first note 'a'. and so on.
 inside parts, position is seperated by ',' or use dummy value 'o'.
 '(V:,,,60,,)' is '(V:ooo 60 oo)'. last dummy values can be omitted. in this case, 4th note 'd' velocity is set to 60.
-if 6th note don't exist, simply ignored.
+if 6th note don't exist, pre modifier element values are simply ignored.
 
 
 in the same way,
@@ -316,7 +317,8 @@ in the same way,
 (B: ...)
  o o o o o
 ```
-is same mean to above. 'o' is dummy note.
+is same mean to above. 'o' is dummy note. note hights are substituted by '(N:..)' values.
+
 
 ## dummy note
 'o' is dummy. '?' is for random note etc.
