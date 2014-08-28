@@ -42,6 +42,13 @@ c d0.5 d0.5 e0.25 e0.25 e0.25 e0.25
 ```
 ;; ( thus, length expression is far from standard MML. usualy it is similiar to musical note name. )
 
+## gate time
+;; real tone length is important sometimes. gate time command is a percentage of tone length. (staccato etc.)
+```
+ (g:100) a b c
+ (g:70)  a b c
+```
+first line is played like with a slar. second one will be played by more shorter sounds.
 ## multiplet
 ;; but above is similiar to bellow
 ```
@@ -65,7 +72,7 @@ c /: dd / /: eeee /
 ```
 [ c d e f ]3 
 ```
-;; a melody goes near up/down side note without octave commands.
+;; a melody goes near up/down side note without octave commands as default.
 ```
 [ cdefgab ] 4
 ```
@@ -122,7 +129,7 @@ strange ways can be affective currently. '(+4)a' etc.
 ```
 _snare! = = =
 ```
-;; set instrument. automaticaly searched by not exact name.
+;; set instrument. automaticaly searched by even not exact name.
 ```
 (p:piano) c d e f (p:guitar) f e d c
 ```
@@ -191,15 +198,19 @@ when there are same name files on the current directory, these are used. if not,
 data in these map text must start with instrument number.
 without it, the line text is used for section name. if the word 'Guitar' appears, it is included for searching keyword until the next section name line appears.
 ```
-Piano
+
+Piano Section
 1 hoge piano
 2 foo
 3 bar
-Guitar
+
+Guitar Section 
 4 one
 5 two
+
 ```
-in this list, 1,2 and 3 match the keyword 'piano'. So '(p:guitar,2)' selects an instrument line '5 two' as the 2nd reslt of searching 'guitar' and will used instead of no word 'piano' on it.
+so in this list, instrument number 1,2 and 3 match the keyword 'piano'. 
+So '(p:guitar,2)' selects an instrument line '5 two' as the 2nd result of searching 'guitar' and will be used instead of no word 'guitar' on it.
 
 ## hex data
 ;; until smml syntax is completed, raw hex parts can be used for complex data and things you don't know how to inprement in data.
@@ -211,6 +222,7 @@ search MIDI format and set hex data.
 all in SMF track data, unique formated prefix delta tick time data is needed. so if want, you can use '$delta(240)' for 240 ticks.
 the tick means a minimum time span in SMF , one beat equals to 480 ticks as default. in this case, delta time is set to half beat.
 also '$se(F0 41 ..)' can be used for system exclusive message data.
+currently, nest data of parenthesis is not implemented except very limited cases.
 
 ## macro define
 ;; for repeating phraze, macro can be used. use prefix '$' for refering.
@@ -243,18 +255,42 @@ will be
 ```
 '(wait:4)' was inserted by '4' in first place before args. it means 4 beats of rest (exact mean of '(wait:..)' is 'do nothing and wait for the next command' ).
 
+
+multiline macro definition
+```
+EFF:=(
+   F0,43,10,4C,02,01,00,01,01,F7
+   F0,43,10,4C,02,01,02,40,F7   
+   F0,43,10,4C,02,01,0B,77,F7   
+   F0,43,10,4C,02,01,14,70,F7   
+)
+```
+but now, this is for easy way of writing only, and may not be so useful. to use it, each line must be seperated.
+```
+$EFF[1] $EFF[2] $EFF[3] $EFF[4]
+```
+
 ## comment
 ;; ignored after ';;' of each line. write comments there.
 multi line comments start with longer ';'.
-end mark is same or longer mark of ';'. these must start from the top of line.
+end mark is same or longer mark of ';' than start mark. these must start from the top of the line.
 ```
 ;; comment
-;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;
   comm
       ent
           lines
-;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;
+ abc   ;; real sound
+
+;;;;;;;;;;;;;;;;;;;;
+;
+;  data ended ...
+;
+   a b c d e f g
+;;;;;;;;;;;;;;;;;;;;
 ```
+in this case, active sound commands are 'abc' only.
 
 ## elements
 use parts split note hight, length, velocity, gate time, pre modifier; sound elements. 
@@ -297,57 +333,139 @@ or maybe
 ```
 etc.
 
+## transpose
+```
+(key:-4)
+```
+;; transpose -4 of half tone except drum instrument name like '_snare!'.
+this does not have relation with the tonality. simply transpose all notes tempolary.
+major key, minor key ,modulation of keys have not been implimented  yet.
+## Control Change
+```
+ (cc:10,64)
+```
+controlChange number 10 value 64. see SMF format.
+
+## General MIDI etc.
+```
+  (gm:on)
+  (gs:reset)
+  (xg:on)
+```
+after these commands, it need some time over 50 mili sec. or so for running.
+implementation of it is not fixed, so for adjusting, please set marks on all tracks. for example '(mark:start)'.
+
 ## compile order
 now compiling order is : page,track seperate => macro set and replace => repeat check => sound data make.
 if there are bugs, error can appear by macro definitions appear in the last step 'sound data make' for example.
 
+## D.S. al fine
+musical repeats system marks :
+```
+  .DC .DS .toCODA .CODA .FINE
+```
+```
+  .SKIP
+```
+;; skip on second time.
+```
+  .$
+```
+dal segno jump mark.
 
-----------------------------------------------------------------------
+```
+ [ a b c ]
+```
+if there is no followed number, 'abc' is repeated 2 times.
 
-below,
-under construction
-
-
-
->
-    A*120 =120 ticks of note 'a #'
-    (key:-4) =transpose -4 except percussionSoundName like '_snare!'
-
-
-    (ch:1)      =set this track's channel 1
-    (cc:10,64) =controlChange number10 value 64. see SMF format.
-
-    (bend:100)     =pitch bend 100
-    (bendRange:12) =set bend range 12. default is normaly 2.
-    (bendCent:on)  =set bend value unit cent (half tone = 100). default is 'off' and value is between -8192 and +8192.
-                    '(bendCent:off)(bend:8192)' = '(bendCent:on)(bend:100)'
-    (on:a)     =note 'a' sound on only. take no ticks.; the event 'a' is the same as '(on:a)(wait:1)(off:a)'.
-    (off:a)    =note 'a' sound off 
-    (g:10)     =set sound gate-rate 10% (staccato etc.)
-
-    (V:o,o,110)  =preceding modifier velocities. if next notes are 'abc' ,third tone 'c' is with velocity 110. a blank or 'o' mean default value.
-    (G:,,-)    =preceding modifier gate rates. if next notes are 'abc' ,third tone 'c' is with gate rate shorter.
-               new preceding modifiers cancel old rest preceding values.
-    ^          =accent
-    `          =too fast note, play ahead
-    '          =too late note, lay back
-
-    (gm:on)
-    (gs:reset)
-    (xg:on)
-
-    .DC .DS .toCODA .CODA .FINE =coda mark etc.
-    .SKIP =skip mark on over second time
-    .$ =DS point
-    (loadf:filename.mid,2) =load filename.mid, track 2. Track must be this only and seperated by '|||'.
-    ; =seperater. same to a new line
+## seperater
+;; ';' can be used for one line data as line seperater.
+```
+  $ smml -d "abc;def|||mc:=ggg;ccc$mc ddd" -o out.mid
+```
+in this case, macro definition ends by ';', so $mc means 'ggg'.
+## and so on
+for more details if you want to understand, see MIDI format.
+basicaly, a MIDI envent is constructed by preceding time data and event data.
+so series of event preceding each zero time data mean many event on the same time.
+but it may not be played as you expect. to fix it, set some delta time for MIDI players.
+```
+ (on:a)
+```
+note 'a' sound on only. it takes zero tick.
+```
+ (off:a)
+```
+note 'a' sound off only.
+```
+ (wait:3)
+```
+it reserves 3 beats for the next note event. 
+so,
+ the note event 'a' is the same as '(on:a)(wait:1)(off:a)'.
+'(on:a)(on:b)(on:c)(wait:2)(off:a)(off:b)(off:c)' is '{a,b,c}2'
 
 
-    basicaly, one sound is a tone command followed by length number. now, tone type commands are :
-      'c'        => single note
-      '(-)d'     => single note with flat/sharp modifier
-      '{64}'     => single note by absolute note number
-      '_snare!'  => drum note by instrument name
-      '{d,g,-b}' => multi note
-      ':cmaj7,'  => chord name
-    and other commands are with parentheses.
+
+```
+ (ch:1)
+```
+;; set this track's channel 1. when several tracks use same channel, for example it will behave as the same instrument.
+```
+ (bend:100)
+```
+pitch bend 100
+```
+ (bendRange:12)
+```
+set bend range 12. default is normaly 2.
+```
+ (bendCent:on)
+```
+set bend value unit cent (half tone eqauls 100 cents). defaultly this is 'off' and value is between -8192 and +8192.
+so, these are same
+```
+ (bendCent:off)(bend:8192)
+ (bendCent:on)(bend:100)
+```
+```
+ (V:o,o,110)
+```
+preceding modifier velocities. if next notes are 'abc' ,3rd tone 'c' is with velocity 110. a blank or 'o' mean default value.
+```
+ (G:,,-)
+```
+preceding modifier gate rates. if next notes are 'abc' ,3rd tone 'c' is with a gate rate shorter.
+new preceding modifiers will cancel old rest preceding values if it remains.
+
+```
+  ^  ;; accent
+  `  ;; too fast note, play ahead
+  '  ;; too late note, lay back
+```
+set these modifiers before note commands.
+```
+ (loadf:filename.mid,2)
+```
+load the second track data of filename.mid. when using it, the track must be itself only. seperate by '|||'.
+this command do not check about track data strictly. be careful.
+
+
+;; basicaly, one sound is a note type command with preceding modifiers followed by length number. 
+```
+  ^`a2
+```
+
+now, note type commands are :
+```
+      'c'        ;; single note
+      '(-)d'     ;; single note with flat/sharp/natural modifiers
+      '{64}'     ;; single note by absolute note number
+      '_snare!'  ;; drum note by instrument name
+      '{d,g,-b}' ;; multi note
+      ':cmaj7,'  ;; chord name
+      '='        ;; copy of the latest note type command
+```
+
+  and other commands are with parentheses.
+
