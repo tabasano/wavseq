@@ -166,7 +166,7 @@ _snare! = = =
 ```
 cdef cdef cdef ||| efga efga efga ||| gabc gabc gabc
 ```
-;; if you want to adjust tracks, use a blank page. the last three 'c' will be played adjusted.
+;; if you want to adjust tracks, use a blank page by two lines of page seperaters. the last three 'c' will be played adjusted.
 ```
 cd ||| e ||| abcde 
 ////////////////////
@@ -184,6 +184,15 @@ cd ||| e ||| abcde
 ```
 ;; marks are not needed for all tracks. positions will be adjusted automaticaly to the preceeding track while the same marks exist.
 ;; like this, most commands except tempo, a command effects its belonging track only.
+
+
+```
+  [ a b c (mark:m) ] 3
+```
+;; same mark names 'm' in repeated section will be automaticaly substituded by 'm m@2 m@3'. to adjust, use it.
+```
+  a b c (mark:m) a b c (mark:m@2) a b c (mark:m@3)
+```
 
 ## instrument map
 ;; a MIDI Program Change event sets the instrument on a channel.
@@ -346,7 +355,7 @@ major key, minor key ,modulation of keys have not been implimented  yet.
 ```
  (cc:10,64)
 ```
-controlChange number 10 value 64. see SMF format.
+controlChange number 10 value 64. see SMF format for details.
 
 ## General MIDI etc.
 ```
@@ -471,3 +480,4 @@ now, note type commands are :
 
   and other commands are with parentheses.
 
+'~' seems likely note type, but it is zipped to preceding note as calculated note length. most commands cannot be set between these.

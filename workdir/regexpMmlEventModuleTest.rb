@@ -1,6 +1,9 @@
 require'pp'
 
-s="m(x):=tes$xtes2 ; a*321s;;comment 1 ; def|||mac:=abcd ef(tes:34) ; (+2)d~f(gh)&(00 11 22)i||| ; |||j{kl}{m,n}{70} ; (oi)ab[cd]4 /3:ef/ gv++89<b(stroke:1,2,3)(:-).SKIP >`'c23$m(2)_snare!$mac_c!123.$:cmaj7, b45 ; a+b-c///de(0)fG ; ;; comment ; "
+# valid words check only. not valid sequence check.
+s="Bo?m(x):=tes$xtes2 ; a*321s;;comment 1 ; macro MU:=( ; test ; test2 ; ) ;
+   ; def$MU[2]|||macro mac:=abcd ef(tes:34) ; (+2)d~f(gh)&(00 11 22)i$m(1)||| ; |||j{kl}{m,n}{70} ; (oi)ab[cd]4 /3:ef/ gv++89<b(stroke:1,2,3)(:-).SKIP >`'c23$m(2)_snare!$mac_c!123.$:cmaj7, b45 ; a+b-c///de(0)fG ; ;; comment ; &($se(f0,00))
+   ,:)((12: n(x,y):=( ; N:=( ; ;; this line includes not valid sequence words, for test only."
 s=File.read(ARGV[0]) if ARGV.size>0
 
 # todo: multiline macro, nest parenthesis
@@ -72,11 +75,11 @@ module MmlReg
   @@h[:hexrawStart]="&\\("
   @@h[:keyword]="macro +"
   @@h[:macroA]="\\$\\{[^}]+\\}\\[[[:digit:]]+\\]|\\$[^}\\(\\)]+\\[[[:digit:]]+\\]"
-  @@h[:macro]="\\$[[:alnum:]\\(\\)]+|\\$\\{[^}]+\\}"
-  @@h[:macrodefAStart]="[[:alnum:]]+\\([,[:alpha:]]+\\):=\\($"
-  @@h[:macrodefA]="[[:alnum:]]+\\([,[:alpha:]]+\\):=.*"
-  @@h[:macrodefStart]="[[:alnum:]]+:=\\($"
-  @@h[:macrodef]="[[:alnum:]]+:=.*"
+  @@h[:macro]="\\$[[:alnum:]]+\\([^)]*\\)|\\$[[:alnum:]]+|\\$\\{[^}]+\\}"
+  @@h[:macrodefAStart]="[[:alnum:]]+\\([,[:alpha:]]+\\):=\\(\\z"
+  @@h[:macrodefA]=     "[[:alnum:]]+\\([,[:alpha:]]+\\):= *.+"
+  @@h[:macrodefStart]="[[:alnum:]]+:=\\(\\z"
+  @@h[:macrodef]=     "[[:alnum:]]+:= *.+"
   @@h[:blank]="[[:blank:]]+"
   @@h[:valueSep]=","
   @@h[:parenStart]="\\("
@@ -87,6 +90,9 @@ module MmlReg
   p Rwc if $DEBUG
   def self.event m
     (@@keys.map{|k|m=~/\A#{@@h[k]}\z/ ? k : nil}-[nil])[0]
+  end
+  def self.keyAll
+    @@keys
   end
 end
 class String
@@ -137,6 +143,10 @@ class String
     question=[nil,:note?,:sound?,:word?]
     @evmap.select{|e,v|question.member?(e)}
   end
+  def notusedEvents
+    @events||=self.mmlscan
+    MmlReg::keyAll-@evmap.map{|k,v|k}
+  end
 end
 s=s.gsub(/\n/m){" ; "}.gsub(";;"){"##"}.split(" ; ").map{|i|i.trim("##") }.join("\n")
 p s
@@ -150,4 +160,9 @@ if n.size>0
   puts " syntax warning."
 else
   puts " seems to be no bad word."
+end
+test = ($DEBUG || ARGV.size==0)
+if test
+  r=s.notusedEvents
+  p r,"=not used." if r.size>0
 end
