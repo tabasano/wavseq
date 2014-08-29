@@ -830,6 +830,8 @@ module MidiHex
     @strokefaster= strict ? 1 : 3
     @startBpm=bpm
     @midiname=false
+    @trackChannel={}
+    @trackName={}
     @cmark="#"
     @marktrack=MarkTrack.new
     @octmode=oct
@@ -939,6 +941,8 @@ module MidiHex
     tc=@chmax if tc>@chmax
     @panoftrack=panbytrack(tc)
     @ch=tc
+    @trackChannel[@tracknum]=@ch
+    @trackName[@tracknum]=""
     Event.new(:dummy).reset
   end
   def self.header format,track,tbase=@tbase
@@ -1499,6 +1503,14 @@ module MidiHex
   def self.gtuning s
     @gtune=s.split(",")
   end
+  def self.trackName n
+    if @trackName.values.member?(n)
+      c=@trackName.keys.select{|k|@trackName[k]==n}[0]
+      @ch=@trackChannel[c]
+    end
+p [@ch,@tracknum,n]
+    @trackName[@tracknum]=n
+  end
   def self.preLength v
     @preLength=v.map{|i|
       case i
@@ -1862,6 +1874,9 @@ module MidiHex
         @h<<[:waitingtime,$1? $2.to_i : $2.to_f*@tbase]
       when /^\(accent:([^)]*)\)/
         @h<<[:call,:accent,$1]
+      when /^\(track:(.*)\)/
+        i=$1
+        @h<<[:call,:trackName,i]
       when /^\(on:(.*)\)/
         i=$1
         @h<<[:soundOn,i]
