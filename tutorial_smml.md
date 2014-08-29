@@ -1,3 +1,6 @@
+# smml   - simple Music Macro Language -    Tutorial
+
+
 ## note
 ;; note 'c', at first.
 
@@ -26,7 +29,7 @@ e D e f F g g2
 - e d c2
 ```
 
-;; >< tempo up down.
+;; >< tempo up/down.
 
 ```
 f r > f r > f r > f r <<< fr fr fr fr
@@ -126,7 +129,7 @@ strange ways can be affective currently. '(+4)a' etc.
 ```
 
 ## instrument; program change
-;; drum sound can be used anywhere. but this is not MIDI way. use instrument name.
+;; drum sound can be used anywhere, but this is not MIDI way. use instrument name.
 ```
 _snare! = = =
 ```
@@ -142,7 +145,6 @@ _snare! = = =
 ## track
 ;; in SMF, MIDI channel is 1 - 16, and drum is in 10 channel. but currently, these are automaticaly set.
 ;; you don't need to think about it. simply seperate tracks with a command '|||'.
-;; in the future, track names may be used.
 ```
 (p:piano) c d e f ||| (p:organ) e f g a ||| (p:guitar) g a b c
 ```
@@ -152,6 +154,14 @@ _snare! = = =
 ||| (p:organ)  e f g a
 ||| (p:guitar) g a b c
 ```
+;; the same track name, the same MIDI channel and setting.
+```
+    (track:foo) (p:organ) aa
+||| (track:foo) bb
+||| (track:hoge) cc
+```
+first two tracks are 'organ' sound by the track names declared.
+
 ## page
 ;; then seperate pages by three or longer one line '/'.
 ;; but this command do not adjust time potisions. it simply resets track number increment.
@@ -182,6 +192,12 @@ cd ||| e ||| abcde
 ||| (mark:positionName)  c
 ||| (mark:positionName)  c
 ```
+these are played like  this.
+```
+    cdrrr c  ;; track 1
+||| errrr c  ;; track 2
+||| abcde c  ;; track 3
+```
 ;; marks are not needed for all tracks. positions will be adjusted automaticaly to the preceeding track while the same marks exist.
 ;; like this, most commands except tempo, a command effects its belonging track only.
 
@@ -189,7 +205,7 @@ cd ||| e ||| abcde
 ```
   [ a b c (mark:m) ] 3
 ```
-;; same mark names 'm' in repeated section will be automaticaly substituded by 'm m@2 m@3'. to adjust, use it.
+;; same mark names 'm' in repeated section or one track will be automaticaly substituded by 'm m@2 m@3'. to adjust, use it in other tracks.
 ```
   a b c (mark:m) a b c (mark:m@2) a b c (mark:m@3)
 ```
@@ -469,15 +485,15 @@ this command do not check about track data strictly. be careful.
 
 now, note type commands are :
 ```
-      'c'        ;; single note
-      '(-)d'     ;; single note with flat/sharp/natural modifiers
-      '{64}'     ;; single note by absolute note number
-      '_snare!'  ;; drum note by instrument name
-      '{d,g,-b}' ;; multi note
-      ':cmaj7,'  ;; chord name
-      '='        ;; copy of the latest note type command
+      c         ;; single note
+      (-)d      ;; single note with flat/sharp/natural modifiers
+      {64}      ;; single note by absolute note number
+      _snare!   ;; drum note by instrument name search keyword 'snare'
+      {d,g,-b}  ;; multi note
+      :cmaj7,   ;; chord name
+      =         ;; copy of the latest note type command
 ```
 
   and other commands are with parentheses.
 
-'~' seems likely note type, but it is zipped to preceding note as calculated note length. most commands cannot be set between these.
+```'~'``` seems likely note type, but it is zipped to preceding note as calculated note length. most commands cannot be set inside of ```'a~~~'.```
