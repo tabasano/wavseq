@@ -16,6 +16,7 @@ usage:
        #{cmd} -i infile.txt  -o outfile.mid
    show syntax
        #{cmd} -s
+   for farther details, see tutorial_smml.md in gem
 EOF
 end
 def showsyntax
@@ -495,6 +496,9 @@ def hext2hex d
   r=ar if hex
   r
 end
+def midiVround v
+  [[v,0x7f].min,0].max
+end
 def rolandcheck d
   return d if $ignoreChecksum
   if d[1]=="41"
@@ -599,7 +603,7 @@ def apply d,macro
   }*""
 end
 def rawHexPart d,macro={}
-  li=d.scan(/\$se\([^)]*\)|\$delta\([^)]*\)|\$bend\([^)]*\)|\(bend:[^)]*\)|\(expre:[^)]*\)|./)
+  li=d.scan(/\$se\([^)]*\)|\$delta\([^)]*\)|\$bend\([^)]*\)|\(bend:[^)]*\)|\(expression:[^)]*\)|\(expre:[^)]*\)|./)
   res=[]
   li.map{|i|
     case i
@@ -613,8 +617,8 @@ def rawHexPart d,macro={}
       bendHex(d)
     when /\(bend:([^)]*)\)/
       "_b__#{$1.split(',')*"_"}?"
-    when /\(expre:([^)]*)\)/
-      "_e__#{$1.split(',')*"_"}?"
+    when /\(expre(ssion)?:([^)]*)\)/
+      "_e__#{$2.split(',')*"_"}?"
     else
       i
     end
@@ -625,10 +629,15 @@ def revertPre d
     gsub(/_e__([^?]*)\?/){"(expre:#{$1.split("_")*","})"}
 end
 def worddata word,d
-  d=~/\(#{word}:(([[:digit:].]+),)?([-,.[:digit:]]+)\)/
+  d=~/\(#{word}:(([[:digit:].]+),)?([-+,.[:digit:]]+)\)/
   if $&
     pos=$1 ? $2.to_i : 0
-    depth=$3.split(',').map{|i|i.to_f}
+    depth=$3.split(',').map{|i|
+      case i
+      when "+","-" ; i
+      else         ; i.to_f
+      end
+    }
     [:"#{word}",pos,depth]
   else
     false
@@ -843,6 +852,7 @@ module MidiHex
     @rythmChannel=9
     @notes=Notes.new
     @ch=0
+    @expression=0x7f
     @velocity=vel
     @velocityOrg=vel
     @velocityFuzzy=vfuzzy
@@ -855,7 +865,7 @@ module MidiHex
     @pancenter=64
     @scalenotes=ScaleNotes.new.reset
     @gtune=guitarTuning
-    @prepareSet=[@tbase,@ch,@velocity,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent,@scalenotes,@gtune]
+    @prepareSet=[@tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent,@scalenotes,@gtune]
     @chmax=15
     @bendrangemax=127
     file="midi-programChange-list.txt"
@@ -927,7 +937,7 @@ module MidiHex
     @bendCent=8192/@bendrange/100.0 if on
   end
   def self.trackPrepare tc=0
-    @tbase,@ch,@velocity,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent,@scalenotes,@gtune=@prepareSet
+    @tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent,@scalenotes,@gtune=@prepareSet
     @strokespeed=0
     @strokeUpDown=1
     @preGate=[]
@@ -1301,7 +1311,16 @@ module MidiHex
     Event.new(:e,t," B#{ch} #{n} #{data}\n")
   end
   def self.expre len,d
-    self.controlChange("11,#{d},#{len}")
+    c=@expression
+    explus=10
+    case d
+    when "+" ; c+=explus
+    when "-" ; c-=explus
+    else     ; c=d
+    end
+    c=midiVround(c)
+    @expression=c
+    self.controlChange("11,#{c},#{len}")
   end
   def self.ProgramChange ch,inst,len=0
     ch=@ch if ch==false
@@ -1508,7 +1527,6 @@ module MidiHex
       c=@trackName.keys.select{|k|@trackName[k]==n}[0]
       @ch=@trackChannel[c]
     end
-p [@ch,@tracknum,n]
     @trackName[@tracknum]=n
   end
   def self.preLength v
@@ -1894,10 +1912,11 @@ p [@ch,@tracknum,n]
         chord=$2.split.join.split(",") # .map{|i|self.note2key(i)}
         wait<<[:chord,chord]
       when /^\(text:(.*)\)/
-        @h<<[:text,$1]
+        @h<<[:metaText,$1]
       when /^\(tempo:(.*)\)/
         @bpm=$1.to_i
         @h<<[:tempo,@bpm] if @bpm>0
+      # limited random note
       when /^\(\?:(.*)\)/
         ks=$1
         if ks=~/\-/
@@ -1907,7 +1926,12 @@ p [@ch,@tracknum,n]
         else
           ks=ks.split(",")
           key=ks[rand(ks.size)]
-          wait<<[:sound,key]
+          a=:sound
+          if key=~/\A[[:digit:]]+\z/
+            a=:rawsound
+            key=key.to_i
+          end
+          wait<<[a,key]
         end
       when /^\(x:(.*)\)/
         key=$1.to_i
