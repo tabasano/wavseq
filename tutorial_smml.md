@@ -1,8 +1,8 @@
-# smml   - simple Music Macro Language -    Tutorial
+# smml tutorial
 
 
 ## note
-;; note 'c', at first.
+;; listen to the sound of a note 'c', at first.
 
 ```
 c
@@ -12,7 +12,7 @@ c
 ;; 'r' means rest. small letters are note names. blanks can be used anywhere and will be ignored.
 
 ```
-c d e d c3 r
+ r c d e d c3 r
 ```
 ;; capital letters are notes with sharps
 
@@ -45,6 +45,16 @@ c d0.5 d0.5 e0.25 e0.25 e0.25 e0.25
 ```
 ;; ( thus, length expression is far from standard MML. usualy it is similiar to musical note name. )
 
+## multiplet
+;; but above is similiar to bellow
+```
+c /: dd / /: eeee /
+```
+;; because for example '/3: dd /' means that two 'd' notes are set inside '3' beats. 
+```
+/3: dd / /3: ddd / /3: dddddd / /3: dddddddddddd /
+```
+
 ## gate time
 ;; real tone length is important sometimes. gate time command is a percentage of tone length. (staccato etc.)
 ```
@@ -52,15 +62,8 @@ c d0.5 d0.5 e0.25 e0.25 e0.25 e0.25
  (g:70)  a b c
 ```
 first line is played like with a slar. second one will be played by more shorter sounds.
-## multiplet
-;; but above is similiar to bellow
-```
-c /: dd / /: eeee /
-```
-;; because for example '/3: dd /' means that two 'd' notes are set inside '3' beats.
-```
-/3: dd / /3: ddd / /3: dddddd / /3: dddddddddddd /
-```
+
+
 ;; set velocity. max is 127.
 ```
 (v:70) c (v:40) c (v:20) c (v:70) c (v:90) c
@@ -69,6 +72,8 @@ c /: dd / /: eeee /
 ```
 (pan:>30) c d e
 ```
+if you don't, smml sets panpot values automatically.
+
 
 ## repeat phraze
 ;; repeat 3 times
@@ -359,6 +364,19 @@ or maybe
  e /2: cagb /
 ```
 etc.
+if a scale has been defined as below, random notes will be selected from its scale notes.
+```
+ (scale:a,b,c,d,e)
+ (scale:a,+2,+3,+5,+7,+9,+11)
+```
+still incompleted to use.
+
+
+another random note.
+```
+ [ (?:56-58) ] 4        ;; use range 56 to 58, note number. in this case, 4 times repeating maybe '{56}{56}{58}{57}' etc.
+ (?:a,b,40,45,90,12)        ;; select from a note number or name list.
+```
 
 ## transpose
 ```
@@ -379,8 +397,17 @@ controlChange number 10 value 64. see SMF format for details.
   (gs:reset)
   (xg:on)
 ```
-after these commands, it need some time over 50 mili sec. or so for running.
+after these MIDI system commands, it need some time over 50 mili sec. or so for running.
 implementation of it is not fixed, so for adjusting, please set marks on all tracks. for example '(mark:start)'.
+or like this.
+```
+(gm:on)r
+///////////////
+///////////////
+;; sound data start
+    abc
+||| def
+```
 
 ## compile order
 now compiling order is : page,track seperate => macro set and replace => repeat check => sound data make.
@@ -466,11 +493,12 @@ preceding modifier gate rates. if next notes are 'abc' ,3rd tone 'c' is with a g
 new preceding modifiers will cancel old rest preceding values if it remains.
 
 ```
-  ^  ;; accent
-  `  ;; too fast note, play ahead
-  '  ;; too late note, lay back
+  ^  ;; accent.  for changing a value of accent base, use '(accent:15)'.
+  `  ;; too fast note, play ahead. for changing a value of shift ticks base, use '(roll:45)'.
+  '  ;; too late note, lay back. 
 ```
 set these modifiers before note commands.
+
 ```
  (loadf:filename.mid,2)
 ```
@@ -497,3 +525,36 @@ now, note type commands are :
   and other commands are with parentheses.
 
 ```'~'``` seems likely note type, but it is zipped to preceding note as calculated note length. most commands cannot be set inside of ```'a~~~'.```
+
+
+## preprocess
+;; some pre-process commands.
+set it in the top of file.
+
+
+```
+;; midifilename  out.mid
+;; title         this music name
+```
+
+## in pre modifier parts
+limited commands can be used. bend,expre.
+
+```
+   (A:  o  o     o     o o   o o o (bend:20,-5000,-4700,-4700,-400,-200,0,0,10000,-10000) o, )
+   (A:  o  o     o     o o   o o o (expre:20,40,+,+,+,+,-,-,-,-,+,+,+,+,-,-,-,-,+,+,+,+)   o, )
+        a  b ~ ~ c ~ ~ d e ~ f g a b                                                       c d
+```
+note loudness is result of velocity, expression and volume values multipled. expression is used for a running note etc..
+velocity for more long span, volume for total sound level etc.
+in above case, the 9th note 'b' is with modifier data, expression and bend. the first value is time interval. 
+all after that are real values. the '+' adds 10 to latest value as default.
+ so expression data is ;``` 40,50,60,70,80,70,60,50,40,50,60,70,80...``` with each 20 ticks interval.
+
+## text
+text implement to MIDI file.
+```
+ (text:this_is_a_pen)
+```
+but now blanks are removed. someday maybe fixed ?
+
