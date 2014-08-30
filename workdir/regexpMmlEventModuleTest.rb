@@ -41,6 +41,8 @@ module MmlReg
     :valueSep,
     :parenStart,
     :parenEnd,
+    :chordStart,
+    :chordEnd,
     :cmdValSep,
     :note,
     :dummyNote,
@@ -84,12 +86,30 @@ module MmlReg
   @@h[:valueSep]=","
   @@h[:parenStart]="\\("
   @@h[:parenEnd]="\\)"
+  @@h[:chordStart]="\\{"
+  @@h[:chordEnd]="\\}"
   @@h[:cmdValSep]=":"
   r=@@keys.map{|i|@@h[i]}*"|"
   Rwc=/#{r}|./
   p Rwc if $DEBUG
+  ArgIsOne=%w[bendCent mark p]
   def self.event m
     (@@keys.map{|k|m=~/\A#{@@h[k]}\z/ ? k : nil}-[nil])[0]
+  end
+  def self.item m
+    [self.event(m),m]
+  end
+  def self.hexitem m
+    m=~/([[:digit:]]{2})|(\$[^ ]+)|([, ])/
+    if $1
+      [:hex,m]
+    elsif $2
+      [:macro,m]
+    elsif $3
+      [:hexSep,m]
+    else
+      [hex?,m]
+    end
   end
   def self.keyAll
     @@keys
@@ -128,20 +148,97 @@ class String
       end
     }
   end
+  def mmlscanMap cmd=false
+    case cmd
+    when *MmlReg::ArgIsOne
+      [[:keyname,self]]
+    else
+      self.mmlscan.map{|m|MmlReg.item(m)}
+    end
+  end
+  def hexscan
+    self.scan(/[[:digit:]]{2}|\$[^ ]+|[, ]/)
+  end
+  def hexscanMap
+    self.hexscan.map{|m|MmlReg.hexitem(m)}
+  end
   def allEvents
     @events||=self.mmlscan
     @evmap||=@events.map{|i|
-      [MmlReg.event(i),i]
+      MmlReg.item(i)
     }
+    @flattenEvents=@evmap.dup
+    r=[]
+    endflag=true
+    begin
+      endflag=true
+      @flattenEvents.each{|e,i|
+        p [:item,e,i] if $DEBUG
+        case e
+        when :macrodefA
+          i=~/([[:alnum:]]+\([,[:alpha:]]+\):=) *(.+)/
+          r<<[:macrodefAStart,$1]
+          r<<[:macrodefABody,$2]
+          r<<[:macrodefAEnd]
+          endflag=false
+        when :word
+          i=~/\(([^):]*):(.*)\)/
+          wcmd=$1
+          arg=$2
+          r<<[:wordStart]
+          r<<[:parenStart,"("]
+          r<<[:wordCmd,wcmd]
+          r<<[:wordSep,":"]
+          r+=arg.mmlscanMap(wcmd)
+          r<<[:parenEnd,")"]
+          r<<[:wordEnd]
+          endflag=false
+        when :word?
+          i=~/\(([^)]*)\)/
+          r<<[:wordStart?]
+          r<<[:parenStart,"("]
+          r+=$1.mmlscanMap
+          r<<[:parenEnd,")"]
+          r<<[:wordEnd?]
+          endflag=false
+        when :chord
+          i=~/\{([^)]*)\}/
+          if $&
+            r<<[:chordStart,"{"]
+            r+=$1.mmlscanMap
+            r<<[:chordEnd,"}"]
+            endflag=false
+          else
+            r<<[:chord,i]
+          end
+        when :hexraw
+          i=~/&\(([^)]*)\)/
+          r<<[:hexrawStart,"&("]
+          r+=$1.hexscanMap
+          r<<[:hexrawEnd,")"]
+          endflag=false
+        when :macrodef
+          i=~/([[:alnum:]]+:=) */
+          r<<[:macrodefStart,$1]
+          r+=$'.mmlscanMap
+          r<<[:macrodefEnd]
+        else
+          r<<[e,i]
+        end
+      }
+      @flattenEvents=r
+      r=[]
+    end until endflag==true
+    @flattenEvents
   end
   def mmlEvents
     @ev||=self.allEvents
     @ev.reject{|e,v|[:comment,:blank].member?(e)}
   end
   def nilEvents
-    @evmap||=self.mmlEvents
+    self.mmlEvents
     question=[nil,:note?,:sound?,:word?]
-    @evmap.select{|e,v|question.member?(e)}
+    @flattenEvents.select{|e,v|question.member?(e)}
   end
   def notusedEvents
     @events||=self.mmlscan
