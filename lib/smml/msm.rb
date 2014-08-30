@@ -5,8 +5,13 @@ require 'optparse'
 
 $debuglevel=0
 
+# as gem or this file only
 def version
-  Smml::VERSION if defined?(Smml)
+  if defined?(Smml) && Smml.constants.member?("VERSION")
+    Smml::VERSION 
+  else
+    File.mtime(__FILE__).strftime("%Y-%m-%d")
+  end
 end
 def hintminimum
   cmd="smml"
@@ -1271,7 +1276,6 @@ module MidiHex
     self.metaHook d,1,pos
   end
   def self.generaterText
-    file=__FILE__
     thisVer="v#{version}"
     thisVer="" if $debuglevel && $debuglevel>1
     pos=@tbase
