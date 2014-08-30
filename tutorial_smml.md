@@ -61,7 +61,7 @@ c /: dd / /: eeee /
  (g:100) a b c
  (g:70)  a b c
 ```
-first line is played like with a slar. second one will be played by more shorter sounds.
+first line is played like with a slur. second one will be played by more shorter sounds.
 
 
 ;; set velocity. max is 127.
@@ -75,7 +75,7 @@ first line is played like with a slar. second one will be played by more shorter
 if you don't, smml sets panpot values automatically.
 
 
-## repeat phraze
+## repeat phrase
 ;; repeat 3 times
 ```
 [ c d e f ]3 
@@ -256,7 +256,7 @@ also '$se(F0 41 ..)' can be used for system exclusive message data.
 currently, nest data of parenthesis is not implemented except very limited cases.
 
 ## macro define
-;; for repeating phraze, macro can be used. use prefix '$' for refering.
+;; for repeating phrase, macro can be used. use prefix '$' for refering.
 ```
     Macr:=cde
     macro W:=abc
@@ -524,7 +524,7 @@ now, note type commands are :
 
   and other commands are with parentheses.
 
-```'~'``` seems likely note type, but it is zipped to preceding note as calculated note length. most commands cannot be set inside of ```'a~~~'.```
+```'~'``` seems likely note type, but it is compressed to preceding note as calculated note length. most commands cannot be set inside of ```'a~~~'.```
 
 
 ## preprocess
@@ -550,6 +550,9 @@ velocity for more long span, volume for total sound level etc.
 in above case, the 9th note 'b' is with modifier data, expression and bend. the first value is time interval. 
 all after that are real values. the '+' adds 10 to latest value as default.
  so expression data is ;``` 40,50,60,70,80,70,60,50,40,50,60,70,80...``` with each 20 ticks interval.
+bend and expression values inside these parts will be reseted after the modified note ends.
+series of ```(A:..)``` parts are merged. if not, old one is overwtitten.
+
 
 ## text
 text implement to MIDI file.

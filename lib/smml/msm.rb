@@ -235,6 +235,19 @@ class Array
     end
     r
   end
+  def lastIsPreAfter
+    self[-1][0..1]==[:call,:preAfter]
+  end
+end
+def mergeValues a,b
+  r=[]
+  size = a.size>b.size ? a.size : b.size
+  size.times{|i|
+    tmp=[a[i],b[i]]-["o"]
+    tmp=["o"] if tmp==[]
+    r<<tmp*""
+  }
+  r
 end
 class Notes < Hash
   @@rythmChannel=9
@@ -1339,7 +1352,10 @@ module MidiHex
     end
     c=midiVround(c)
     @expression=c
-    self.controlChange("11,#{c},#{len}")
+    r=[]
+    r<<Event.new(:comment,"# expression #{d}")
+    r<<self.controlChange("11,#{c},#{len}")
+    r
   end
   def self.ProgramChange ch,inst,len=0
     ch=@ch if ch==false
@@ -1817,7 +1833,12 @@ module MidiHex
         @h<<[:call,:preGate,gs]
       when /^\(A:(.*)\)/
         s=$1.split(",")
-        @h<<[:call,:preAfter,s]
+        if @h.lastIsPreAfter
+          s=mergeValues(s,@h.last[2])
+          @h[-1]=[:call,:preAfter,s]
+        else
+          @h<<[:call,:preAfter,s]
+        end
       when /^\(B:(.*)\)/
         s=$1.split(",")
         @h<<[:call,:preBefore,s]
