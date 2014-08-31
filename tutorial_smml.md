@@ -398,6 +398,17 @@ but now, this is for easy way of writing only, and may not be so useful. to use 
 $EFF[1] $EFF[2] $EFF[3] $EFF[4]
 ```
 
+but, these are MIDI system exclusive HEX data, so to make it really effective data, use this,
+
+```
+(xg:on)
+&( $delta(120) $se($EFF[1]) 00 $se($EFF[2]) 00 $se($EFF[3]) 00 $se($EFF[4]) )
+```
+
+```$se()``` translates hex SysEx data to SMF hex data, and it needs pre delta-time data by ```$delta(ticks)``` like other data.
+```$delta(0)``` is ```00``` , so both of these are effective.
+
+
 ## comment
 ;; ignored after ';;' of each line. write comments there.
 multi line comments start with longer ';'.
