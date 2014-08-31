@@ -3,9 +3,15 @@ require'pp'
 # valid words check only. not valid sequence check.
 s="Bo?m(x):=tes$xtes2 ; a*321s;;comment 1 ; macro MU:=( ; test ; test2 ; ) ;
    ; def$MU[2]|||macro mac:=abcd ef(tes:34) ; (+2)d~f(gh)&(00 11 22)i$m(1)||| ; |||j{kl}{m,n}{70} ; (oi)ab[cd]4 /3:ef/ gv++89<b(stroke:1,2,3)(:-).SKIP >`'c23$m(2)_snare!$mac_c!123.$:cmaj7, b45 ; a+b-c///de(0)fG ; ;; comment ; &($se(f0,00))
+   $Ab[$e]${B}[3]$abc[2]${def}[3,$we,5]$as$ass(2,3,4)
    ,:)((12: n(x,y):=( ; N:=( ; ;; this line includes not valid sequence words, for test only."
-s=File.read(ARGV[0]) if ARGV.size>0
-
+if ARGV.size>0
+  if File.exist?(ARGV[0])
+    s=File.read(ARGV[0])
+  else
+    s=ARGV[0]
+  end
+end
 # todo: multiline macro, nest parenthesis
 module MmlReg
   @@h={} # mml regex key hash. order is in @@keys
@@ -76,7 +82,7 @@ module MmlReg
   @@h[:hexraw]="&\\([^()]*\\)"
   @@h[:hexrawStart]="&\\("
   @@h[:keyword]="macro +"
-  @@h[:macroA]="\\$\\{[^}]+\\}\\[[[:digit:]]+\\]|\\$[^}\\(\\)]+\\[[[:digit:]]+\\]"
+  @@h[:macroA]="\\$\\{[^}]+\\}\\[[^\\]]+\\]|\\$[^}\\{\\(\\)]+\\[[^\\]]+\\]"
   @@h[:macro]="\\$[[:alnum:]]+\\([^)]*\\)|\\$[[:alnum:]]+|\\$\\{[^}]+\\}"
   @@h[:macrodefAStart]="[[:alnum:]]+\\([,[:alpha:]]+\\):=\\(\\z"
   @@h[:macrodefA]=     "[[:alnum:]]+\\([,[:alpha:]]+\\):= *.+"
@@ -115,6 +121,10 @@ module MmlReg
     @@keys
   end
 end
+
+def argSplit a
+  a ? a.split(/[ ,]/).dup : a
+end
 class String
   @@trimmulti=0
   def subp
@@ -139,7 +149,7 @@ class String
     self
   end
   def mmlscan
-    @events=self.scan(MmlReg::Rwc).map{|i|
+    @events||=self.scan(MmlReg::Rwc).map{|i|
       case i
       when /^\/\/\/+/
         "///"
@@ -163,16 +173,17 @@ class String
     self.hexscan.map{|m|MmlReg.hexitem(m)}
   end
   def allEvents
-    @events||=self.mmlscan
+    self.mmlscan
     @evmap||=@events.map{|i|
       MmlReg.item(i)
     }
     @flattenEvents=@evmap.dup
     r=[]
-    endflag=true
+    fixflag=false
+    # until arg substitute complete
     begin
-      endflag=true
-      @flattenEvents.each{|e,i|
+      res=@flattenEvents.map{|e,i|
+        fixflag=false
         p [:item,e,i] if $DEBUG
         case e
         when :macrodefA
@@ -180,7 +191,6 @@ class String
           r<<[:macrodefAStart,$1]
           r<<[:macrodefABody,$2]
           r<<[:macrodefAEnd]
-          endflag=false
         when :word
           i=~/\(([^):]*):(.*)\)/
           wcmd=$1
@@ -192,7 +202,6 @@ class String
           r+=arg.mmlscanMap(wcmd)
           r<<[:parenEnd,")"]
           r<<[:wordEnd]
-          endflag=false
         when :word?
           i=~/\(([^)]*)\)/
           r<<[:wordStart?]
@@ -200,40 +209,49 @@ class String
           r+=$1.mmlscanMap
           r<<[:parenEnd,")"]
           r<<[:wordEnd?]
-          endflag=false
         when :chord
           i=~/\{([^)]*)\}/
           if $&
             r<<[:chordStart,"{"]
             r+=$1.mmlscanMap
             r<<[:chordEnd,"}"]
-            endflag=false
           else
             r<<[:chord,i]
+            fixflag=true
           end
         when :hexraw
           i=~/&\(([^)]*)\)/
           r<<[:hexrawStart,"&("]
           r+=$1.hexscanMap
           r<<[:hexrawEnd,")"]
-          endflag=false
         when :macrodef
           i=~/([[:alnum:]]+:=) */
           r<<[:macrodefStart,$1]
           r+=$'.mmlscanMap
           r<<[:macrodefEnd]
+        when :macroA
+          i=~/\$\{?([^\{\}\(\)\[\]]+)\}?(\[(.*)\])?/
+          r<<[:macroAName,$1]
+          r<<[:args,argSplit($3)]
+        when :macro
+          i=~/\$\{?([^\{\}\(\)]+)\}?(\((.*)\))?/
+          r<<[:macroAName,$1]
+          r<<[:args,argSplit($3)]
         else
           r<<[e,i]
+          fixflag=true
         end
+        fixflag
       }
-      @flattenEvents=r
+      fixflag = ! res.member?(false)
+      @flattenEvents=r # Marshal.load(Marshal.dump(r))
       r=[]
-    end until endflag==true
+    end until fixflag==true
     @flattenEvents
   end
   def mmlEvents
-    @ev||=self.allEvents
-    @ev.reject{|e,v|[:comment,:blank].member?(e)}
+    @flattenEvents||=self.allEvents
+    @flattenEvents.reject{|e,v|[:comment,:blank].member?(e)}
   end
   def nilEvents
     self.mmlEvents
