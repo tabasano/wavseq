@@ -2,7 +2,7 @@ require'pp'
 
 # valid words check only. not valid sequence check.
 s="(gm:on)rrBo?m(x):=tes$xtes2 ; a*321s;;comment 1 ; macro MU:=( ; test ; test2 ; ) ;
-   ; def$MU[2]|||macro mac:=abcd ef(tes:34) ; (+2)d~f(gh)&(00 11 22 $bar)i$m(1)||| ; |||j{kl}{m,n}{70} ; (oi)ab[cd]4 /3:ef/ gv++89<b(stroke:1,2,3)(:-).SKIP >`'c23$m(2)_snare!$mac_c!123.$:cmaj7, b45 ; a+b-c///de(0)fG ; ;; comment ; &($se(f0,00))
+   ; def$MU[2]|||macro mac:=abcd ef(tes:34) ; (+2)d~f(text:wai wai)(gh)&(00 11 22 $bar)i$m(1)||| ; |||j{kl}{m,n}{70} ; (oi)ab[cd]4 /3:ef/ gv++89<b(stroke:1,2,3)(:-).SKIP >`'c23$m(2)_snare!$mac_c!123.$:cmaj7, b45 ; a+b-c///de(0)fG ; ;; comment ; &($se(f0,00))
    $Ab[$e]${B}[3]$abc[2]${def}[3,$we,5]$asdf$asdfghjkl(20:2,3,4)(G:,,-)
    ,:)((12: n(x,y):=( ; N:=( ; ;; this line includes not valid sequence words, for test only."
 if ARGV.size>0
@@ -100,7 +100,7 @@ module MmlReg
   r=@@keys.map{|i|@@h[i]}*"|"
   Rwc=/#{r}|./
   p Rwc if $DEBUG
-  ArgIsOne=%w[ bendCent mark p gm gs xg loadf ]
+  ArgIsOne=%w[ bendCent mark p gm gs xg loadf text ]
   def self.event m,rest=[]
     ((@@keys-rest).map{|k|m=~/\A#{@@h[k]}\z/ ? k : nil}-[nil])[0]
   end
@@ -180,7 +180,7 @@ class String
   def mmlscanMap cmd=false
     case cmd
     when *MmlReg::ArgIsOne
-      [[:keyname,self]]
+      [[:oneArg,self]]
     else
       self.mmlscan.map{|m|MmlReg.item(m)}
     end
@@ -190,7 +190,7 @@ class String
     @@argReg||=MmlReg.regmakeExcept(rest)
     case cmd
     when *MmlReg::ArgIsOne
-      [[:keyname,self]]
+      [[:oneArg,self]]
     else
       self.scan(@@argReg).map{|m|MmlReg.item(m,rest)}
     end
