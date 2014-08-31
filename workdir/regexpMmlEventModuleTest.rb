@@ -2,8 +2,8 @@ require'pp'
 
 # valid words check only. not valid sequence check.
 s="Bo?m(x):=tes$xtes2 ; a*321s;;comment 1 ; macro MU:=( ; test ; test2 ; ) ;
-   ; def$MU[2]|||macro mac:=abcd ef(tes:34) ; (+2)d~f(gh)&(00 11 22)i$m(1)||| ; |||j{kl}{m,n}{70} ; (oi)ab[cd]4 /3:ef/ gv++89<b(stroke:1,2,3)(:-).SKIP >`'c23$m(2)_snare!$mac_c!123.$:cmaj7, b45 ; a+b-c///de(0)fG ; ;; comment ; &($se(f0,00))
-   $Ab[$e]${B}[3]$abc[2]${def}[3,$we,5]$as$ass(2,3,4)
+   ; def$MU[2]|||macro mac:=abcd ef(tes:34) ; (+2)d~f(gh)&(00 11 22 $bar)i$m(1)||| ; |||j{kl}{m,n}{70} ; (oi)ab[cd]4 /3:ef/ gv++89<b(stroke:1,2,3)(:-).SKIP >`'c23$m(2)_snare!$mac_c!123.$:cmaj7, b45 ; a+b-c///de(0)fG ; ;; comment ; &($se(f0,00))
+   $Ab[$e]${B}[3]$abc[2]${def}[3,$we,5]$asdf$asdfghjkl(20:2,3,4)
    ,:)((12: n(x,y):=( ; N:=( ; ;; this line includes not valid sequence words, for test only."
 if ARGV.size>0
   if File.exist?(ARGV[0])
@@ -82,7 +82,7 @@ module MmlReg
   @@h[:hexraw]="&\\([^()]*\\)"
   @@h[:hexrawStart]="&\\("
   @@h[:keyword]="macro +"
-  @@h[:macroA]="\\$\\{[^}]+\\}\\[[^\\]]+\\]|\\$[^}\\{\\(\\)]+\\[[^\\]]+\\]"
+  @@h[:macroA]="\\$\\{[^}]+\\}\\[[^\\]]+\\]|\\$[^}\\$\\{\\(\\)]+\\[[^\\]]+\\]"
   @@h[:macro]="\\$[[:alnum:]]+\\([^)]*\\)|\\$[[:alnum:]]+|\\$\\{[^}]+\\}"
   @@h[:macrodefAStart]="[[:alnum:]]+\\([,[:alpha:]]+\\):=\\(\\z"
   @@h[:macrodefA]=     "[[:alnum:]]+\\([,[:alpha:]]+\\):= *.+"
@@ -123,7 +123,20 @@ module MmlReg
 end
 
 def argSplit a
-  a ? a.split(/[ ,]/).dup : a
+  if a
+    a=~/:/
+    pre=$`
+    arg=$'
+    arg=a if not $&
+    res=[]
+    if pre
+      res+=[:pre,pre]
+    end
+    res<<:arg
+    res+=arg.split(/[ ,]/)
+  else
+    a
+  end
 end
 class String
   @@trimmulti=0
@@ -192,15 +205,19 @@ class String
           r<<[:macrodefABody,$2]
           r<<[:macrodefAEnd]
         when :word
-          i=~/\(([^):]*):(.*)\)/
+          i=~/\( *([^ ):]*) *:(.*)\)/
           wcmd=$1
           arg=$2
           r<<[:wordStart]
-          r<<[:parenStart,"("]
-          r<<[:wordCmd,wcmd]
+         # r<<[:parenStart,"("]
+          if wcmd==""
+            r<<[:wordSameCmd]
+          else
+            r<<[:wordCmd,wcmd]
+          end
           r<<[:wordSep,":"]
           r+=arg.mmlscanMap(wcmd)
-          r<<[:parenEnd,")"]
+        #  r<<[:parenEnd,")"]
           r<<[:wordEnd]
         when :word?
           i=~/\(([^)]*)\)/
@@ -232,11 +249,11 @@ class String
         when :macroA
           i=~/\$\{?([^\{\}\(\)\[\]]+)\}?(\[(.*)\])?/
           r<<[:macroAName,$1]
-          r<<[:args,argSplit($3)]
+          r<<[:macroAArgs,argSplit($3)]
         when :macro
           i=~/\$\{?([^\{\}\(\)]+)\}?(\((.*)\))?/
-          r<<[:macroAName,$1]
-          r<<[:args,argSplit($3)]
+          r<<[:macroName,$1]
+          r<<[:macroArgs,argSplit($3)]
         else
           r<<[e,i]
           fixflag=true
@@ -247,7 +264,17 @@ class String
       @flattenEvents=r # Marshal.load(Marshal.dump(r))
       r=[]
     end until fixflag==true
-    @flattenEvents
+    lastCmd=""
+    @flattenEvents=@flattenEvents.map{|e,v|
+      case e
+      when :wordCmd
+        lastCmd=v
+      when :wordSameCmd
+        v=lastCmd if not v
+      else
+      end
+      [e,v]
+    }
   end
   def mmlEvents
     @flattenEvents||=self.allEvents

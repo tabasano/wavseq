@@ -109,6 +109,8 @@ c = = = d = = =
 ```
 :cmaj7, = = = :G7, = = =
 ```
+
+## tempo
 ;; most commands except note type ones, are inside parenthesis. set the tempo 120 bpm.
 ```
 (tempo:120)
@@ -116,6 +118,14 @@ c = = = d = = =
 ;; stroke. after it, multi notes are played shifted note by note.
 ```
 (stroke:4)
+```
+repeating same command name in parenthesis, use blank.
+```
+(stroke:4) {a,b,c} = = (:6)  = = = 
+```
+is the same to
+```
+(stroke:4) {a,b,c} = = (stroke:6)  = = = 
 ```
 
 ## sharp, flat
