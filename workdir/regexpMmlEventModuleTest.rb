@@ -1,9 +1,9 @@
 require'pp'
 
 # valid words check only. not valid sequence check.
-s="Bo?m(x):=tes$xtes2 ; a*321s;;comment 1 ; macro MU:=( ; test ; test2 ; ) ;
+s="(gm:on)rrBo?m(x):=tes$xtes2 ; a*321s;;comment 1 ; macro MU:=( ; test ; test2 ; ) ;
    ; def$MU[2]|||macro mac:=abcd ef(tes:34) ; (+2)d~f(gh)&(00 11 22 $bar)i$m(1)||| ; |||j{kl}{m,n}{70} ; (oi)ab[cd]4 /3:ef/ gv++89<b(stroke:1,2,3)(:-).SKIP >`'c23$m(2)_snare!$mac_c!123.$:cmaj7, b45 ; a+b-c///de(0)fG ; ;; comment ; &($se(f0,00))
-   $Ab[$e]${B}[3]$abc[2]${def}[3,$we,5]$asdf$asdfghjkl(20:2,3,4)
+   $Ab[$e]${B}[3]$abc[2]${def}[3,$we,5]$asdf$asdfghjkl(20:2,3,4)(G:,,-)
    ,:)((12: n(x,y):=( ; N:=( ; ;; this line includes not valid sequence words, for test only."
 if ARGV.size>0
   if File.exist?(ARGV[0])
@@ -55,6 +55,7 @@ module MmlReg
     :randNote,
     :note?,
     :sound?,
+    :plusMinus,
   ]
   @@h[:comment]="\\( *comment[^\(\)]*\\)"
   @@h[:word]="\\([^\(\):]*:[^\(\)]*\\)"
@@ -71,14 +72,15 @@ module MmlReg
   @@h[:sound?]="[[:alpha:]]"
   @@h[:DCmark]="\\.\\$|\\.[[:alpha:]]+"
   @@h[:mod]="[`'^><]"
-  @@h[:octave]="[+-][[:digit:]]*"
+  @@h[:octave]=   "[+-][[:digit:]]*"
+  @@h[:plusMinus]="[+-][[:digit:]]*"
   @@h[:tSep]="\\|\\|\\|"
   @@h[:pSep]="\\/\\/\\/+"
   @@h[:repStart]="\\["
   @@h[:repEnd]="\\]"
   @@h[:multipletStart]="\\/\\*?[[:digit:]\\.]*:"
   @@h[:multipletmark]="\\/"
-  @@h[:num]="[[:digit:]]+\\.[[:digit:]]+|[[:digit:]]+|\\*?[[:digit:]]+"
+  @@h[:num]="[-+]?[[:digit:]]+\\.[[:digit:]]+|[-+]?[[:digit:]]+|\\*?[[:digit:]]+"
   @@h[:hexraw]="&\\([^()]*\\)"
   @@h[:hexrawStart]="&\\("
   @@h[:keyword]="macro +"
@@ -98,12 +100,12 @@ module MmlReg
   r=@@keys.map{|i|@@h[i]}*"|"
   Rwc=/#{r}|./
   p Rwc if $DEBUG
-  ArgIsOne=%w[bendCent mark p]
-  def self.event m
-    (@@keys.map{|k|m=~/\A#{@@h[k]}\z/ ? k : nil}-[nil])[0]
+  ArgIsOne=%w[ bendCent mark p gm gs xg loadf ]
+  def self.event m,rest=[]
+    ((@@keys-rest).map{|k|m=~/\A#{@@h[k]}\z/ ? k : nil}-[nil])[0]
   end
-  def self.item m
-    [self.event(m),m]
+  def self.item m,rest=[]
+    [self.event(m,rest),m]
   end
   def self.hexitem m
     m=~/([[:digit:]]{2})|(\$[^ ]+)|([, ])/
@@ -119,6 +121,10 @@ module MmlReg
   end
   def self.keyAll
     @@keys
+  end
+  def self.regmakeExcept ex
+    r=(@@keys-ex).map{|i|@@h[i]}*"|"
+    /#{r}|./
   end
 end
 
@@ -179,6 +185,16 @@ class String
       self.mmlscan.map{|m|MmlReg.item(m)}
     end
   end
+  def argscanMap cmd=false
+    rest=[:octave]
+    @@argReg||=MmlReg.regmakeExcept(rest)
+    case cmd
+    when *MmlReg::ArgIsOne
+      [[:keyname,self]]
+    else
+      self.scan(@@argReg).map{|m|MmlReg.item(m,rest)}
+    end
+  end
   def hexscan
     self.scan(/[[:digit:]]{2}|\$[^ ]+|[, ]/)
   end
@@ -215,8 +231,8 @@ class String
           else
             r<<[:wordCmd,wcmd]
           end
-          r<<[:wordSep,":"]
-          r+=arg.mmlscanMap(wcmd)
+          r<<[:wordArgStart]
+          r+=arg.argscanMap(wcmd)
         #  r<<[:parenEnd,")"]
           r<<[:wordEnd]
         when :word?

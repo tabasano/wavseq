@@ -52,7 +52,16 @@ c /: dd / /: eeee /
 ```
 ;; because for example '/3: dd /' means that two 'd' notes are set inside '3' beats. 
 ```
-/3: dd / /3: ddd / /3: dddddd / /3: dddddddddddd /
+/3:dd/    /3:ddd/    /3:dddddd/   /3:dddddddddddd/
+```
+these are all in 3 beats. when the total beat length word between ```/``` and ```:``` is omitted, it will be set to 1 beat.
+each note length is set by each rate and total length.
+each line of below is same meaning.
+```
+a0.5 c0.25 c0.25
+/1: a2 c    c   /
+/:  a2 c    c   /
+/:  a4 c2   c2  /
 ```
 
 ## gate time
