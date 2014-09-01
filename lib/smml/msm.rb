@@ -7,7 +7,7 @@ $debuglevel=0
 
 # as gem or this file only
 def version
-  if defined?(Smml) && Smml.constants.member?("VERSION")
+  if defined?(Smml) && ( Smml.constants.member?("VERSION") || Smml.constants.member?(:VERSION) )
     Smml::VERSION 
   else
     File.mtime(__FILE__).strftime("%Y-%m-%d")
@@ -170,14 +170,14 @@ end
 
 #===========================================================
 module MmlReg
-  def self.r key, sort=true
+  def self.r key, sort=true, pre=""
     raise if sort.class==Symbol
     case key
     when Array
       raise if (key-@@keys).size>0
       ks=key
       ks=(@@keys-(@@keys-ks)) if sort
-      ks.map{|i|@@h[i]}*"|"
+      ks.map{|i|"#{pre}#{@@h[i]}"}*"|"
     else
       @@h[key]
     end
@@ -185,13 +185,24 @@ module MmlReg
     puts "Regex part,arg bug",[key-@@keys]
     raise
   end
+  def self.rPlusPre key, pre, sort=true
+    self.r(key,sort,pre)
+  end
   def self.trackr
     self.r([:hexraw,:sharps,:chord,:word,:sound,:modifier,:velocity,:tempo,:num,:octave,:note,:mod,:note?,:sound?])
+  end
+  def self.multipletr
+    self.r([:word,:note,:sound,:chord,:num,:sharps,:octave,:mod])
+  end
+  def self.macroDefr
+    self::MacroDef
+  end
+  def self.repeatr
+    self.r([:repStart,:repEnd,:repmark])
   end
   @@h={} # mml regex key hash. order is in @@keys
   @@keys=[
     :comment,
-    :keyword,
     :macrodefAStart,
     :macrodefA,
     :macrodefStart,
@@ -214,7 +225,6 @@ module MmlReg
     :chord,
     :velocity,
     :sound,
-    :DCmark,
     :tempo,
     :mod,
     :octave,
@@ -233,8 +243,11 @@ module MmlReg
     :sound?,
     :plusMinus,
     :lineSep,
+    :repmark,
+    :DCmark?,
     :chord?,
   ]
+  @@h[:repmark]="\\.FINE|\\.DS|\\.DC|\\.\\$|\\.toCODA|\\.CODA|\\.SKIP"
   @@h[:comment]="\\( *comment[^\(\)]*\\)"
   @@h[:word]="\\([^\(\):]*:[^\(\)]*\\)"
   @@h[:wordStart]="\\([^\(\):]*:"
@@ -248,7 +261,7 @@ module MmlReg
   @@h[:randNote]="\\?"
   @@h[:sound]="_[^!]+!|=|~"
   @@h[:sound?]="[[:alpha:]]"
-  @@h[:DCmark]="\\.\\$|\\.[[:alpha:]]+"
+  @@h[:DCmark?]="\\.[[:alpha:]]+"
   @@h[:tempo]="[><][[:digit:]]*"
   @@h[:mod]="[`'^]"
   @@h[:octave]=   "[+-][[:digit:]]*"
@@ -262,13 +275,12 @@ module MmlReg
   @@h[:num]="[-+*]?[[:digit:]]+\\.[[:digit:]]+|[-+*]?[[:digit:]]+"
   @@h[:hexraw]="&\\([^()]*\\)"
   @@h[:hexrawStart]="&\\("
-  @@h[:keyword]="macro +"
   @@h[:macroA]="\\$\\{[^}]+\\}\\[[^\\]]+\\]|\\$[^}\\$\\{\\(\\)]+\\[[^\\]]+\\]"
   @@h[:macro]="\\$[[:alnum:]]+\\([^)]*\\)|\\$[[:alnum:]]+|\\$\\{[^}]+\\}"
-  @@h[:macrodefAStart]="[[:alnum:]]+\\([,[:alpha:]]+\\):= *\\( *\\z"
-  @@h[:macrodefA]=     "[[:alnum:]]+\\([,[:alpha:]]+\\):= *[^\\n]+"
-  @@h[:macrodefStart]="[[:alnum:]]+:= *\\( *\\z"
-  @@h[:macrodef]=     "[[:alnum:]]+:= *[^\\n]+"
+  @@h[:macrodefAStart]="[[:alnum:]]+\\([,[:alpha:]]+\\):= *\\( *[;\\z]"
+  @@h[:macrodefA]=     "[[:alnum:]]+\\([,[:alpha:]]+\\):= *[^\\(;\\n][^;\\n]*"
+  @@h[:macrodefStart]="[[:alnum:]]+:= *\\( *[;\\z]"
+  @@h[:macrodef]=     "[[:alnum:]]+:= *[^\\(;\\n][^;\\n]+"
   @@h[:blank]="[[:blank:]]+"
   @@h[:valueSep]=","
   @@h[:parenStart]="\\("
@@ -281,7 +293,8 @@ module MmlReg
   @@h[:modifier]="_[^_]__[^\\?]+\\?"
   r=self.r(@@keys)
   RwAll=/#{r}|./
-  MacroDef=self.r([:macrodefAStart,:macrodefStart,:macrodefA,:macrodef])
+  MacroDef=self.rPlusPre([:macrodefAStart,:macrodefStart,:macrodefA,:macrodef],"macro *")+"|"+
+           self.r([:macrodefAStart,:macrodefStart,:macrodefA,:macrodef])
   ArgIsOne=%w[ bendCent mark p gm gs xg loadf text ]
   def self.event m,rest=[]
     ((@@keys-rest).map{|k|m=~/\A#{@@h[k]}\z/ ? k : nil}-[nil])[0]
@@ -1892,8 +1905,8 @@ module MidiHex
       end
     }
   end
-  def self.makefraze rundata,tc
-    return "" if not rundata
+  def self.makefraze mmldata,tc
+    return "" if not mmldata
     self.trackPrepare(tc)
     @systemWait=120
     @h=[]
@@ -1905,9 +1918,8 @@ module MidiHex
     @shiftbase=40
     accent=false
     sharp=0
-    regexp="#{MmlReg.trackr}"
     @h<<[:controlChange,"10,#{@panoftrack}"] if @autopan
-    cmd=rundata.scan(/#{regexp}|./)
+    cmd=mmldata.scan(/#{MmlReg.trackr}|./)
     cmd<<" " # dummy
     p "track hex; start making: ",cmd if $DEBUG
     cmd.each{|i|
@@ -2324,7 +2336,8 @@ def multiplet d,tbase
   else
     total=tbase*rate
   end
-  r=i.scan(/=|\(\?:[^\]]+\)|\(x:[^\]]+\)|\(chord:[^)]+\)|\(C:[^)]+\)|:[^\(,]+\([^\)]+\),|:[^,]+,|[[:digit:]\.]+|_[^!]+!|~|\([-+]*[[:digit:]]?\)|[-+]+[[:digit:]]*|[\^`'<>]|\([^\)]*\)|./)
+  regex=MmlReg.multipletr
+  r=i.scan(/#{regex}|./)
   lengths=[]
   notes=[]
   mod=[]
@@ -2407,7 +2420,8 @@ def macroDef data
   tmp=[]
   name=""
   num=1
-  s=data.scan(/macro +[^ ;:=]+ *:= *\( *;|macro +[^ ;:=]+ *:=[^;]+|[^ ;:=]+ *:= *\( *;|[^ ;:=]+ *:=[^;]+| *\) *;|[^;]+|./)
+  rstr=MmlReg.macroDefr
+  s=data.scan(/#{rstr}| *\) *;|[^;]+|./)
   data=s.map{|i|
     case i
     when /^(macro +)? *([^ ;:=]+) *:= *\( *;/
@@ -2531,7 +2545,8 @@ def repCalc line,macro,tbase
       r ? r : b
     end
   }*""
-  regex=/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;\$_*^,\)\(`'\/+-]+|\([^\)]*:|\)|./
+  repmark=MmlReg.repeatr
+  regex=/\/[^\/]+\/|#{repmark}|\$\{[^ \{\}]+\}|\$[^ ;\$_*^,\)\(`'\/+-]+|\([^\)]*:|\)|./
   a=line.scan(regex)
   a=a.map{|i|
     if i=~/^\/[^\/]+\//
