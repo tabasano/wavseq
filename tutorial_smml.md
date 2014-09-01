@@ -21,7 +21,7 @@ c
 e D e f F g g2
 ```
 
-## octave
+## octave level
 ;; change octave hight by '-', '+' or '(octave:3)' etc.
 
 ```
@@ -30,11 +30,12 @@ e D e f F g g2
 - e d c2
 ```
 
-;; >< tempo up/down.
+;; >< tempo up/down a little bit.
 
 ```
 f r > f r > f r > f r <<< fr fr fr fr
 ```
+
 
 ## note length
 ;; use note length. set it after note charactors. no length means 1.
@@ -128,7 +129,7 @@ c d e ~ e d c ~
 c /:~de/ d ~ 
 ```
 
-;; same note is '='.
+;; the same note to the preceding one is '='.
 
 ```
 c = = = d = = =
@@ -171,6 +172,12 @@ is the same to
 ```
 (stroke:4) {a,b,c} = = (stroke:6)  = = = 
 ```
+
+```
+(stroke:4) {a,b,c} = = (:-)  = = = 
+```
+
+minus value is for to stroke up. currently, up value affects once only as it simulates playing the guitar. 
 
 ## sharp, flat
 ;; note name etc. is case sencitive, so each of 12 notes in one octave can be expressed by one charactor. 

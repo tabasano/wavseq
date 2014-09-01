@@ -1,10 +1,11 @@
 require'pp'
 
 # valid words check only. not valid sequence check.
-s="(gm:on)rrBo?m(x):=tes$xtes2 ; a*321s;;comment 1 ; macro MU:=( ; test ; test2 ; ) ;
+s="(gm:on)rrBo?;m(x):=tes$xtes2 ; a*321s;;comment 1 ; macro MU:=( ; test ; test2 ; ) ;
    ; def$MU[2]|||macro mac:=abcd ef(tes:34) ; (+2)d~f(text:wai wai)(gh)&(00 11 22 $bar)i$m(1)||| ; |||j{kl}{m,n}{70} ; (oi)ab[cd]4 /3:ef/ gv++89<b(stroke:1,2,3)(:-).SKIP >`'c23$m(2)_snare!$mac_c!123.$:cmaj7, b45 ; a+b-c///de(0)fG ; ;; comment ; &($se(f0,00))
    $Ab[$e]${B}[3]$abc[2]${def}[3,$we,5]$asdf$asdfghjkl(20:2,3,4)(G:,,-)
    ,:)((12: n(x,y):=( ; N:=( ; ;; this line includes not valid sequence words, for test only."
+
 if ARGV.size>0
   if File.exist?(ARGV[0])
     s=File.read(ARGV[0])
@@ -12,8 +13,19 @@ if ARGV.size>0
     s=ARGV[0]
   end
 end
+
 # todo: multiline macro, nest parenthesis
 module MmlReg
+  def self.r key, sort=true
+    case key
+    when Array
+      ks=key
+      ks=(@@keys-(@@keys-ks)) if sort
+      ks.map{|i|@@h[i]}*"|"
+    else
+      @@h[key]
+    end
+  end
   @@h={} # mml regex key hash. order is in @@keys
   @@keys=[
     :comment,
@@ -56,6 +68,7 @@ module MmlReg
     :note?,
     :sound?,
     :plusMinus,
+    :lineSep,
   ]
   @@h[:comment]="\\( *comment[^\(\)]*\\)"
   @@h[:word]="\\([^\(\):]*:[^\(\)]*\\)"
@@ -86,10 +99,10 @@ module MmlReg
   @@h[:keyword]="macro +"
   @@h[:macroA]="\\$\\{[^}]+\\}\\[[^\\]]+\\]|\\$[^}\\$\\{\\(\\)]+\\[[^\\]]+\\]"
   @@h[:macro]="\\$[[:alnum:]]+\\([^)]*\\)|\\$[[:alnum:]]+|\\$\\{[^}]+\\}"
-  @@h[:macrodefAStart]="[[:alnum:]]+\\([,[:alpha:]]+\\):=\\(\\z"
-  @@h[:macrodefA]=     "[[:alnum:]]+\\([,[:alpha:]]+\\):= *.+"
-  @@h[:macrodefStart]="[[:alnum:]]+:=\\(\\z"
-  @@h[:macrodef]=     "[[:alnum:]]+:= *.+"
+  @@h[:macrodefAStart]="[[:alnum:]]+\\([,[:alpha:]]+\\):= *\\( *\\z"
+  @@h[:macrodefA]=     "[[:alnum:]]+\\([,[:alpha:]]+\\):= *[^\\n]+"
+  @@h[:macrodefStart]="[[:alnum:]]+:= *\\( *\\z"
+  @@h[:macrodef]=     "[[:alnum:]]+:= *[^\\n]+"
   @@h[:blank]="[[:blank:]]+"
   @@h[:valueSep]=","
   @@h[:parenStart]="\\("
@@ -97,9 +110,10 @@ module MmlReg
   @@h[:chordStart]="\\{"
   @@h[:chordEnd]="\\}"
   @@h[:cmdValSep]=":"
-  r=@@keys.map{|i|@@h[i]}*"|"
-  Rwc=/#{r}|./
-  p Rwc if $DEBUG
+  @@h[:lineSep]=";"
+  r=self.r(@@keys)
+  RwAll=/#{r}|./
+  MacroDef=self.r([:macrodefAStart,:macrodefStart,:macrodefA,:macrodef])
   ArgIsOne=%w[ bendCent mark p gm gs xg loadf text ]
   def self.event m,rest=[]
     ((@@keys-rest).map{|k|m=~/\A#{@@h[k]}\z/ ? k : nil}-[nil])[0]
@@ -123,8 +137,11 @@ module MmlReg
     @@keys
   end
   def self.regmakeExcept ex
-    r=(@@keys-ex).map{|i|@@h[i]}*"|"
+    r=self.r(@@keys-ex)
     /#{r}|./
+  end
+  def self.blanks
+    [:comment,:blank,:lineSep]
   end
 end
 
@@ -144,8 +161,57 @@ def argSplit a
     a
   end
 end
-class String
+class MmlString < String
   @@trimmulti=0
+  def macroDef
+    macro={}
+    macrokeys=[]
+    mline=false
+    tmp=[]
+    name=""
+    num=1
+    rr=/\n|macro +|#{MmlReg::MacroDef}| *\) *|[^;\n]+|./
+    macDefStart=MmlReg.r([:macrodefAStart,:macrodefStart])
+    macDef=MmlReg.r([:macrodefA,:macrodef])
+    s=self.scan(rr)
+    p s if $DEBUG
+    data=s.map{|i|
+      case i
+      when /^(#{macDefStart})/
+        i=~/^([^ ]+) *:= *\( */
+        mline=true
+        num=1
+        name=$1
+        tmp=[]
+        ""
+      when /^(#{macDef})/
+        i=~/^([^ ]+) *:=([^;]+)$/
+        r=$2
+        key=$1
+        macrokeys<<key
+        chord=/([^$]|^)\{([^\{\}]*)\}/
+        r.gsub!(chord){"#{$1}(C:#{$2})"} while r=~chord
+        macro[key]=r # modifierComp(r,macro)
+        ""
+      when /^ *\) *$/
+        mline=false
+        name=""
+      when ";",/^ *$/
+        i
+      else
+        if mline
+          key="#{name}[#{num}]"
+          macrokeys<<key
+          macro[key]=i
+          num+=1
+          ""
+        else
+          i
+        end
+      end
+    }*""
+    [macrokeys,macro,data]
+  end
   def subp
     self.gsub(/[\(\);:'"]/){'_'}.chomp
   end
@@ -168,7 +234,7 @@ class String
     self
   end
   def mmlscan
-    @events||=self.scan(MmlReg::Rwc).map{|i|
+    @events||=self.scan(MmlReg::RwAll).map{|i|
       case i
       when /^\/\/\/+/
         "///"
@@ -202,11 +268,19 @@ class String
     self.hexscan.map{|m|MmlReg.hexitem(m)}
   end
   def allEvents
-    self.mmlscan
+    @macro||=[]
+    @events||=(
+      macrokeys,macro,data=self.macroDef
+      macrokeys.each{|k|
+        @macro<<[:macrodefStart,k]
+        @macro<<[:macroBody,macro[k]]
+      }
+      data.to_mstr.mmlscan
+    )
     @evmap||=@events.map{|i|
       MmlReg.item(i)
     }
-    @flattenEvents=@evmap.dup
+    @flattenEvents=@macro+@evmap.dup
     r=[]
     fixflag=false
     # until arg substitute complete
@@ -294,7 +368,7 @@ class String
   end
   def mmlEvents
     @flattenEvents||=self.allEvents
-    @flattenEvents.reject{|e,v|[:comment,:blank].member?(e)}
+    @flattenEvents.reject{|e,v|MmlReg.blanks.member?(e)}
   end
   def nilEvents
     self.mmlEvents
@@ -306,7 +380,14 @@ class String
     MmlReg::keyAll-@evmap.map{|k,v|k}
   end
 end
-s=s.gsub(/\n/m){" ; "}.gsub(";;"){"##"}.split(" ; ").map{|i|i.trim("##") }.join("\n")
+class String
+  def to_mstr
+    MmlString.new(self)
+  end
+end
+
+s=MmlString.new(s)
+s=s.gsub(/\n/m){" ; "}.gsub(";;"){"##"}.split(" ; ").map{|i|i.trim("##") }.join("\n").to_mstr
 p s
 # m=s.mmlscan
 # p m*" ;; "
