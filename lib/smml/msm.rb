@@ -167,6 +167,154 @@ def multilineTrim l,com
   puts " ? mismatch end mark of multiline comment."  if on
   r
 end
+
+#===========================================================
+module MmlReg
+  def self.r key, sort=true
+    raise if sort.class==Symbol
+    case key
+    when Array
+      raise if (key-@@keys).size>0
+      ks=key
+      ks=(@@keys-(@@keys-ks)) if sort
+      ks.map{|i|@@h[i]}*"|"
+    else
+      @@h[key]
+    end
+  rescue
+    puts "Regex part,arg bug",[key-@@keys]
+    raise
+  end
+  def self.trackr
+    self.r([:hexraw,:sharps,:chord,:word,:sound,:modifier,:velocity,:tempo,:num,:octave,:note,:mod,:note?,:sound?])
+  end
+  @@h={} # mml regex key hash. order is in @@keys
+  @@keys=[
+    :comment,
+    :keyword,
+    :macrodefAStart,
+    :macrodefA,
+    :macrodefStart,
+    :macrodef,
+    :hexraw,
+    :hexrawStart,
+    :tSep,
+    :pSep,
+    :multipletStart,
+    :multipletmark,
+    :macroA,
+    :macro,
+    :repStart,
+    :repEnd,
+    :word,
+    :modifier,
+    :sharps,
+    :wordStart,
+    :word?,
+    :chord,
+    :velocity,
+    :sound,
+    :DCmark,
+    :tempo,
+    :mod,
+    :octave,
+    :num,
+    :blank,
+    :valueSep,
+    :parenStart,
+    :parenEnd,
+    :chordStart,
+    :chordEnd,
+    :cmdValSep,
+    :note,
+    :dummyNote,
+    :randNote,
+    :note?,
+    :sound?,
+    :plusMinus,
+    :lineSep,
+    :chord?,
+  ]
+  @@h[:comment]="\\( *comment[^\(\)]*\\)"
+  @@h[:word]="\\([^\(\):]*:[^\(\)]*\\)"
+  @@h[:wordStart]="\\([^\(\):]*:"
+  @@h[:sharps]="\\([+-]*[[:digit:]]*\\)"
+  @@h[:word?]="\\([^\(\)]*\\)"
+  @@h[:chord]="\\{[^\{\}]+,[^\{\},]+\\}|:[[:alpha:]][[:alnum:]]*,"
+  @@h[:velocity]="v[[:digit:]]+"
+  @@h[:note]="[abcdefgACDFGr]|\\{[[:digit:]]+\\}"
+  @@h[:note?]="[BE]"
+  @@h[:dummyNote]="o"
+  @@h[:randNote]="\\?"
+  @@h[:sound]="_[^!]+!|=|~"
+  @@h[:sound?]="[[:alpha:]]"
+  @@h[:DCmark]="\\.\\$|\\.[[:alpha:]]+"
+  @@h[:tempo]="[><][[:digit:]]*"
+  @@h[:mod]="[`'^]"
+  @@h[:octave]=   "[+-][[:digit:]]*"
+  @@h[:plusMinus]="[+-][[:digit:]]*"
+  @@h[:tSep]="\\|\\|\\|"
+  @@h[:pSep]="\\/\\/\\/+"
+  @@h[:repStart]="\\["
+  @@h[:repEnd]="\\]"
+  @@h[:multipletStart]="\\/\\*?[[:digit:]\\.]*:"
+  @@h[:multipletmark]="\\/"
+  @@h[:num]="[-+*]?[[:digit:]]+\\.[[:digit:]]+|[-+*]?[[:digit:]]+"
+  @@h[:hexraw]="&\\([^()]*\\)"
+  @@h[:hexrawStart]="&\\("
+  @@h[:keyword]="macro +"
+  @@h[:macroA]="\\$\\{[^}]+\\}\\[[^\\]]+\\]|\\$[^}\\$\\{\\(\\)]+\\[[^\\]]+\\]"
+  @@h[:macro]="\\$[[:alnum:]]+\\([^)]*\\)|\\$[[:alnum:]]+|\\$\\{[^}]+\\}"
+  @@h[:macrodefAStart]="[[:alnum:]]+\\([,[:alpha:]]+\\):= *\\( *\\z"
+  @@h[:macrodefA]=     "[[:alnum:]]+\\([,[:alpha:]]+\\):= *[^\\n]+"
+  @@h[:macrodefStart]="[[:alnum:]]+:= *\\( *\\z"
+  @@h[:macrodef]=     "[[:alnum:]]+:= *[^\\n]+"
+  @@h[:blank]="[[:blank:]]+"
+  @@h[:valueSep]=","
+  @@h[:parenStart]="\\("
+  @@h[:parenEnd]="\\)"
+  @@h[:chordStart]="\\{"
+  @@h[:chordEnd]="\\}"
+  @@h[:cmdValSep]=":"
+  @@h[:lineSep]=";"
+  @@h[:chord?]=":[^=,]+,"
+  @@h[:modifier]="_[^_]__[^\\?]+\\?"
+  r=self.r(@@keys)
+  RwAll=/#{r}|./
+  MacroDef=self.r([:macrodefAStart,:macrodefStart,:macrodefA,:macrodef])
+  ArgIsOne=%w[ bendCent mark p gm gs xg loadf text ]
+  def self.event m,rest=[]
+    ((@@keys-rest).map{|k|m=~/\A#{@@h[k]}\z/ ? k : nil}-[nil])[0]
+  end
+  def self.item m,rest=[]
+    [self.event(m,rest),m]
+  end
+  def self.hexitem m
+    m=~/([[:digit:]]{2})|(\$[^ ]+)|([, ])/
+    if $1
+      [:hex,m]
+    elsif $2
+      [:macro,m]
+    elsif $3
+      [:hexSep,m]
+    else
+      [hex?,m]
+    end
+  end
+  def self.keyAll
+    @@keys
+  end
+  def self.regmakeExcept ex
+    r=self.r(@@keys-ex)
+    /#{r}|./
+  end
+  def self.blanks
+    [:comment,:blank,:lineSep]
+  end
+end
+
+#===============================================
+
 def allTrackMark c
   "(mark:.ALL_TRACK_MARK_#{c}.)"
 end
@@ -1757,8 +1905,9 @@ module MidiHex
     @shiftbase=40
     accent=false
     sharp=0
+    regexp="#{MmlReg.trackr}"
     @h<<[:controlChange,"10,#{@panoftrack}"] if @autopan
-    cmd=rundata.scan(/&\([^)]+\)|\([-+]*[[:digit:]]?\)|:[^\(,]+\([^\)\(]+\),|:[^,]+,|\([^:]*:[^)\(]*\)|_[^!_]+!|_[^_]__[^\?]+\?|v[[:digit:]]+|[<>][[:digit:]]*|\*?[[:digit:]]+\.[[:digit:]]+|[-+][[:digit:]]*|\*?[[:digit:]]+|[[:alpha:]]|\^|`|'|./)
+    cmd=rundata.scan(/#{regexp}|./)
     cmd<<" " # dummy
     p "track hex; start making: ",cmd if $DEBUG
     cmd.each{|i|

@@ -1,4 +1,5 @@
 require'pp'
+require 'smml'
 
 # valid words check only. not valid sequence check.
 s="(gm:on)rrBo?;m(x):=tes$xtes2 ; a*321s;;comment 1 ; macro MU:=( ; test ; test2 ; ) ;
@@ -15,7 +16,7 @@ if ARGV.size>0
 end
 
 # todo: multiline macro, nest parenthesis
-module MmlReg
+module MmlRegOld
   def self.r key, sort=true
     case key
     when Array
