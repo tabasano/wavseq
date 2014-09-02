@@ -829,7 +829,7 @@ def worddata word,d
     depth=$3.split(',').map{|i|
       case i
       when "+","-" ; i
-      else         ; i.to_f
+      else         ; i
       end
     }
     [:"#{word}",pos,depth]
@@ -1111,6 +1111,7 @@ module MidiHex
     @gateRate=[g,100].min
   end
   def self.bendRange v
+    @lastbend=0
     case v
     when /^\+/
       @bendrange+=$'.to_i
@@ -1129,9 +1130,11 @@ module MidiHex
   def self.bendCent on
     @bendCent=1
     @bendCent=8192/@bendrange/100.0 if on
+    @lastbend=0
   end
   def self.trackPrepare tc=0
     @tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent,@scalenotes,@gtune=@prepareSet
+    @theremin=false
     @strokespeed=0
     @strokeUpDown=1
     @preGate=[]
@@ -1208,6 +1211,10 @@ module MidiHex
     r<<Event.new(:end,start," 8#{ch} #{key} 00 # #{start} sound off only [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]\n")
     r
   end
+  def self.thereminNote pos,key,velocity,ch
+    depth=(key-@thereminNote)*100
+    self.bend(pos,depth.to_s,ch)
+  end
   def self.oneNote len=@tbase,key=@basekey,velocity=@velocity,ch=@ch,sharp=0
     velocity=@preVelocity.shift if @preVelocity.size>0
     gate=@gateRate
@@ -1216,6 +1223,7 @@ module MidiHex
     velocity=[velocity,0x7f].min
     key+=sharp
     @key=[[key,0x7f].min,0].max
+    return self.thereminNote(len,key,velocity,ch) if @theremin
     key=format("%02x",@key)
     ch=format("%01x",ch)
     vel=format("%02x",velocity)
@@ -1284,6 +1292,7 @@ module MidiHex
     self.oneNote(len,key,vel,@rythmChannel,sharp)
   end
   def self.notes c,l=false,accent=false,sharp=0
+    @lastnoteName=c
     n=@notes[c]
     if @octmode==:near && n.class != Array
       if @lastnote
@@ -1624,6 +1633,21 @@ module MidiHex
   end
   def self.bend pos,depth,ch=false
     ch=@ch if ! ch
+    depth.to_s=~/([+-]*)/
+    sign=$1
+    plus=false
+    case sign.size
+    when 0..1
+      depth=depth.to_f
+      plus=true if sign=="+"
+    when 2
+      depth=depth[1..-1].to_f
+      plus=true
+    else
+      STDERR.puts "bend: ?"
+    end
+    depth=@lastbend+depth if plus
+    @lastbend=depth
     depth=(depth*@bendCent).to_i
     pos+=@waitingtime
     @waitingtime=0
@@ -1818,6 +1842,28 @@ module MidiHex
       @strokespeed=s.abs
     end
   end
+  def self.setTheremin flag
+    r=[]
+    if flag
+      if not @lastnote
+        @lastnoteName="c"
+        @lastnote=@notes["c"]+@basekey
+      end
+      @thereminNote=@lastnote
+      r<<self.notes(@lastnoteName,0)
+      key=format("%02x",@thereminNote)
+      ch=format("%01x",@ch)
+      vel=format("%02x",@velocity)
+      r<<Event.new(:e,0," 9#{ch} #{key} #{vel} # theremin sound on note #{@thereminNote} velocity #{@velocity}\n")
+      r<<self.bendRange(12*4)
+      self.bendCent(true)
+    else
+      @thereminNote=false
+      self.bendCent(false)
+    end
+    @theremin=flag
+    r
+  end
   def self.setmark m
     n=@marktrack.getcount(m,@tracknum)
     m="#{m}@#{n+1}" if n>0
@@ -1978,6 +2024,12 @@ module MidiHex
         tr=$2.to_i
         tr*=-1 if $1=="-"
         @h<<[:basekeyPlus,tr]
+      when /^\(theremin:(.*)\)/
+        if $1=~/off/
+          @h<<[:setTheremin,false]
+        else
+          @h<<[:setTheremin,true]
+        end
       when /^\(mark:(.*)\)/
         @h<<[:setmark,$1]
       when /^\(V:(.*)\)/
@@ -2020,7 +2072,7 @@ module MidiHex
           instrument=$4.to_i
         end
         @h<<[:ProgramChange,channel,instrument]
-      when /^\(bend:(([[:digit:]]+),)?([-,.[:digit:]]+)\)|^_b__([^?]+)\?/
+      when /^\(bend:(([[:digit:]]+),)?([-+,.[:digit:]]+)\)|^_b__([^?]+)\?/
         i="(bend:#{$4.gsub('_'){','}})" if $4
         x,pos,b=worddata("bend",i)
         npos=0

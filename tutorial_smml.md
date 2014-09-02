@@ -333,36 +333,40 @@ so in this list, instrument number 1,2 and 3 match the keyword 'piano'.
 So '(p:guitar,2)' selects an instrument line '5 two' as the 2nd result of searching 'guitar' and will be used instead of no word 'guitar' on it.
 
 ## hex data
-;; until smml syntax is completed, raw hex parts can be used for complex data and things you don't know how to inprement in data.
-search MIDI format and set hex data.
+;; until smml syntax is completed, or other reasons, raw hex parts can be used for deep level data and things you don't know how to inprement by smml data.
+search MIDI format and set valid hex data.
 
 ```
   &(00 00 00)
 ```
 
+hex data must be ``` 00 01 02 ... FD FE FF ```. one byte is by two hex letters. seperaters are a blank or comma.
 ;; currently hex only can be used. oct/decimal may be able to use someday.
 all in SMF track data, unique formated prefix delta tick time data is needed. so if want, you can use '$delta(240)' for 240 ticks.
 the tick means a minimum time span in SMF , one beat equals to 480 ticks as default. in this case, delta time is set to half beat.
 also '$se(F0 41 ..)' can be used for system exclusive message data.
 currently, nest data of parenthesis is not implemented except very limited cases.
+anyway, when you use hex data, be careful not to set invalid data. smml don't check its MIDI data validation.
 
-## macro define
+
+## define and apply macro variable
 ;; for repeating phrase, macro can be used. use prefix '$' for refering.
 
 ```
-    Macr:=cde
+    VeryLongPhraze:=cde
     macro W:=abc
 
-    ggg $Macr fff $W
+    ggg $VeryLongPhraze fff $W
 ```
 
-the  4th line will be subsituted by
+the  4th line will be replaced by
 
 ```
-    ggg cde fff abc.
+    ggg cde fff abc
 ```
 
-the keyword 'macro' is used just for reading and will simply be ignored.
+the keyword 'macro' is used just for easy readability and will simply be ignored.
+a macro definition is normally within and whole one line. you can write any valid smml data after '```:=```'.
 
 
 ;; macro with args
@@ -385,10 +389,11 @@ will be
    ab10 (wait:4) ab20 (wait:4) ab30
 ```
 
-'(wait:4)' was inserted by '4' in first place before args. it means 4 beats of rest (exact mean of '(wait:..)' is 'do nothing and wait for the next command' ).
+'(wait:4)' was inserted by '4' in first place before args. it means 4 beats of rest (exact mean of '(wait:..)' is
+'do nothing, set it free even if sound is on and wait for the next command' ).
 
 
-multiline macro definition
+multiline macro definition is ;
 
 ```
 EFF:=(
@@ -399,7 +404,8 @@ EFF:=(
 )
 ```
 
-but now, this is for easy way of writing only, and may not be so useful. to use it, each line must be seperated.
+after parenthesis, don't set any letters without blanks.
+but now, this is for easy way of writing only, and may not be so useful. to use this multi line values, each line must be seperated.
 
 ```
 $EFF[1] $EFF[2] $EFF[3] $EFF[4]
@@ -413,11 +419,12 @@ but, these are MIDI system exclusive HEX data, so to make it really effective da
 ```
 
 ```$se()``` translates hex SysEx data to SMF hex data, and it needs pre delta-time data by ```$delta(ticks)``` like other data.
-```$delta(0)``` is ```00``` , so both of these are effective.
+```$delta(0)``` is ```00``` , so both of these are effective. inside ```$delta()``` value is not hex, use decimal number.
 
+'${ff}' can be used for '$ff' as macro variable.
 
 ## comment
-;; ignored after ';;' of each line. write comments there.
+;; words after ';;' of each line are ignored. write comments there.
 multi line comments start with longer ';'.
 end mark is same or longer mark of ';' than start mark. these must start from the top of the line.
 
@@ -618,6 +625,7 @@ so,
 
 ;; set this track's channel 1. when several tracks use same channel, for example it will behave as the same instrument.
 
+
 ```
  (bend:100)
 ```
@@ -720,6 +728,7 @@ all after that are real values. the '+' adds 10 to latest value as default.
  so expression data is ;``` 40,50,60,70,80,70,60,50,40,50,60,70,80...``` with each 20 ticks interval.
 bend and expression values inside these parts will be reseted after the modified note ends.
 series of ```(A:..)``` parts are merged. if not, old one is overwtitten.
+'o' is dummy and it set nil value and simply ignored. it is for visibility purpose only.
 
 
 ## text
