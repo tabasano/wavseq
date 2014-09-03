@@ -297,6 +297,7 @@ these are played like  this.
 ```
 
 ;; same mark names 'm' in repeated section or one track will be automaticaly substituded by 'm m@2 m@3'. to adjust, use it in other tracks.
+or use a comma , '(mark:hoge@3)' = '(mark:hoge,3)'
 
 ```
   a b c (mark:m) a b c (mark:m@2) a b c (mark:m@3)

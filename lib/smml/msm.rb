@@ -1894,8 +1894,18 @@ p [:te,pos,start,key]
     r
   end
   def self.setmark m
-    n=@marktrack.getcount(m,@tracknum)
-    m="#{m}@#{n+1}" if n>0
+    m=~/^([^,]+),/
+    count=$'.to_i
+    if $&
+      if count>1
+        m="#{$1}@#{$'.to_i}"
+      else
+        m=$1
+      end
+    else
+      n=@marktrack.getcount(m,@tracknum)
+      m="#{m}@#{n+1}" if n>0
+    end
     @marktrack.set(m,@tracknum,@nowtime)
     Event.new(:mark,m,@tracknum,@nowtime)
   end
@@ -1971,14 +1981,8 @@ p [:te,pos,start,key]
             end
       end
     }
-    rr.map{|i|
-      case i
-      when String
-        i
-      when Event
-        i.data
-      end
-    }
+    # Array of String or Event class instance
+    rr
   end
   def self.makefraze mmldata,tc
     return "" if not mmldata
@@ -2272,7 +2276,17 @@ p [:te,pos,start,key]
     puts "float rest add times: #{@frestc}" if $DEBUG
     @h=self.eventlist2str(@h)
     p [:number_with_totaltime, Event.new(:dummy).showTotalTime],[:allevent,@eventlist.map{|i|i.display}] if $DEBUG && $debuglevel>2
-    @h*"\n# track: #{@tracknum} ==== \n"
+    @h
+  end
+  def self.eventArray2str data,tc
+    data.map{|i|
+      case i
+      when String
+        i
+      when Event
+        i.data
+      end
+    }*"\n# track: #{tc} ==== \n"
   end
   def self.loadMap file, base=0
     if not File.exist?(file)
@@ -2379,9 +2393,9 @@ p [:te,pos,start,key]
     end
   end
   # substitute mark comment lines with shift delta time and dummy event hex data to adjust to most preceding track.
-  def self.trackMake data
+  def self.trackMake data,tc
     @marksh||=@marktrack.calc
-    data=data.split("\n").map{|i|
+    data=self.eventArray2str(data,tc).split("\n").map{|i|
       i=~/^# marktrack\(([^\)]+)\)/
       if $&
         key=$1
@@ -2855,15 +2869,21 @@ class Smml
     @mx.autopan(@autopan)
     tc=0
     # remember starting position check if data exist before sound
-    @htracks << @mx.metaTitle + @mx.generaterText + @mx.starttempo.data + @mx.makefraze(@rundatas[0],tc) + @mx.lastrest
+    @htracks[tc]=[]
+    @htracks[tc]=[@mx.metaTitle, @mx.generaterText, @mx.starttempo, @mx.makefraze(@rundatas[0],tc), @mx.lastrest].flatten
     @rundatas[1..-1].each{|track|
       tc+=1
-      @htracks<< @mx.restHex + @mx.makefraze(track,tc) + @mx.lastrest
+      @htracks[tc]=[]
+      @htracks[tc]=[@mx.restHex,@mx.makefraze(track,tc), @mx.lastrest].flatten
     }
   end
   def pack
     @header=@mx.header(1, @tracknum, @tbase)
-    alla=[@header]+@htracks.map{|t|@mx.trackMake(t)}.flatten
+    tc=0
+    alla=[@header]+@htracks.map{|t|
+      tc+=1
+      @mx.trackMake(t,tc-1)
+    }.flatten
     puts alla if $DEBUG
     all=alla.map{|i|i.commentoff("","#")}*""
     array=[all.split.join]
