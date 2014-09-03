@@ -1,0 +1,11 @@
+(xg:on)r
+(p:organ)(g:60)
+cd/efg/er
+
+(bendRange:48)
+(bendCent:on)
+(on:c)(wait:1)[(bend:100)(wait:1)(bend:+200)(wait:1)(bend:+-200)(wait:1)(bend:+-200)(wait:1)]2
+(off:c)
+r
+(theremin:on)
+cd/efg/[fre/dc/]4

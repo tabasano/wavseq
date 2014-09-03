@@ -1046,7 +1046,9 @@ module MidiHex
     @rythmChannel=9
     @notes=Notes.new
     @ch=0
-    @expression=0x7f
+    @expressionRest=0x60
+    @expressionDef=0x7f
+    @expression=@expressionDef
     @velocity=vel
     @velocityOrg=vel
     @velocityFuzzy=vfuzzy
@@ -1059,7 +1061,7 @@ module MidiHex
     @pancenter=64
     @scalenotes=ScaleNotes.new.reset
     @gtune=guitarTuning
-    @prepareSet=[@tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent,@scalenotes,@gtune]
+    self.setDefault
     @chmax=15
     @bendrangemax=127
     file="midi-programChange-list.txt"
@@ -1070,6 +1072,15 @@ module MidiHex
     self.loadProgramChange(file)
     self.loadPercussionMap(pfile)
     self.dumpstatus if $DEBUG && $debuglevel>3
+  end
+  def self.setDefault
+    @prepareSet=[
+      @tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent,@scalenotes,@gtune,@expressionRest,@expressionDef
+    ]
+  end
+  def self.getDefault
+      @tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent,@scalenotes,@gtune,@expressionRest,@expressionDef=
+      @prepareSet
   end
   def self.dumpstatus
     self.instance_variables.each{|i|
@@ -1133,7 +1144,7 @@ module MidiHex
     @lastbend=0
   end
   def self.trackPrepare tc=0
-    @tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent,@scalenotes,@gtune=@prepareSet
+    self.getDefault
     @theremin=false
     @strokespeed=0
     @strokeUpDown=1
@@ -1211,9 +1222,20 @@ module MidiHex
     r<<Event.new(:end,start," 8#{ch} #{key} 00 # #{start} sound off only [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]\n")
     r
   end
-  def self.thereminNote pos,key,velocity,ch
+  def self.thereminNote pos,key,velocity,ch,exp=@expressionDef
+    r=[]
+    @expression=exp
+    if @expression
+      r<<self.expre(0,@expression)
+    end
+    start=@waitingtime
+    @waitingtime=0
+    pos-=start
+p [:te,pos,start,key]
     depth=(key-@thereminNote)*100
-    self.bend(pos,depth.to_s,ch)
+    r<<self.bend(start,depth.to_s,ch)
+    r<<self.bend(pos,depth.to_s,ch)
+    r
   end
   def self.oneNote len=@tbase,key=@basekey,velocity=@velocity,ch=@ch,sharp=0
     velocity=@preVelocity.shift if @preVelocity.size>0
@@ -1441,7 +1463,14 @@ module MidiHex
     chx=format("%01x",ch)
     @nowtime+=len
     r=[]
-    r<<Event.new(:end,len," 8#{chx} 3C 00 # rest #{len.to_i}(#{len.round(2)})ticks later, off:ch#{ch}, key:3C\n")
+    if @theremin
+      min=@expressionRest
+      r<<Event.new(:comment,"# rest; ")
+      r<<self.expre(0,min)
+      r<<self.expre(len,min)
+    else
+      r<<Event.new(:end,len," 8#{chx} 3C 00 # rest #{len.to_i}(#{len.round(2)})ticks later, off:ch#{ch}, key:3C\n")
+    end
     r
   end
   def self.restHex len=@tbase,ch=@ch
@@ -1847,9 +1876,9 @@ module MidiHex
     if flag
       if not @lastnote
         @lastnoteName="c"
-        @lastnote=@notes["c"]+@basekey
+        @lastnote=@notes["c"]
       end
-      @thereminNote=@lastnote
+      @thereminNote=@lastnote+@basekey
       r<<self.notes(@lastnoteName,0)
       key=format("%02x",@thereminNote)
       ch=format("%01x",@ch)
