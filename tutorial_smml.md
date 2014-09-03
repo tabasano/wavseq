@@ -627,10 +627,18 @@ so,
 
 
 ```
- (bend:100)
+ (bend:100) c
 ```
 
-pitch bend 100
+pitch bend 100 of note 'c'. 
+
+```
+ (bend:+100) c
+ (bend:+-200) c
+```
+
+'+' relative value. if these are after above, three notes are bend 100 of 'c', bend 200 of 'c' and bend 0 of 'c'.
+
 
 ```
  (bendRange:12)
@@ -700,6 +708,16 @@ now, note type commands are :
   and other commands are with parentheses.
 
 ```'~'``` seems likely note type, but it is compressed to preceding note as calculated note length. most commands cannot be set inside of ```'c~~~'.```
+
+;; theremin like sound,
+
+```
+(p:organ)
+(theremin:on)
+ab /:cde/ f
+```
+
+after on command, data is manipulated as bend data inside smml. not completed about modifiers for this.
 
 
 ## preprocess

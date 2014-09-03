@@ -1,0 +1,31 @@
+(tempo:80)
+(g:70)(stroke:14)
+(p:piano)
+
+|||(p:bas) (key:5)-- /a3+e//re/ -/ar+e-a/ r
+|||(ch:drum)          rrr/_clap!r_clap!_clap!/      
+/////////////////////
+/////////////////////
+
+      [ /dfeg/~ /fagA/~ /af//gerr/ /rfrC//ed/ ] 2
+
+|||   [ /a3+e//re/ -/a3+e//re/ /-e3+b//rb/ /araa//~2ar/ ] 2
+|||   [ r _clap! ] 8
+///////////////////////////////////////////////////////////////
++ 
+    [/d3c//Aarg/ /~~~f//gaAb/ /c3A//agrf/ /~3e//fgGa/
+     /A3a//gfrD/ /~f//gG/  .SKIP /ra2a//arrd/ /~ddr//dd/ ]
+     /ra2a//arra/ /~aar//Aa/
+
+||| [/a3a//~a/ d d /-g3g//~g/ c c
+     -/f3f//~f/ A A .SKIP /e2ee//~e/ /a2aa//~a/ ]
+     /er//re/ /er/ r
+/////////////////////////////////////////////////////////////////
+
+    -
+    [ /dfeg/~ /fagA/~ r /afge/ r /fCed/ ] 2
+||| [ /a3+e//re/ -/a3+e//re/ /-e3+b//rb/ /araa//~2ar/ ] 2
+
+//////////////////////////////////////////////////////////////////
+    /rd2d//d2rd/ /~dd2//d(g:30)'{-d,d,+d,++d}/
+||| /aara//arra/ /raar//a-'a/rrrrrrrrr
