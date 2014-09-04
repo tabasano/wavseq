@@ -642,7 +642,6 @@ end
 def trackSizeHex d,cmark="#"
   d=d.commentoff("",cmark).split.join
   i=(d.size+8)/2
-#  p [d,i,i.to_s(16)]
   #("00000000"+i.to_s(16))[-8..-1]
   format("%08x",i)+"  # size: #{i}"
 end

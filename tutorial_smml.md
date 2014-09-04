@@ -242,6 +242,21 @@ _snare! = = =
 
 first two tracks are 'organ' sound by the track names declared.
 
+
+currenly track names are not used, and tracks continue with apprearing order. so if there are no data in some tracks in mid parts of pages,
+use blank tracks by track seperaters.
+
+```
+    c     ;; track 1
+||| e     ;; track 2
+||| g     ;; track 3
+///////////////////////////////////////
+    abc   ;; track 1
+|||       ;; track 2 , no data but it can't be omitted to adjust track counters after this track.
+||| def   ;; track 3
+``` 
+
+ 
 ## page
 ;; then seperate pages by three or longer one line '/'.
 ;; but this command do not adjust time potisions. it simply resets track number increment.
