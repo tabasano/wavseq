@@ -295,6 +295,7 @@ module MmlReg
   RwAll=/#{r}|./
   MacroDef=self.rPlusPre([:macrodefAStart,:macrodefStart,:macrodefA,:macrodef],"macro *")+"|"+
            self.r([:macrodefAStart,:macrodefStart,:macrodefA,:macrodef])
+  RepStrArray=["[","]",".CODA",".DS",".DC",".FINE",".toCODA",".$",".SKIP"]
   ArgIsOne=%w[ bendCent mark p gm gs xg loadf text ]
   def self.event m,rest=[]
     ((@@keys-rest).map{|k|m=~/\A#{@@h[k]}\z/ ? k : nil}-[nil])[0]
@@ -1231,7 +1232,6 @@ module MidiHex
     start=@waitingtime
     @waitingtime=0
     pos-=start
-p [:te,pos,start,key]
     depth=(key-@thereminNote)*100
     r<<self.bend(start,depth.to_s,ch)
     r<<self.bend(pos,depth.to_s,ch)
@@ -1475,7 +1475,7 @@ p [:te,pos,start,key]
   end
   def self.restHex len=@tbase,ch=@ch
     r=self.rest(len,ch)
-    r[0].data
+    r[0]
   end
   # d : hex data
   def self.metaEvent d,type=1
@@ -1487,7 +1487,7 @@ p [:te,pos,start,key]
     hexd,len=txt2hex(d)
     delta=varlenHex(pos)
     e=self.metaEvent hexd,type
-    "#{delta} #{e} # #{d}\n"
+    Event.new(:raw,"#{delta} #{e} # #{d}\n")
   end
   def self.metaTitle d=@title,pos=0
     return "" if not d
@@ -1512,7 +1512,7 @@ p [:te,pos,start,key]
     delta=varlenHex(pos)
     t=format("%02X",type)
     len=varlenHex(d.split.join.size/2)
-    "#{delta} FF #{t} #{len} #{d} # #{pos} #{comment}\n"
+    Event.new(:raw,"#{delta} FF #{t} #{len} #{d} # #{pos} #{comment}\n")
   end
   def self.tempo bpm, len=0
     @bpmStart=bpm if ! @bpm
@@ -2401,7 +2401,7 @@ p [:te,pos,start,key]
         key=$1
         pos=@marksh[key]
         c="position mark: #{key}, #{pos*1.0/@tbase}"
-        @marksh.keys.member?(key) ? self.dummyEvent(c,pos) : i
+        @marksh.keys.member?(key) ? self.dummyEvent(c,pos).data : i
       else
         i
       end
@@ -2552,7 +2552,7 @@ def macroDef data
 end
 def nestsearch d,macro
   a=d.scan(/\[[^\[\]]*\] *[[:digit:]]+/)!=[]
-  r=d.scan(/\/[^\/]+\/|\[|\]|\.FINE|\.DS|\.DC|\.\$|\.toCODA|\.CODA|\.SKIP|\$\{[^ \{\}]+\}|\$[^ ;\$*_^`'+-]+|;|./).map{|i|
+  r=d.scan(/\/[^\/]+\/|#{MmlReg.repeatr}|\$\{[^ \{\}]+\}|\$[^ ;\$*_^`'+-]+|;|./).map{|i|
     case i
     when /^\$\{([^\}]+)\}/
       $1
@@ -2576,7 +2576,7 @@ def tie d,tbase
   res=[]
   # if no length word after '~' length is 1
   d.gsub!(/~([^*[:digit:]])?/){$1 ? "~1#{$1}" : $&} while d=~/~[^*[:digit:]]/
-  li=d.scan(/\$\{[^\}]+\}|\$[^ ;\$_*^`'+-]+|\([^)\(]*\)|:[^\(,]+\([^)]+\),|:[^,]+,|_[^!]+!|_[^_]__[^?]+\?|v[[:digit:]]+|[<>\-+][[:digit:]]*|\*?[[:digit:].]+|\([VGABLN]:[^)]+\)|~|./)
+  li=d.scan(MmlReg::RwAll)
   li.each{|i|
     case i
     when /^(\*)?([[:digit:].]+)/
@@ -2718,7 +2718,7 @@ def repCalc line,macro,tbase
     end
     res<<current
   end
-  res=(res-["[","]",".CODA",".DS",".DC",".FINE",".toCODA",".$",".SKIP"])*""
+  res=(res-MmlReg::RepStrArray)*""
   res=repCalc(res,macro,tbase) while macro.keys.size>0 && nestsearch(res,macro)
   p res if $DEBUG && $debuglevel>1
   # 空白
