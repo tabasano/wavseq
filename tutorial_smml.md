@@ -188,7 +188,9 @@ minus value is for to stroke up. currently, up value affects once only as it sim
 (+)a (-)b (0)c
 ```
 
-strange ways can be affective currently. '(+4)a' etc.
+strange ways of sharp/flat can be affective currently. ```(+4)a``` , ```(-1.2)a``` etc. in float value, bend data is used inside.
+
+
 ;; instead of 'd' etc., note numbers can be used if you want.
 ;; MIDI note value is from 0 to 127. it's over Piano's 88. but too high/low note may not be played and heard.
 

@@ -189,10 +189,10 @@ module MmlReg
     self.r(key,sort,pre)
   end
   def self.trackr
-    self.r([:hexraw,:sharps,:chord,:word,:sound,:modifier,:velocity,:tempo,:num,:octave,:note,:mod,:note?,:sound?])
+    self.r([:hexraw,:sharp,:chord,:word,:sound,:modifier,:velocity,:tempo,:num,:octave,:note,:mod,:note?,:sound?])
   end
   def self.multipletr
-    self.r([:word,:note,:sound,:chord,:num,:sharps,:octave,:mod])
+    self.r([:word,:note,:sound,:chord,:num,:sharp,:octave,:mod])
   end
   def self.macroDefr
     self::MacroDef
@@ -219,7 +219,7 @@ module MmlReg
     :repEnd,
     :word,
     :modifier,
-    :sharps,
+    :sharp,
     :wordStart,
     :word?,
     :chord,
@@ -251,7 +251,7 @@ module MmlReg
   @@h[:comment]="\\( *comment[^\(\)]*\\)"
   @@h[:word]="\\([^\(\):]*:[^\(\)]*\\)"
   @@h[:wordStart]="\\([^\(\):]*:"
-  @@h[:sharps]="\\([+-]*[[:digit:]]*\\)"
+  @@h[:sharp]="\\([+-]*[[:digit:]\\.]*\\)"
   @@h[:word?]="\\([^\(\)]*\\)"
   @@h[:chord]="\\{[^\{\}]+,[^\{\},]+\\}|:[[:alpha:]][[:alnum:]]*,"
   @@h[:velocity]="v[[:digit:]]+"
@@ -721,8 +721,8 @@ def txt2hex t
   [r*" ",varlenHex(size)]
 end
 def bendHex d
-  c=d.to_i+8192
-  c=[[c,0].max,16383].min
+  c=d.to_i+MidiHex::BendHalf
+  c=[[c,0].max,MidiHex::BendMax].min
   a=c>>7
   b=c & 0b01111111
   r=[a,b,b*0x100+a]
@@ -1025,9 +1025,12 @@ def guitarTuning
   %W[-e -a d g b +e]
 end
 module MidiHex
+    BendMax=16383
+    BendHalf=8192
   # 設定のため最初に呼ばなければならない
   def self.prepare bpm=120,tbase=480,vel=0x40,oct=:near,vfuzzy=2,strict=false
     @ready=true
+    @bendHalfMax=BendHalf
     @strictmode=strict
     @autopan= strict ? false : true
     @strokefaster= strict ? 1 : 3
@@ -1140,7 +1143,7 @@ module MidiHex
   end
   def self.bendCent on
     @bendCent=1
-    @bendCent=8192/@bendrange/100.0 if on
+    @bendCent=@bendHalfMax/@bendrange/100.0 if on
     @lastbend=0
   end
   def self.trackPrepare tc=0
@@ -1312,7 +1315,7 @@ module MidiHex
     vel+=@accentPlus if accent
     self.oneNote(len,key,vel,@rythmChannel,sharp)
   end
-  def self.notes c,l=false,accent=false,sharp=0
+  def self.notes c,l=false,accent=false,sharp=0,sharpFloat=false
     @lastnoteName=c
     n=@notes[c]
     if @octmode==:near && n.class != Array
@@ -1325,7 +1328,17 @@ module MidiHex
       (@basekey-=12;@lastnote+=12) if n<0
       n=@lastnote
     end
-    self.notekey(n,l,accent,sharp)
+    r=[]
+    if sharpFloat && sharpFloat!=0
+      v=sharpFloat*@bendHalfMax
+      v=sharpFloat*100 if @bendCent>1
+      r<<self.bend(0,v)
+      r<<self.notekey(n,l,accent,sharp)
+      r<<self.bend(0,0)
+    else
+      r<<self.notekey(n,l,accent,sharp)
+    end
+    r
   end
   def self.shiftChord chord, base, limit=6
     octave=12
@@ -1996,6 +2009,7 @@ module MidiHex
     @shiftbase=40
     accent=false
     sharp=0
+    sharpFloat=0
     @h<<[:controlChange,"10,#{@panoftrack}"] if @autopan
     cmd=mmldata.scan(/#{MmlReg.trackr}|./)
     cmd<<" " # dummy
@@ -2021,19 +2035,21 @@ module MidiHex
           end
         end
         wait.each{|m,c|
+          arg=[c,t,accent,sharp]
+          arg2=[c,t,accent,sharp,sharpFloat]
           case m
           when :percussion
-            @h<<[:percussionNote,c,t,accent,sharp]
+            @h<<[:percussionNote,*arg]
           when :rawsound
-            @h<<[:byKey,c,t,accent,sharp]
+            @h<<[:byKey,*arg]
           when :sound
-            @h<<[:notes,c,t,accent,sharp]
+            @h<<[:notes,*arg2]
           when :dummyNote
-            @h<<[:dummyNote,c,t,accent,sharp]
+            @h<<[:dummyNote,*arg]
           when :chord
-            @h<<[:chord,c,t,accent,sharp]
+            @h<<[:chord,*arg]
           when :chordName
-            @h<<[:chordName,c,t,accent,sharp]
+            @h<<[:chordName,*arg]
           when :rest
             @h<<[:rest,t]
           end
@@ -2042,16 +2058,25 @@ module MidiHex
         wait=[]
         accent=false
         sharp=0
+        sharpFloat=0
       end
       case i
-      when /^\(([-+]*)([[:digit:]])?\)/
-        n=$2 ? $2.to_i : 1
-        if $1.size>1
-          n=$1.size
+      when /^\(([-+]*)([[:digit:]\.]+)?\)/
+        s1,s2=$1,$2
+        n=1
+        sharpFloat=0
+        if s2
+          n=s2.to_i
+          if s2=~/\./
+            sharpFloat=s2.to_f-n
+          end
         end
-        sh=$1 ? $1[0..0] : "+"
-        sh="#{sh}#{n}".to_i
-        sharp=sh
+        if s1.size>1
+          n=s1.size
+        end
+        plus=s1 ? s1[0..0] : "+"
+        sharpFloat*=-1 if plus=="-"
+        sharp="#{plus}#{n}".to_i
       when /^\(key:(-?)\+?([[:digit:]]+)\)/
         tr=$2.to_i
         tr*=-1 if $1=="-"
