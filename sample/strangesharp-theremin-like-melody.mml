@@ -1,13 +1,18 @@
 ;;
 ;; now something is bad, with win mplayer and midRadioPlayer differ
+;; it seems to differ when bend range is over 24. so now use it.
+;; last note is over range limit, so far from mml code order.
 ;;
 
 ////////////////////////////////////////
 
+(xg:on)
 (tempo:160)
 +
 (p:organ)
 (theremin:on)
+(bendRange:24)
+
 rrr
 a
 [ /:(0.2)a(0.4)a(0.6)a(0.8)a(0.9)a(1)a/ A ]3
