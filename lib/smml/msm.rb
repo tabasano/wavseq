@@ -1059,8 +1059,9 @@ module MidiHex
     @basekey=0x3C
     @chordCenter=@chordCenterOrg=@basekey
     @basekeyRythm=@basekeyOrg=@basekey
+    @bendCentOn=false
     @bendrange=2
-    @bendCent=1
+    self.bendCentReset
     @pancenter=64
     @scalenotes=ScaleNotes.new.reset
     @gtune=guitarTuning
@@ -1078,11 +1079,11 @@ module MidiHex
   end
   def self.setDefault
     @prepareSet=[
-      @tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent,@scalenotes,@gtune,@expressionRest,@expressionDef
+      @tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendCentOn,@bendrange,@bendCent,@scalenotes,@gtune,@expressionRest,@expressionDef
     ]
   end
   def self.getDefault
-      @tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendrange,@bendCent,@scalenotes,@gtune,@expressionRest,@expressionDef=
+      @tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendCentOn,@bendrange,@bendCent,@scalenotes,@gtune,@expressionRest,@expressionDef=
       @prepareSet
   end
   def self.dumpstatus
@@ -1141,9 +1142,13 @@ module MidiHex
     r<<self.controlChange("6,#{@bendrange}")
     r
   end
+  def self.bendCentReset
+    cent= @bendCentOn ? 100.0 : 1
+    @bendCent=@bendHalfMax/@bendrange/cent
+  end
   def self.bendCent on
-    @bendCent=1
-    @bendCent=@bendHalfMax/@bendrange/100.0 if on
+    @bendCentOn=on
+    self.bendCentReset
     @lastbend=0
   end
   def self.trackPrepare tc=0
@@ -1330,8 +1335,8 @@ module MidiHex
     end
     r=[]
     if sharpFloat && sharpFloat!=0
-      v=sharpFloat*@bendHalfMax
-      v=sharpFloat*100 if @bendCent>1
+      v=sharpFloat*@bendHalfMax/@bendrange
+      v=sharpFloat*100 if @bendCentOn
       r<<self.bend(0,v)
       r<<self.notekey(n,l,accent,sharp)
       r<<self.bend(0,0)
@@ -1689,7 +1694,7 @@ module MidiHex
     end
     depth=@lastbend+depth if plus
     @lastbend=depth
-    depth=(depth*@bendCent).to_i
+    depth=(depth*@bendCent).to_i if @bendCentOn
     pos+=@waitingtime
     @waitingtime=0
     @nowtime+=pos
