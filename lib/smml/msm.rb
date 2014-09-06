@@ -192,7 +192,7 @@ module MmlReg
     self.r([:hexraw,:sharp,:chord,:word,:sound,:modifier,:velocity,:tempo,:num,:octave,:note,:mod,:note?,:sound?])
   end
   def self.multipletr
-    self.r([:word,:note,:sound,:chord,:num,:sharp,:octave,:mod])
+    self.r([:note2,:word,:note,:sound,:chord,:num,:sharp,:octave,:mod])
   end
   def self.macroDefr
     self::MacroDef
@@ -217,6 +217,7 @@ module MmlReg
     :macro,
     :repStart,
     :repEnd,
+    :note2,
     :word,
     :modifier,
     :sharp,
@@ -249,6 +250,7 @@ module MmlReg
   ]
   @@h[:repmark]="\\.FINE|\\.DS|\\.DC|\\.\\$|\\.toCODA|\\.CODA|\\.SKIP"
   @@h[:comment]="\\( *comment[^\(\)]*\\)"
+  @@h[:note2]="\\( *tne *:[^\(\)]*\\)"
   @@h[:word]="\\([^\(\):]*:[^\(\)]*\\)"
   @@h[:wordStart]="\\([^\(\):]*:"
   @@h[:sharp]="\\([+-]*[[:digit:]\\.]*\\)"
@@ -1235,7 +1237,7 @@ module MidiHex
     r<<Event.new(:end,start," 8#{ch} #{key} 00 # #{start} sound off only [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]\n")
     r
   end
-  def self.thereminNote pos,key,velocity,ch,exp=@expressionDef
+  def self.thereminNote pos,key,velocity,ch,exp=@expression
     r=[]
     @expression=exp
     if @expression
@@ -1297,7 +1299,7 @@ module MidiHex
     r
   end
   def self.dummyNote key,len,accent=false,sharp=0
-    vel=@velocity
+    vel=@veloecity
     vel+=@accentPlus
     if key=="?"
       key=rand(0x7f)
@@ -1329,6 +1331,11 @@ module MidiHex
     self.oneNote(len,key,vel,@rythmChannel,sharp)
   end
   def self.notes c,l=false,accent=false,sharp=0,sharpFloat=false
+    if sharpFloat && (sharpFloat!=0)
+      s=sharp+sharpFloat
+      sharp=s.to_i
+      sharpFloat=s-sharp
+    end
     bendStart=@bendNow
     @lastnoteName=c
     n=@notes[c]
@@ -1347,10 +1354,10 @@ module MidiHex
       v=sharpFloat*@bendHalfMax/@bendrange
       v=sharpFloat*100 if @bendCentOn
       v+=bendStart
-      r<<self.bend(0,v)
+      r<<self.bend(0,v) if not @theremin
       @bendNow=v
       r<<self.notekey(n,l,accent,sharp)
-      r<<self.bend(0,bendStart)
+      r<<self.bend(0,bendStart) if not @theremin
       @bendNow=bendStart
     else
       r<<self.notekey(n,l,accent,sharp)
@@ -1576,7 +1583,7 @@ module MidiHex
     case d
     when "+" ; c+=explus
     when "-" ; c-=explus
-    else     ; c=d
+    else     ; c=d.to_i
     end
     c=midiVround(c)
     @expression=c
@@ -1939,6 +1946,51 @@ module MidiHex
     @marktrack.set(m,@tracknum,@nowtime)
     Event.new(:mark,m,@tracknum,@nowtime)
   end
+  def self.calcNoteFloat n,sharp,sharpFloat,base
+    @notes[n]+sharp+sharpFloat+base
+  end
+  def self.tneMid now,last,len
+    n0,e0,sharp0,sharpFloat0,base0=last
+    n,e,sharp,sharpFloat,base=now
+    e=e.to_i
+    e0=e0.to_i
+    step=10
+    stepN=self.calcNoteFloat(n,sharp,sharpFloat,base)-self.calcNoteFloat(n0,sharp0,sharpFloat0,base0)
+    stepE=e-e0
+    step=1 if stepE==0 && stepN==0
+    transitionl=len/3
+    restl=len-transitionl
+    stepL=transitionl*1.0/step
+    stepE=stepE*1.0/step
+    stepN=stepN*1.0/step
+    r=[]
+    step.times{|i|
+      r<<self.expre(0,e0+stepE*i.succ) if e!=e0
+      r<<self.notes(n0,stepL,false,sharp0,sharpFloat0+stepN*i.succ)
+    }
+    r<<self.expre(restl,e)
+    r
+  end
+  # time,note,expre
+  def self.tne arg,t,accent,sharp,sharpFloat
+    exp=@expression
+    ti,n,e=arg.split(',')
+    t=ti.to_f*@tbase if ti.size>0
+    @nowTne=[n,e,sharp,sharpFloat,@basekey]
+   if @lastTne
+      n,e,sharp,sharpFloat,base=@lastTne
+    else
+      @lastTne=@nowTne
+    end
+    r=[]
+    r<<Event.new(:comment,"# tne #{arg}")
+    r<<self.expre(0,e)
+    r<<self.notes(n,0,accent,sharp,sharpFloat)
+    r<<self.tneMid(@nowTne,@lastTne,t)
+    r<<self.expre(0,exp)
+    @lastTne=@nowTne
+    r
+  end
   def self.eventlist2str elist
     @eventlist=[]
     r=@eventlist
@@ -1949,6 +2001,7 @@ module MidiHex
       r<<Event.new(:raw,self.metaText("#{cmd} #{arg}")) if $DEBUG && $debuglevel>5
       r<<e
       case cmd
+      when :comment
       when :basekeyPlus
         @basekey+=arg[0]
       when :raw
@@ -2060,6 +2113,8 @@ module MidiHex
             @h<<[:percussionNote,*arg]
           when :rawsound
             @h<<[:byKey,*arg]
+          when :tne
+            @h<<[:tne,*arg2]
           when :sound
             @h<<[:notes,*arg2]
           when :dummyNote
@@ -2099,6 +2154,8 @@ module MidiHex
         tr=$2.to_i
         tr*=-1 if $1=="-"
         @h<<[:basekeyPlus,tr]
+      when /^\(tne:(.*)\)/
+        wait<<[:tne,$1]
       when /^\(theremin:(.*)\)/
         if $1=~/off/
           @h<<[:setTheremin,false]
@@ -2294,10 +2351,12 @@ module MidiHex
         p "accent" if $DEBUG
         accent=true
       when "="
+        last=@h[-1]
+        @h<<[:comment,"= same sound"]
         if lastwait.size>0
           wait+=lastwait
         else
-          @h<<@h[-1]
+          @h<<last
         end
       when "r"
         wait<<[:rest,i]
@@ -2484,7 +2543,7 @@ def multiplet d,tbase
     when /^[-+]+[[:digit:]]*/,/^[\^`',<>]/,/^\([-+]*[[:digit:]]?\)/
       mod<<i
     # note
-    when /^\((\?|x|C|chord):[^\)]+\)|^\^?:[^,]+,|^=/
+    when /^\((\?|x|C|chord|tne):[^\)]+\)|^\^?:[^,]+,|^=/
       lengths<<1
       notes<<"#{mod*""}#{i}"
       mod=[]
