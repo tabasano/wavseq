@@ -2,6 +2,9 @@
 
 
 ## note
+;; after setting up your environment of playing midi music,
+
+
 ;; listen to the sound of a note 'c', at first.
 
 ```
@@ -75,6 +78,9 @@ a0.5 c0.25 c0.25
 /:  a2 c    c   /
 /:  a4 c2   c2  /
 ```
+
+in fact, ```/a4c2c2/``` is valid too, but it will be confusing later.
+
 
 ## gate time
 ;; real tone length is important sometimes. gate time command is a percentage of tone length. (staccato etc.)
@@ -207,6 +213,8 @@ _snare! = = =
 ```
 
 ;; set instrument. automaticaly searched by even not exact name. (MIDI program change command)
+it depend on map files.
+
 
 ```
 (p:piano) c d e f (p:guitar) f e d c
@@ -218,107 +226,6 @@ _snare! = = =
 (ch:drum) {34} = = = {35} = = =
 ```
 
-## track
-;; in SMF, MIDI channel is 1 - 16, and drum is in 10 channel. but currently, these are automaticaly set.
-;; you don't need to think about it. simply seperate tracks with a command '|||'.
-
-```
-(p:piano) c d e f ||| (p:organ) e f g a ||| (p:guitar) g a b c
-```
-
-;; for visibility, the same
-
-```
-    (p:piano)  c d e f 
-||| (p:organ)  e f g a
-||| (p:guitar) g a b c
-```
-
-;; the same track name, the same MIDI channel and setting.
-
-```
-    (track:foo) (p:organ) aa
-||| (track:foo) bb
-||| (track:hoge) cc
-```
-
-first two tracks are 'organ' sound by the track names declared.
-
-
-currenly track names are not used, and tracks continue with apprearing order. so if there are no data in some tracks in mid parts of pages,
-use blank tracks by track seperaters.
-
-```
-    c     ;; track 1
-||| e     ;; track 2
-||| g     ;; track 3
-///////////////////////////////////////
-    abc   ;; track 1
-|||       ;; track 2 , no data but it can't be omitted to adjust track counters after this track.
-||| def   ;; track 3
-``` 
-
- 
-## page
-;; then seperate pages by three or longer one line '/'.
-;; but this command do not adjust time potisions. it simply resets track number increment.
-
-```
-  cdef|||efga|||gabc
-  ////////////////////
-  cdef|||efga|||gabc
-  ///////////////////
-  cdef|||efga|||gabc
-```
-
-;; the same to below.
-
-```
-cdef cdef cdef ||| efga efga efga ||| gabc gabc gabc
-```
-
-;; if you want to adjust tracks, use a blank page by two lines of page seperaters. the last three 'c' will be played adjusted.
-
-```
-cd ||| e ||| abcde 
-////////////////////
-////////////////////
-c|||c|||c
-```
-
-## position mark
-;; or use a position mark command.
-
-```
-cd ||| e ||| abcde 
-////////////////////
-    (mark:positionName)  c
-||| (mark:positionName)  c
-||| (mark:positionName)  c
-```
-
-these are played like  this.
-
-```
-    cdrrr c  ;; track 1
-||| errrr c  ;; track 2
-||| abcde c  ;; track 3
-```
-
-;; marks are not needed for all tracks. positions will be adjusted automaticaly to the preceeding track while the same marks exist.
-;; like this, most commands except tempo, a command effects its belonging track only.
-
-
-```
-  [ a b c (mark:m) ] 3
-```
-
-;; same mark names 'm' in repeated section or one track will be automaticaly substituded by 'm m@2 m@3'. to adjust, use it in other tracks.
-or use a comma , '(mark:hoge@3)' = '(mark:hoge,3)'
-
-```
-  a b c (mark:m) a b c (mark:m@2) a b c (mark:m@3)
-```
 
 ## instrument map
 ;; a MIDI Program Change event sets the instrument on a channel.
@@ -349,6 +256,110 @@ Guitar Section
 
 so in this list, instrument number 1,2 and 3 match the keyword 'piano'. 
 So '(p:guitar,2)' selects an instrument line '5 two' as the 2nd result of searching 'guitar' and will be used instead of no word 'guitar' on it.
+
+
+## track
+;; in SMF, MIDI channel is 1 - 16, and drum is in 10 channel. but currently, these are automaticaly set.
+;; you don't need to think about it. simply seperate tracks with a command '|||'.
+
+```
+(p:piano) c d e f ||| (p:organ) e f g a ||| (p:guitar) g a b c
+```
+
+;; for visibility, the same
+
+```
+    (p:piano)  c d e f 
+||| (p:organ)  e f g a
+||| (p:guitar) g a b c
+```
+
+
+currenly track names are not used as default, and tracks continue with apprearing order. so if there are no data in some tracks in mid parts of pages,
+use blank tracks by track seperaters.
+
+```
+    c     ;; track 1
+||| e     ;; track 2
+||| g     ;; track 3
+///////////////////////////////////////
+    abc   ;; track 1
+|||       ;; track 2 , no data but it can't be omitted to adjust track counters after this track.
+||| def   ;; track 3
+``` 
+
+
+;; the same track name, the same MIDI channel and setting.
+
+```
+    (track:foo) (p:organ) aa
+||| (track:foo) bb
+||| (track:hoge) cc
+```
+
+first two tracks are 'organ' sound by the same track names declared.
+
+
+## page
+;; then seperate pages by three or longer one line '/'.
+;; but this command do not adjust time potisions. it simply resets track number increment.
+
+```
+  cdef|||efga|||gabc
+  ////////////////////
+  c2d2e2f2|||e2f2g2a2|||g2a2b2c2
+  ///////////////////
+  c3def|||e3fga|||g3abc
+```
+
+;; the same to below.
+
+```
+cdef c2d2e2f2 c3def ||| efga e2f2g2a2 e3fga ||| gabc g2a2b2c2 g3abc
+```
+
+;; if you want to adjust tracks, use a blank page by two lines of page seperaters. the last three 'c' will be played adjusted instead each preceding note lengths are different.
+
+```
+cd ||| e ||| abcde 
+////////////////////
+////////////////////
+c|||c|||c
+```
+
+## position mark
+;; or use a position mark command.
+
+```
+cd ||| e ||| abcde 
+////////////////////
+    (mark:positionName)  c  ;; track 1
+||| (mark:positionName)  c  ;; track 2
+||| (mark:positionName)  c  ;; track 3
+```
+
+these are played like  this.
+
+```
+    cdrrr c  ;; track 1
+||| errrr c  ;; track 2
+||| abcde c  ;; track 3
+```
+
+;; marks are not needed for all tracks. positions will be adjusted automaticaly to the preceeding track while the same marks exist.
+;; like this, most commands except tempo, a command effects its belonging track only.
+
+
+```
+  [ a b c (mark:m) ] 3
+```
+
+;; same mark names 'm' in repeated section or one track will be automaticaly substituded by 'm m@2 m@3'. to adjust, use it in other tracks.
+or use a comma as a seperater of a name and a counter; '(mark:hoge@3)' = '(mark:hoge,3)'.
+
+```
+  a b c (mark:m) a b c (mark:m@2) a b c (mark:m@3)
+```
 
 ## hex data
 ;; until smml syntax is completed, or other reasons, raw hex parts can be used for deep level data and things you don't know how to inprement by smml data.
@@ -656,6 +667,7 @@ pitch bend 100 of note 'c'.
 ```
 
 '+' relative value. if these are after above, three notes are bend 100 of 'c', bend 200 of 'c' and bend 0 of 'c'.
+bend data is effective permanently until reseted by ```(bend:0)```.
 
 
 ```
