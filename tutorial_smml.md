@@ -154,6 +154,39 @@ c = = = d = = =
 :cmaj7, = = = :G7, = = =
 ```
 
+currently valid names are 
+
+```
+c7
+cm7
+cmaj7
+cmmaj7
+cmaj or c
+cm
+c6
+cm6
+csus4
+caug
+c+
+cdim
+cdim7
+cpower
+```
+
+followed by
+
+```
+(+5)
+(-5)
+(9) or (add9)
+(+9)
+(-9)
+(+11)
+(13)
+(-13)
+```
+
+
 ## tempo
 ;; most commands except note type ones, are inside parenthesis. set the tempo 120 bpm.
 
@@ -205,8 +238,18 @@ strange ways of sharp/flat can be affective currently. ```(+4)a``` , ```(-1.2)a`
 {50,54,58}
 ```
 
+;; use 12 series notation ; :0,:1,:2,:3 ... and :11 as notes c,C,d,D, ... and b.
+
+```
+ [ {47,56,:0,:1} === + ] 4
+```
+
+this multi-tone passage is repeated four times. ```:0``` is 'c' and ```:1``` is '(+)c', so these go to up-octave every passage effected by octave command '+' in the end of it,
+ but other absolute number notes are not affected.
+
+
 ## instrument; program change
-;; drum sound can be used anywhere, but this is not MIDI way. use instrument name.
+;; drum sound can be used anywhere, but this is not MIDI way, use instrument name.
 
 ```
 _snare! = = =
@@ -727,10 +770,12 @@ now, note type commands are :
 
 ```
       c         ;; single note
+      C         ;; c sharp
       (-)d      ;; single note with flat/sharp/natural modifiers
       {64}      ;; single note by absolute note number
       _snare!   ;; drum note by instrument name search keyword 'snare'
       {d,g,-b}  ;; multi note
+      {47,:0}   ;; multi note. second note is by 12 series half tone notation
       :cmaj7,   ;; chord name
       =         ;; copy of the latest note type command
 ```

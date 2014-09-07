@@ -433,6 +433,7 @@ class Notes < Hash
     "u"=>[6,@@rythmChannel]
   }
   @@invert=@@notes.invert
+  12.times{|i|@@notes[":#{i}"]=i}
   @@octave=12
   def initialize
     @@notes.each{|k,v|self[k]=v}
