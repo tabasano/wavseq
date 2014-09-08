@@ -434,6 +434,7 @@ class Notes < Hash
   }
   @@invert=@@notes.invert
   12.times{|i|@@notes[":#{i}"]=i}
+  12.times{|i|@@notes[":-#{i+1}"]=-i-1}
   @@octave=12
   def initialize
     @@notes.each{|k,v|self[k]=v}
@@ -1255,14 +1256,14 @@ module MidiHex
   end
   def self.oneNote len=@tbase,key=@basekey,velocity=@velocity,ch=@ch,sharp=0
     bendStart=@bendNow
-    velocity=@preVelocity.shift if @preVelocity.size>0
-    gate=@gateRate
     ch=[ch,0x0f].min
-    velocity-=rand(@velocityFuzzy) if @velocityFuzzy>0
-    velocity=[velocity,0x7f].min
     key+=sharp
     @key=[[key,0x7f].min,0].max
     return self.thereminNote(len,key,velocity,ch) if @theremin
+    velocity=@preVelocity.shift if @preVelocity.size>0
+    gate=@gateRate
+    velocity-=rand(@velocityFuzzy) if @velocityFuzzy>0
+    velocity=[velocity,0x7f].min
     key=format("%02x",@key)
     ch=format("%01x",ch)
     vel=format("%02x",velocity)
@@ -1331,6 +1332,20 @@ module MidiHex
     vel+=@accentPlus if accent
     self.oneNote(len,key,vel,@rythmChannel,sharp)
   end
+  def self.noteCalc c,last,base
+    n=@notes[c]
+    if @octmode==:near && n.class != Array
+      if last
+        n+=12 if last-n>6
+        n-=12 if last-n<-6
+      end
+      last=n
+      (base+=12;last-=12) if n>=12
+      (base-=12;last+=12) if n<0
+      n=last
+    end
+    [n,last,base]
+  end
   def self.notes c,l=false,accent=false,sharp=0,sharpFloat=false
     if sharpFloat && (sharpFloat!=0)
       s=sharp+sharpFloat
@@ -1339,29 +1354,21 @@ module MidiHex
     end
     bendStart=@bendNow
     @lastnoteName=c
-    n=@notes[c]
-    if @octmode==:near && n.class != Array
-      if @lastnote
-        n+=12 if @lastnote-n>6
-        n-=12 if @lastnote-n<-6
-      end
-      @lastnote=n
-      (@basekey+=12;@lastnote-=12) if n>=12
-      (@basekey-=12;@lastnote+=12) if n<0
-      n=@lastnote
-    end
+    n,@lastnote,@basekey=self.noteCalc(c,@lastnote,@basekey)
     r=[]
     if sharpFloat && sharpFloat!=0
       v=sharpFloat*@bendHalfMax/@bendrange
       v=sharpFloat*100 if @bendCentOn
+      @bendNow=v
       v+=bendStart
       r<<self.bend(0,v) if not @theremin
-      @bendNow=v
       r<<self.notekey(n,l,accent,sharp)
       r<<self.bend(0,bendStart) if not @theremin
       @bendNow=bendStart
     else
       r<<self.notekey(n,l,accent,sharp)
+#      r<<self.bend(0,bendStart)# if bends
+#      @bendNow=bendStart
     end
     r
   end
@@ -1948,18 +1955,23 @@ module MidiHex
     Event.new(:mark,m,@tracknum,@nowtime)
   end
   def self.calcNoteFloat n,sharp,sharpFloat,base
-    @notes[n]+sharp+sharpFloat+base
+    n=@notes[n] if n.class==String
+    n+sharp+sharpFloat+base
   end
-  def self.tneMid now,last,len
+  def self.tneMid now,last,len,transitionrate
     n0,e0,sharp0,sharpFloat0,base0=last
     n,e,sharp,sharpFloat,base=now
     e=e.to_i
     e0=e0.to_i
-    step=10
-    stepN=self.calcNoteFloat(n,sharp,sharpFloat,base)-self.calcNoteFloat(n0,sharp0,sharpFloat0,base0)
+    stepDefault=10
+    step=stepDefault
+    lastv=self.calcNoteFloat(n0,sharp0,sharpFloat0,base0)
+    n,last,base=self.noteCalc(n,@notes[n0],base)
+    stepN=self.calcNoteFloat(n,sharp,sharpFloat,base)-lastv
     stepE=e-e0
     step=1 if stepE==0 && stepN==0
-    transitionl=len/3
+    step=stepN.to_i*3 if stepN>stepDefault/3
+    transitionl=len*transitionrate
     restl=len-transitionl
     stepL=transitionl*1.0/step
     stepE=stepE*1.0/step
@@ -1975,10 +1987,12 @@ module MidiHex
   # time,note,expre
   def self.tne arg,t,accent,sharp,sharpFloat
     exp=@expression
-    ti,n,e=arg.split(',')
-    t=ti.to_f*@tbase if ti.size>0
+    trans,n,e=arg.split(',')
+    trans=trans.to_f
+    trans=0.3 if trans==0
+#    t=ti.to_f*@tbase if ti.size>0
     @nowTne=[n,e,sharp,sharpFloat,@basekey]
-   if @lastTne
+    if @lastTne
       n,e,sharp,sharpFloat,base=@lastTne
     else
       @lastTne=@nowTne
@@ -1987,9 +2001,10 @@ module MidiHex
     r<<Event.new(:comment,"# tne #{arg}")
     r<<self.expre(0,e)
     r<<self.notes(n,0,accent,sharp,sharpFloat)
-    r<<self.tneMid(@nowTne,@lastTne,t)
+    r<<self.tneMid(@nowTne,@lastTne,t,trans)
     r<<self.expre(0,exp)
     @lastTne=@nowTne
+    @lastTne[-1]=@basekey
     r
   end
   def self.eventlist2str elist
