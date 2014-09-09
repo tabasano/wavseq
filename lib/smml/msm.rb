@@ -1999,8 +1999,12 @@ module MidiHex
   def self.tne arg,t,accent,sharp,sharpFloat
     exp=@expression
     trans,n,e=arg.split(',')
+    trans=0.3 if trans.size==0
     trans=trans.to_f
-    trans=0.3 if trans==0
+    if trans>1
+      STDERR.puts "(tne) transition rate must be between 0 and 1."
+      trans=1.0
+    end
     bchange=0
     @nowTne=[n,e,sharp,sharpFloat,@basekey]
     if @lastTne
