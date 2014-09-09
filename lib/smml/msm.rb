@@ -1031,7 +1031,7 @@ end
 module MidiHex
     BendMax=16383
     BendHalf=8192
-  # 設定のため最初に呼ばなければならない
+  # initialize
   def self.prepare bpm=120,tbase=480,vel=0x40,oct=:near,vfuzzy=2,strict=false
     @ready=true
     @bendHalfMax=BendHalf
@@ -1160,6 +1160,7 @@ module MidiHex
     self.bendCentReset
     @lastbend=0
   end
+  # track initialize
   def self.trackPrepare tc=0
     self.getDefault
     @theremin=false
@@ -1191,17 +1192,20 @@ module MidiHex
     "
 # Standard MIDI File data start
 # header
-      4D 54 68 64  # ヘッダ
-      00 00 00 06  # データ長:6[byte]
-      00 #{format} # フォーマット
-      00 #{track}  # トラック数
-      #{tbase}      # 1 拍の分解能 #{@tbase}
+      4D 54 68 64  # header
+      00 00 00 06  # length of data :6[byte]
+      00 #{format} # format
+      00 #{track}  # track number
+      #{tbase}      # tiks; division of a beat #{@tbase}
     "
   end
-  def self.byGate len,g=@gateRate
+  def self.byGate len,g=@gateRate,lenforgate=false
+    lenforgate||=len
     g=@preGate.shift if @preGate.size>0
-    l=(len*1.0*g/100).to_i
+    gl=(lenforgate*1.0*g/100).to_i
+    l=gl+(len-lenforgate)
     r=len-l
+    l,r=len,0 if len<lenforgate
     [l,r]
   end
   def self.soundOn key=@basekey,velocity=@velocity,ch=@ch,sharp=0
@@ -1269,7 +1273,8 @@ module MidiHex
     vel=format("%02x",velocity)
     start=@waitingtime
     @waitingtime=0
-    slen,rest=self.byGate(len,gate)
+    slen,rest=self.byGate(len,gate,@lenForGate)
+    @lenForGate=false
     @nowtime+=start
     r=[]
     r<<Event.new(:e,start," 9#{ch} #{key} #{vel} # #{start} later, sound on note #{@key} velocity #{velocity}\n")
@@ -1823,6 +1828,12 @@ module MidiHex
     end
     @trackName[@tracknum]=n
   end
+  def self.setlenforgate g
+    # set temporary len for gaterate; for internal purpose
+    # (g:70)...f~~           => 70% of 3, gate rest is 30% of 3
+    # (g:70)...(gl:1.0)f~~   => 70% of 1.0, gate rest is 30% of 1.0
+    @lenForGate=g.to_f*@tbase
+  end
   def self.preLength v
     @preLength=v.map{|i|
       case i
@@ -1984,7 +1995,7 @@ module MidiHex
     r<<self.expre(restl,e)
     r
   end
-  # time,note,expre
+  # transition rate, note, expre
   def self.tne arg,t,accent,sharp,sharpFloat
     exp=@expression
     trans,n,e=arg.split(',')
@@ -2172,6 +2183,8 @@ module MidiHex
         @h<<[:basekeyPlus,tr]
       when /^\(tne:(.*)\)/
         wait<<[:tne,$1]
+      when /^\(lg:(.*)\)/
+        @h<<[:call,:setlenforgate,$1]
       when /^\(theremin:(.*)\)/
         if $1=~/off/
           @h<<[:setTheremin,false]

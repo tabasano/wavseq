@@ -794,6 +794,25 @@ ab /:cde/ f
 
 after on command, data is manipulated as bend data inside smml. not completed about modifiers for this.
 
+;; easy way to write smooth expression and note transition
+(experimental; experimental notations may be deleted or hidden to internal purpose only later.)
+
+
+```
+ (tne:0.3,c,127) 3
+```
+
+3 beat lengths of note 'c' with expression level 127 transition time rate 0.3 connected from the last note.
+
+;; length for gate
+(experimental)
+
+```
+(g:70)
+f~~(lg:1.0)f~~f~~
+```
+
+rest of second 'f' is 30% of one beat instead others are 30% of three beats.
 
 ## preprocess
 ;; some pre-process commands.
