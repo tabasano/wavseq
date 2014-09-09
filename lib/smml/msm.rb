@@ -1995,16 +1995,18 @@ module MidiHex
     r<<self.expre(restl,e)
     r
   end
-  # transition rate, note, expre
+  # transition rate, note, expression
   def self.tne arg,t,accent,sharp,sharpFloat
     exp=@expression
     trans,n,e=arg.split(',')
     trans=trans.to_f
     trans=0.3 if trans==0
-#    t=ti.to_f*@tbase if ti.size>0
+    bchange=0
     @nowTne=[n,e,sharp,sharpFloat,@basekey]
     if @lastTne
       n,e,sharp,sharpFloat,base=@lastTne
+      bchange=@basekey-base
+      @basekey=base
     else
       @lastTne=@nowTne
     end
@@ -2015,6 +2017,7 @@ module MidiHex
     r<<self.tneMid(@nowTne,@lastTne,t,trans)
     r<<self.expre(0,exp)
     @lastTne=@nowTne
+    @basekey+=bchange
     @lastTne[-1]=@basekey
     r
   end
