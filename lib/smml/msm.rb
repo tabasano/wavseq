@@ -1146,6 +1146,7 @@ module MidiHex
     @bendrange=[[@bendrange,@bendrangemax].min,0].max
     self.bendCentReset
     r=[]
+    r<<Event.new(:comment,"# bendRange #{@bendrange}")
     r<<self.controlChange("101,0")
     r<<self.controlChange("100,0")
     r<<self.controlChange("6,#{@bendrange}")
@@ -1508,6 +1509,9 @@ module MidiHex
   end
   def self.strokeUpDownReset
     @strokeUpDown=1
+  end
+  def self.setExpressionRest v
+    @expressionRest=v.to_i
   end
   def self.rest len=@tbase,ch=@ch
     chx=format("%01x",ch)
@@ -2200,6 +2204,8 @@ module MidiHex
         wait<<[:tne,$1]
       when /^\(lg:(.*)\)/
         @h<<[:call,:setlenforgate,$1]
+      when /^\(expressionRest:(.*)\)/
+        @h<<[:call,:setExpressionRest,$1]
       when /^\(theremin:(.*)\)/
         if $1=~/off/
           @h<<[:setTheremin,false]
