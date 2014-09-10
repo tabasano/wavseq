@@ -1359,6 +1359,7 @@ module MidiHex
     end
     bendStart=@bendNow
     @lastnoteName=c
+    @basekey=@basekeyCenter+12*(rand(5)-2) if @broken
     n,@lastnote,@basekey=self.noteCalc(c,@lastnote,@basekey)
     r=[]
     if sharpFloat && sharpFloat!=0
@@ -2025,6 +2026,11 @@ module MidiHex
     @lastTne[-1]=@basekey
     r
   end
+  def self.broken v
+    v=~/off/
+    @broken= $& ? false : true
+    @basekeyCenter=@basekey
+  end
   def self.eventlist2str elist
     @eventlist=[]
     r=@eventlist
@@ -2188,6 +2194,8 @@ module MidiHex
         tr=$2.to_i
         tr*=-1 if $1=="-"
         @h<<[:basekeyPlus,tr]
+      when /^\(broken:(.*)\)/
+        @h<<[:call,:broken,$1]
       when /^\(tne:(.*)\)/
         wait<<[:tne,$1]
       when /^\(lg:(.*)\)/
