@@ -2090,10 +2090,18 @@ module MidiHex
         @waitingtime+=arg[0]
       when :setInt
         name,v=arg
-        eval("@#{name}=#{v.to_i}")
+        if name=~/\A[[:alnum:]]+\z/
+          eval("@#{name}=#{v.to_i}")
+        else
+          STDERR.puts "setInt: bad name '#{name}'"
+        end
       when :setFloat
         name,v=arg
-        eval("@#{name}=#{v.to_f}")
+        if name=~/\A[[:alnum:]]+\z/
+          eval("@#{name}=#{v.to_f}")
+        else
+          STDERR.puts "setFloat: bad name '#{name}'"
+        end
       when :call
         cmd,*arg=arg
         method(cmd).call(*arg)
