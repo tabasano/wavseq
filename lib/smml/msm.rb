@@ -261,7 +261,7 @@ module MmlReg
   @@h[:note?]="[BE]"
   @@h[:dummyNote]="o"
   @@h[:randNote]="\\?"
-  @@h[:sound]="_[^!]+!|=|~"
+  @@h[:sound]="_[^!]+!|=|~|w"
   @@h[:sound?]="[[:alpha:]]"
   @@h[:DCmark?]="\\.[[:alpha:]]+"
   @@h[:tempo]="[><][[:digit:]]*"
@@ -612,20 +612,20 @@ def mymerge span,*arg
   r=[]
   arg.each{|ar|
     next if ! ar
-    m,steps,vs=ar
+    m,steps,start,vs=ar
     steps=[steps] if steps.class!=Array
     steps=steps*(vs.size-1) if steps.size==1
-    r<<[0,m,vs[0]]
+    r<<[start,m,vs[0]]
     if vs.size>1
-      stepsum=steps.inject{|s,i|s+i}
+      stepsum=steps.inject{|s,i|s+i}+start
       vsize=vs.size-1
       if stepsum>span
-        rate=span*1.0/stepsum
+        rate=(span-start)*1.0/stepsum
         steps=steps.map{|i|(i*rate).to_i}
       end
       n=1
       r+=vs[1..-1].map{|i|
-        t=steps.shift*n
+        t=steps.shift*n+start
         n+=1
         [t,m,i]
       }
@@ -830,19 +830,23 @@ def revertPre d
     gsub(/_e__([^?]*)\?/){"(expre:#{$1.split("_")*","})"}
 end
 def worddata word,d
-  d=~/\(#{word}:(([[:digit:].]+),)?([-+,.[:digit:]]+|[[:alpha:]]+)\)/
+  d=~/\(#{word}:(([[:digit:].]+),)?([-+,.[:alnum:]]+|[[:alpha:]]+)\)/
   if $&
+    start=0
     vi=self.bendVibrato
-    vp,vm="+#{vi}","-#{vi}"
+    vp,vm="+#{vi}","+-#{vi}"
     pos=$1 ? $2.to_i : 0
     depth=$3.split(',').map{|i|
       case i
       when "+","-" ; i
+      when /\Astart([[:digit:].]+)\z/
+        start=$1.to_i
+        false
       when "vibrato" ; [vp,vm,vp,vm]
       else         ; i
       end
-    }.flatten
-    [:"#{word}",pos,depth]
+    }.flatten-[false]
+    [:"#{word}",pos,start,depth]
   else
     false
   end
@@ -1163,7 +1167,9 @@ module MidiHex
     @bendCent=@bendHalfMax/@bendrange/cent
   end
   def self.bendVibrato
-    0.5*@bendCent
+    @vibratoRate||=0.4
+    v=@vibratoRate*@bendCent
+    v.to_i
   end
   def self.bendCent on
     @bendCentOn=on
@@ -1726,6 +1732,7 @@ module MidiHex
     @programList.map{|i,v|"#{i} #{v}"}
   end
   def self.bend pos,depth,ch=false
+    @lastbend||=0
     ch=@ch if ! ch
     depth.to_s=~/([+-]*)/
     sign=$1
@@ -2081,6 +2088,12 @@ module MidiHex
         @ch=arg[0]
       when :waitingtime
         @waitingtime+=arg[0]
+      when :setInt
+        name,v=arg
+        eval("@#{name}=#{v.to_i}")
+      when :setFloat
+        name,v=arg
+        eval("@#{name}=#{v.to_f}")
       when :call
         cmd,*arg=arg
         method(cmd).call(*arg)
@@ -2265,6 +2278,15 @@ module MidiHex
         @h<<[:call,:preBefore,s]
       when /^\(roll:(.*)\)/
         @shiftbase=$1.to_i
+      when /^\(vibrato:(.*)\)/
+        v=$1
+        @h<<[:setFloat,:vibratoRate,v]
+      when /^\(setFloat:(.*)\)/
+        name,v=$1.split(",")
+        @h<<[:setFloat,name,v]
+      when /^\(setInt:(.*)\)/
+        name,v=$1.split(",")
+        @h<<[:setInt,name,v]
       when /^\(oct(ave)?:(.*)\)/
         oct=($2.to_i+2)*12
         @h<<[:call,:basekeySet,oct]
@@ -2282,8 +2304,8 @@ module MidiHex
         @h<<[:ProgramChange,channel,instrument]
       when /^\(bend:(([[:digit:]]+),)?([-+,.[:digit:]]+)\)|^_b__([^?]+)\?/
         i="(bend:#{$4.gsub('_'){','}})" if $4
-        x,pos,b=worddata("bend",i)
-        npos=0
+        x,pos,start,b=worddata("bend",i)
+        npos=start
         b.each{|depth|
           @h<<[:bend,npos,depth]
           npos=pos
@@ -2752,8 +2774,16 @@ end
 def tie d,tbase
   res=[]
   # if no length word after '~' length is 1
-  d.gsub!(/~([^*[:digit:]])?/){$1 ? "~1#{$1}" : $&} while d=~/~[^*[:digit:]]/
-  li=d.scan(MmlReg::RwAll)
+  li=[]
+  li0=d.scan(MmlReg::RwAll)
+  li0.size.times{|i|
+    li<<li0[i]
+    case li0[i]
+    when "~","w"
+      li<<"1" if li0[i+1] !~ /^(\*)?[[:digit:]]/
+    else
+    end
+  }
   li.each{|i|
     case i
     when /^(\*)?([[:digit:].]+)/
@@ -2766,8 +2796,10 @@ def tie d,tbase
     when "~"
       res<<[:tick,tbase] if res[-1][0]==:e
     when "w"
+      lasttick=0
+      lasttick=res[-1][1] if res[-1][0]==:tick
       res<<[:tick,tbase] if res[-1][0]==:e
-      d=innerdata("b",["100_vibrato"])
+      d=innerdata("b",["100_start#{lasttick}_vibrato"])
       res.insert(-3,[:modifier,"(A:#{d})"])
     when /^\([VGABLN]:[^)]+/
       res<<[:modifier,i]

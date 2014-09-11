@@ -814,6 +814,14 @@ f~~(lg:1.0)f~~f~~
 
 rest of second 'f' is 30% of one beat instead others are 30% of three beats.
 
+;; vibrato
+
+```
+ f~~ww~~
+```
+
+note f then vibrato. bend or expression, under construction.
+
 ;; _REPEAT_ variable
 
 ```
