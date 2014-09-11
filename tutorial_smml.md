@@ -814,6 +814,19 @@ f~~(lg:1.0)f~~f~~
 
 rest of second 'f' is 30% of one beat instead others are 30% of three beats.
 
+;; _repeat_ 
+
+```
+ [ a_repeat_ ] 3  ;; =>  a1 a2 a3
+```
+
+;; broken mode
+as if uncontrolled
+
+```
+ (broken:on) (broken:off) 
+```
+
 ## preprocess
 ;; some pre-process commands.
 set it in the top of file.

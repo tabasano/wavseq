@@ -189,7 +189,7 @@ module MmlReg
     self.r(key,sort,pre)
   end
   def self.trackr
-    self.r([:hexraw,:sharp,:chord,:word,:sound,:modifier,:velocity,:tempo,:num,:octave,:note,:mod,:note?,:sound?])
+    self.r([:hexraw,:sharp,:chord,:word,:sound,:modifier,:velocity,:tempo,:num,:octave,:note2,:note,:mod,:note?,:sound?])
   end
   def self.multipletr
     self.r([:note2,:word,:note,:sound,:chord,:num,:sharp,:octave,:mod])
@@ -250,7 +250,7 @@ module MmlReg
   ]
   @@h[:repmark]="\\.FINE|\\.DS|\\.DC|\\.\\$|\\.toCODA|\\.CODA|\\.SKIP"
   @@h[:comment]="\\( *comment[^\(\)]*\\)"
-  @@h[:note2]="\\( *tne *:[^\(\)]*\\)"
+  @@h[:note2]="\\( *tne *:[^\(\)]*\\)|\\( *[[:alpha:]\\-\\+]+,[^,]*\\)"
   @@h[:word]="\\([^\(\):]*:[^\(\)]*\\)"
   @@h[:wordStart]="\\([^\(\):]*:"
   @@h[:sharp]="\\([+-]*[[:digit:]\\.]*\\)"
@@ -1246,6 +1246,7 @@ module MidiHex
   end
   def self.thereminNote pos,key,velocity,ch,exp=@expression
     r=[]
+    r<<Event.new(:comment,"# use theremin")
     @expression=exp
     if @expression
       r<<self.expre(0,@expression)
@@ -2000,6 +2001,15 @@ module MidiHex
     r<<self.expre(restl,e)
     r
   end
+  def self.noteExpression arg,t,accent,sharp,sharpFloat
+    lexpression=@expression
+    n,e=arg.split(',')
+    r=[]
+    r<<self.expre(0,e)
+    r<<self.notes(n,t,accent,sharp,sharpFloat)
+    r<<self.expre(0,lexpression)
+    r
+  end
   # transition rate, note, expression
   def self.tne arg,t,accent,sharp,sharpFloat
     exp=@expression
@@ -2157,6 +2167,8 @@ module MidiHex
             @h<<[:percussionNote,*arg]
           when :rawsound
             @h<<[:byKey,*arg]
+          when :noteExpression
+            @h<<[:noteExpression,*arg2]
           when :tne
             @h<<[:tne,*arg2]
           when :sound
@@ -2202,6 +2214,9 @@ module MidiHex
         @h<<[:call,:broken,$1]
       when /^\(tne:(.*)\)/
         wait<<[:tne,$1]
+      when /^\(([[:alpha:]\-\+]+),([^,]*)\)/
+        v="#{$1},#{$2}"
+        wait<<[:noteExpression,v]
       when /^\(lg:(.*)\)/
         @h<<[:call,:setlenforgate,$1]
       when /^\(expressionRest:(.*)\)/
@@ -2593,7 +2608,7 @@ def multiplet d,tbase
     when /^[-+]+[[:digit:]]*/,/^[\^`',<>]/,/^\([-+]*[[:digit:]]?\)/
       mod<<i
     # note
-    when /^\((\?|x|C|chord|tne):[^\)]+\)|^\^?:[^,]+,|^=/
+    when /^\((\?|x|C|chord|tne):[^\)]+\)|^\^?:[^,]+,|^=|\([[:alpha:]\\-\\+]+,[^,]*\)/
       lengths<<1
       notes<<"#{mod*""}#{i}"
       mod=[]
@@ -2778,7 +2793,14 @@ end
 # '(:..)' => '(lastcmd:..)'
 def repCalc line,macro,tbase
   rpt=/\[([^\[\]]*)\] *([[:digit:]]+)/
-  line.gsub!(rpt){$1*$2.to_i} while line=~rpt
+  line.gsub!(rpt){
+    data,rep=$1,$2.to_i
+    r=""
+    rep.times{|i|
+      r<<data.gsub(/_repeat_([-\*\+[:digit:]]*)/){eval("#{i+1}#{$1}")}
+    }
+    r
+  } while line=~rpt
   chord=/([^$]|^)\{([^\{\}]*)\}/
   line.gsub!(chord){"#{$1}(C:#{$2})"} while line=~chord
   line=line.scan(/(\.\$)|(\$([[:alnum:]]+)\(([^\)]+)\))|(.)/).map{|a,b,bname,barg,c|
