@@ -251,7 +251,7 @@ module MmlReg
   @@h[:repmark]="\\.FINE|\\.DS|\\.DC|\\.\\$|\\.toCODA|\\.CODA|\\.SKIP"
   @@h[:comment]="\\( *comment[^\(\)]*\\)"
   @@h[:note2]="\\( *tne *:[^\(\)]*\\)|\\( *[[:alpha:]\\-\\+]+,[^,]*\\)"
-  @@h[:word]="\\([^\(\):]*:[^\(\)]*\\)"
+  @@h[:word]="\\([^\(\):,]*:[^\(\)]*\\)"
   @@h[:wordStart]="\\([^\(\):]*:"
   @@h[:sharp]="\\([+-]*[[:digit:]\\.]*\\)"
   @@h[:word?]="\\([^\(\)]*\\)"
@@ -800,6 +800,9 @@ def apply d,macro
     end
   }*""
 end
+def innerdata pre,a
+  "_#{pre}__#{a*"_"}?"
+end
 def rawHexPart d,macro={}
   li=d.scan(/\$se\([^)]*\)|\$delta\([^)]*\)|\$bend\([^)]*\)|\(bend:[^)]*\)|\(expression:[^)]*\)|\(expre:[^)]*\)|./)
   res=[]
@@ -814,9 +817,9 @@ def rawHexPart d,macro={}
       d=apply($1,macro)
       bendHex(d)
     when /\(bend:([^)]*)\)/
-      "_b__#{$1.split(',')*"_"}?"
+      innerdata("b",$1.split(','))
     when /\(expre(ssion)?:([^)]*)\)/
-      "_e__#{$2.split(',')*"_"}?"
+      innerdata("e",$1.split(','))
     else
       i
     end
@@ -827,15 +830,18 @@ def revertPre d
     gsub(/_e__([^?]*)\?/){"(expre:#{$1.split("_")*","})"}
 end
 def worddata word,d
-  d=~/\(#{word}:(([[:digit:].]+),)?([-+,.[:digit:]]+)\)/
+  d=~/\(#{word}:(([[:digit:].]+),)?([-+,.[:digit:]]+|[[:alpha:]]+)\)/
   if $&
+    vi=self.bendVibrato
+    vp,vm="+#{vi}","-#{vi}"
     pos=$1 ? $2.to_i : 0
     depth=$3.split(',').map{|i|
       case i
       when "+","-" ; i
+      when "vibrato" ; [vp,vm,vp,vm]
       else         ; i
       end
-    }
+    }.flatten
     [:"#{word}",pos,depth]
   else
     false
@@ -1155,6 +1161,9 @@ module MidiHex
   def self.bendCentReset
     cent= @bendCentOn ? 100.0 : 1
     @bendCent=@bendHalfMax/@bendrange/cent
+  end
+  def self.bendVibrato
+    0.5*@bendCent
   end
   def self.bendCent on
     @bendCentOn=on
@@ -1731,9 +1740,11 @@ module MidiHex
     else
       STDERR.puts "bend: ?"
     end
-    depth=@lastbend+depth if plus
-    @lastbend=depth
     depth=(depth*@bendCent).to_i if @bendCentOn
+    if plus
+      depth=@lastbend+depth
+    end
+    @lastbend=depth
     pos+=@waitingtime
     @waitingtime=0
     @nowtime+=pos
@@ -2616,7 +2627,7 @@ def multiplet d,tbase
     when /^[[:digit:]]+/
       lengths[-1]*=i.to_f
     when " "
-    when /^\([^\)]*\)/
+    when /^\([^\(\):,]*:.*\)/
       mod<<i
     else
       lengths<<1
@@ -2754,6 +2765,10 @@ def tie d,tbase
       end
     when "~"
       res<<[:tick,tbase] if res[-1][0]==:e
+    when "w"
+      res<<[:tick,tbase] if res[-1][0]==:e
+      d=innerdata("b",["100_vibrato"])
+      res.insert(-3,[:modifier,"(A:#{d})"])
     when /^\([VGABLN]:[^)]+/
       res<<[:modifier,i]
     else
@@ -2797,7 +2812,7 @@ def repCalc line,macro,tbase
     data,rep=$1,$2.to_i
     r=""
     rep.times{|i|
-      r<<data.gsub(/_repeat_([-\*\+[:digit:]]*)/){eval("#{i+1}#{$1}")}
+      r<<data.gsub(/_REPEAT_([-\*\+[:digit:]]*)/){eval("#{i+1}#{$1}")}
     }
     r
   } while line=~rpt

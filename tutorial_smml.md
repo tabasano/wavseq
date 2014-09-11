@@ -814,10 +814,10 @@ f~~(lg:1.0)f~~f~~
 
 rest of second 'f' is 30% of one beat instead others are 30% of three beats.
 
-;; _repeat_ 
+;; _REPEAT_ variable
 
 ```
- [ a_repeat_ ] 3  ;; =>  a1 a2 a3
+ [ a _REPEAT_ ] 3  ;; =>  a1 a2 a3
 ```
 
 ;; broken mode
