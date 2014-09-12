@@ -825,16 +825,22 @@ def rawHexPart d,macro={}
     end
   }*""
 end
-def revertPre d
-  d.gsub(/_b__([^?]*)\?/){"(bend:#{$1.split("_")*","})"}.
-    gsub(/_e__([^?]*)\?/){"(expre:#{$1.split("_")*","})"}
-end
 def worddata word,d
   d=~/\(#{word}:(([[:digit:].]+),)?([-+,.[:alnum:]]+|[[:alpha:]]+)\)/
   if $&
     start=0
-    vi=self.bendVibrato
-    vp,vm="+#{vi}","+-#{vi}"
+    vp,vm=0,0
+    case word
+    when "bend"
+      vi=self.bendVibrato
+      vp,vm="+#{vi}","+-#{vi}"
+    when "expre"
+      vi=self.expreVibrato
+      vp,vm="+-#{vi}","+#{vi}"
+    when "panpot"
+      vi=self.panpotVibrato
+      vp,vm="+-#{vi}","+#{vi}"
+    end
     pos=$1 ? $2.to_i : 0
     depth=$3.split(',').map{|i|
       case i
@@ -1166,9 +1172,32 @@ module MidiHex
     cent= @bendCentOn ? 100.0 : 1
     @bendCent=@bendHalfMax/@bendrange/cent
   end
+  def self.vibratoMode m
+    @vibratoMode=
+       case m
+       when /^expre/
+         "expre"
+       when /^bend/
+         "bend"
+       when /^pan/
+         "panpot"
+       else
+         "bend"
+       end
+  end
   def self.bendVibrato
     @vibratoRate||=0.4
     v=@vibratoRate*@bendCent
+    v.to_i
+  end
+  def self.expreVibrato
+    @vibratoRate||=0.1
+    v=@vibratoRate*@expression
+    v.to_i
+  end
+  def self.panpotVibrato
+    @vibratoRate||=0.5
+    v=@vibratoRate*0x7f
     v.to_i
   end
   def self.bendCent on
@@ -1300,12 +1329,15 @@ module MidiHex
     if b
       bends=worddata("bend",b)
       expre=worddata("expre",b)
-      mymerge(slen,bends,expre).each{|t,m,d|
+      panpot=worddata("panpot",b)
+      mymerge(slen,bends,expre,panpot).each{|t,m,d|
         case m
         when :bend
           r<<self.bend(t,d)
         when :expre
           r<<self.expre(t,d)
+        when :panpot
+          r<<self.panpot(d,t)
         when :rest
           slen=t
         end
@@ -1611,13 +1643,40 @@ module MidiHex
     @nowtime+=t
     Event.new(:e,t," B#{ch} #{n} #{data}\n")
   end
+  def self.panpot v,pos=0
+    @pan||=@panoftrack
+    @pan=self.valueplus(@pan,v)
+    self.controlChange("10,#{@pan},#{pos}")
+  end
+  def self.valueplus org,d
+    d=d.to_s
+    d=~/([+-]*)/
+    sign=$1
+    plus=false
+    case sign
+    when /^\+/
+      d=d[1..-1].to_i
+      plus=true
+    when /^-/,""
+      d=d.to_i
+    else
+      STDERR.puts "plus: ?"
+    end
+    if plus
+      org+=d
+    else
+      org=d
+    end
+    org
+  end
   def self.expre len,d
     c=@expression
     explus=10
     case d
     when "+" ; c+=explus
     when "-" ; c-=explus
-    else     ; c=d.to_i
+    else
+      c=self.valueplus(c,d)
     end
     c=midiVround(c)
     @expression=c
@@ -1906,6 +1965,13 @@ module MidiHex
       end
     }
   end
+  def self.revertPre d
+    mode=@vibratoMode
+    d.gsub(/_b__([^?]*)\?/){"(bend:#{$1.split("_")*","})"}.
+      gsub(/_e__([^?]*)\?/){"(expre:#{$1.split("_")*","})"}.
+      gsub(/_p__([^?]*)\?/){"(panpot:#{$1.split("_")*","})"}.
+      gsub(/_m__([^?]*)\?/){"(#{mode}:#{$1.split("_")*","})"}
+  end
   def self.preAfter v
     @preAfter=v.map{|i|
       case i
@@ -2067,6 +2133,8 @@ module MidiHex
     v=~/\A[[:alnum:]]+\z/
     if $&
       puts "@#{v} #{eval("@#{v}")}"
+    elsif v=="?"
+      puts self.instance_variables.map{|i|i.to_s[1..-1]}.sort
     else
       puts "bad name '#{v}'"
     end
@@ -2078,7 +2146,7 @@ module MidiHex
     elist.each{|h|
       cmd,*arg=h
       e=Event.new(:comment,"# #{cmd} #{arg}")
-      r<<Event.new(:raw,self.metaText("#{cmd} #{arg}")) if $DEBUG && $debuglevel>5
+      r<<Event.new(:raw,self.metaText("#{cmd} #{arg}").data) if $debuglevel>5
       r<<e
       case cmd
       when :comment
@@ -2098,14 +2166,14 @@ module MidiHex
         @waitingtime+=arg[0]
       when :setInt
         name,v=arg
-        if name=~/\A[[:alnum:]]+\z/
+        if name.to_s=~/\A[[:alnum:]]+\z/
           eval("@#{name}=#{v.to_i}")
         else
           STDERR.puts "setInt: bad name '#{name}'"
         end
       when :setFloat
         name,v=arg
-        if name=~/\A[[:alnum:]]+\z/
+        if name.to_s=~/\A[[:alnum:]]+\z/
           eval("@#{name}=#{v.to_f}")
         else
           STDERR.puts "setFloat: bad name '#{name}'"
@@ -2175,7 +2243,7 @@ module MidiHex
     accent=false
     sharp=0
     sharpFloat=0
-    @h<<[:controlChange,"10,#{@panoftrack}"] if @autopan
+    @h<<[:panpot,@panoftrack] if @autopan
     cmd=mmldata.scan(/#{MmlReg.trackr}|./)
     cmd<<" " # dummy
     p "track hex; start making: ",cmd if $DEBUG
@@ -2294,6 +2362,8 @@ module MidiHex
         @h<<[:call,:preBefore,s]
       when /^\(roll:(.*)\)/
         @shiftbase=$1.to_i
+      when /^\(vibratoMode:(.*)\)/
+        @h<<[:call,:vibratoMode,$1]
       when /^\(vibrato:(.*)\)/
         v=$1
         @h<<[:setFloat,:vibratoRate,v]
@@ -2385,12 +2455,12 @@ module MidiHex
         pan=$2.to_i
         case $1
         when ">"
-          pan+=64
+          pan=64+pan
         when "<"
-          pan-=64
+          pan=64-pan
         else
         end
-        @h<<[:controlChange,"10,#{pan}"]
+        @h<<[:panpot,pan]
       when /^\(wait:(\*)?(.*)\)/
         @h<<[:waitingtime,$1? $2.to_i : $2.to_f*@tbase]
       when /^\(accent:([^)]*)\)/
@@ -2817,7 +2887,8 @@ def tie d,tbase
       lasttick=0
       lasttick=res[-1][1] if res[-1][0]==:tick
       res<<[:tick,tbase] if res[-1][0]==:e
-      d=innerdata("b",["100_start#{lasttick}_vibrato"])
+      m="m"
+      d=innerdata(m,["100_start#{lasttick}_vibrato"])
       res.insert(-3,[:modifier,"(A:#{d})"])
     when /^\([VGABLN]:[^)]+/
       res<<[:modifier,i]
