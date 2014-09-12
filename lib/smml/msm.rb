@@ -2063,6 +2063,14 @@ module MidiHex
     @broken= $& ? false : true
     @basekeyCenter=@basekey
   end
+  def self.dumpVar v
+    v=~/\A[[:alnum:]]+\z/
+    if $&
+      puts "@#{v} #{eval("@#{v}")}"
+    else
+      puts "bad name '#{v}'"
+    end
+  end
   def self.eventlist2str elist
     @eventlist=[]
     r=@eventlist
@@ -2295,6 +2303,8 @@ module MidiHex
       when /^\(setInt:(.*)\)/
         name,v=$1.split(",")
         @h<<[:setInt,name,v]
+      when /^\(dumpVar:(.*)\)/
+        @h<<[:call,:dumpVar,$1]
       when /^\(oct(ave)?:(.*)\)/
         oct=($2.to_i+2)*12
         @h<<[:call,:basekeySet,oct]

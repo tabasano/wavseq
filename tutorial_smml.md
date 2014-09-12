@@ -873,3 +873,14 @@ text implement to MIDI file.
 
 but now blanks are removed. someday maybe fixed ?
 
+
+## test, debug etc.
+
+```
+  (setInt: varName,10)
+  (setFloat: varName,10.1)
+  (dumpVar: varName)
+```
+
+directly set local MidiHex variable, dump while compiling if the varName and value are valid.
+
