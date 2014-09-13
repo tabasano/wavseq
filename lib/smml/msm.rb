@@ -203,6 +203,7 @@ module MmlReg
   @@h={} # mml regex key hash. order is in @@keys
   @@keys=[
     :comment,
+    :keyword,
     :macrodefAStart,
     :macrodefA,
     :macrodefStart,
@@ -277,11 +278,12 @@ module MmlReg
   @@h[:num]="[-+*]?[[:digit:]]+\\.[[:digit:]]+|[-+*]?[[:digit:]]+"
   @@h[:hexraw]="&\\([^()]*\\)"
   @@h[:hexrawStart]="&\\("
+  @@h[:keyword]="macro +"
   @@h[:macroA]="\\$\\{[^}]+\\}\\[[^\\]]+\\]|\\$[^}\\$\\{\\(\\)]+\\[[^\\]]+\\]"
   @@h[:macro]="\\$[[:alnum:]]+\\([^)]*\\)|\\$[[:alnum:]]+|\\$\\{[^}]+\\}"
-  @@h[:macrodefAStart]="[[:alnum:]]+\\([,[:alpha:]]+\\):= *\\( *[;\\z]"
+  @@h[:macrodefAStart]="[[:alnum:]]+\\([,[:alpha:]]+\\):= *\\( *[;]"
   @@h[:macrodefA]=     "[[:alnum:]]+\\([,[:alpha:]]+\\):= *[^\\(;\\n][^;\\n]*"
-  @@h[:macrodefStart]="[[:alnum:]]+:= *\\( *[;\\z]"
+  @@h[:macrodefStart]="[[:alnum:]]+:= *\\( *[;]"
   @@h[:macrodef]=     "[[:alnum:]]+:= *[^\\(;\\n][^;\\n]+"
   @@h[:blank]="[[:blank:]]+"
   @@h[:valueSep]=","
@@ -325,7 +327,7 @@ module MmlReg
     /#{r}|./
   end
   def self.blanks
-    [:comment,:blank,:lineSep]
+    [:comment,:blank,:lineSep,:keyword]
   end
 end
 

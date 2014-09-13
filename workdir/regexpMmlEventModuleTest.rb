@@ -171,10 +171,11 @@ class MmlString < String
     tmp=[]
     name=""
     num=1
-    rr=/\n|macro +|#{MmlReg::MacroDef}| *\) *|[^;\n]+|./
+    rstr=MmlReg.macroDefr
+    s=self.scan(/\n|macro +|#{rstr}| *\) *|[^;\n|]+|./)
     macDefStart=MmlReg.r([:macrodefAStart,:macrodefStart])
     macDef=MmlReg.r([:macrodefA,:macrodef])
-    s=self.scan(rr)
+    macDefStart="[[:alnum:]]+\\([,[:alpha:]]+\\):= *\\( *|[[:alnum:]]+:= *\\( *"
     p s if $DEBUG
     data=s.map{|i|
       case i
@@ -389,6 +390,7 @@ end
 
 s=MmlString.new(s)
 s=s.gsub(/\n/m){" ; "}.gsub(";;"){"##"}.split(" ; ").map{|i|i.trim("##") }.join("\n").to_mstr
+p [:r,MmlReg::RwAll] if $DEBUG
 p s
 # m=s.mmlscan
 # p m*" ;; "
