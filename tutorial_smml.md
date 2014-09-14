@@ -817,10 +817,11 @@ rest of second 'f' is 30% of one beat instead others are 30% of three beats.
 ;; vibrato
 
 ```
+ (vibratoType:bend)
  f~~ww~~
 ```
 
-note f then vibrato. bend or expression, under construction.
+note f then vibrato. bend, panpot or expression, under construction.
 
 ;; _REPEAT_ variable
 

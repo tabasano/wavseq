@@ -1174,8 +1174,8 @@ module MidiHex
     cent= @bendCentOn ? 100.0 : 1
     @bendCent=@bendHalfMax/@bendrange/cent
   end
-  def self.vibratoMode m
-    @vibratoMode=
+  def self.vibratoType m
+    @vibratoType=
        case m
        when /^expre/
          "expre"
@@ -1980,7 +1980,7 @@ module MidiHex
     }
   end
   def self.revertPre d
-    mode=@vibratoMode
+    mode=@vibratoType
     d.gsub(/_b__([^?]*)\?/){"(bend:#{$1.split("_")*","})"}.
       gsub(/_e__([^?]*)\?/){"(expre:#{$1.split("_")*","})"}.
       gsub(/_p__([^?]*)\?/){"(panpot:#{$1.split("_")*","})"}.
@@ -2384,8 +2384,8 @@ module MidiHex
         @h<<[:call,:preBefore,s]
       when /^\(roll:(.*)\)/
         @shiftbase=$1.to_i
-      when /^\(vibratoMode:(.*)\)/
-        @h<<[:call,:vibratoMode,$1]
+      when /^\(vibratoType:(.*)\)/
+        @h<<[:call,:vibratoType,$1]
       when /^\(vibrato:(.*)\)/
         v=$1
         @h<<[:setFloat,:vibratoRate,v]
