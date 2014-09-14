@@ -1210,6 +1210,7 @@ module MidiHex
   # track initialize
   def self.trackPrepare tc=0
     self.getDefault
+    @basekeybend=0
     @theremin=false
     @strokespeed=0
     @strokeUpDown=1
@@ -1402,6 +1403,13 @@ module MidiHex
     end
     [n,last,base]
   end
+  def self.float2bend f
+    v=f*@bendHalfMax/@bendrange
+    if @bendCentOn
+      v=f*100 
+    end
+    v
+  end
   def self.notes c,l=false,accent=false,sharp=0,sharpFloat=false
     if sharpFloat && (sharpFloat!=0)
       s=sharp+sharpFloat
@@ -1414,8 +1422,7 @@ module MidiHex
     n,@lastnote,@basekey=self.noteCalc(c,@lastnote,@basekey)
     r=[]
     if sharpFloat && sharpFloat!=0
-      v=sharpFloat*@bendHalfMax/@bendrange
-      v=sharpFloat*100 if @bendCentOn
+      v=float2bend(sharpFloat)
       @bendNow=v
       v+=bendStart
       r<<self.bend(0,v) if not @theremin
@@ -1813,6 +1820,7 @@ module MidiHex
       depth=@lastbend+depth
     end
     @lastbend=depth
+    depth+=@basekeybend
     pos+=@waitingtime
     @waitingtime=0
     @nowtime+=pos
@@ -1867,6 +1875,10 @@ module MidiHex
     else
       @basekey=d
     end
+  end
+  def self.basekeyReset
+    self.basekeySet(@basekeyOrg)
+    @basekeybend=0
   end
   def self.chordCenter c
     case c
@@ -2141,6 +2153,11 @@ module MidiHex
       puts "bad name '#{v}'"
     end
   end
+  def self.key2bend k
+    v=k.class==Float ? @bendCent*(k-k.to_i) : 0
+    v*=100 if @bendCentOn
+    v
+  end
   def self.eventlist2str elist
     @eventlist=[]
     r=@eventlist
@@ -2153,7 +2170,8 @@ module MidiHex
       case cmd
       when :comment
       when :basekeyPlus
-        @basekey+=arg[0]
+        @basekey+=arg[0].to_i
+        @basekeybend+=self.key2bend(arg[0])
       when :raw
         r<<Event.new(:raw,arg[0])
       when :ahead
@@ -2316,8 +2334,10 @@ module MidiHex
         plus=s1 ? s1[0..0] : "+"
         sharpFloat*=-1 if plus=="-"
         sharp="#{plus}#{n}".to_i
-      when /^\(key:(-?)\+?([[:digit:]]+)\)/
-        tr=$2.to_i
+      when /^\(key:(-?)\+?([[:digit:].]+)\)/
+        num=$2
+        tr=num.to_i
+        tr=num.to_f if num=~/\./
         tr*=-1 if $1=="-"
         @h<<[:basekeyPlus,tr]
       when /^\(broken:(.*)\)/
@@ -2381,7 +2401,7 @@ module MidiHex
         oct=($2.to_i+2)*12
         @h<<[:call,:basekeySet,oct]
       when /^\(key:reset\)/
-        @h<<[:call,:basekeySet,@basekeyOrg]
+        @h<<[:call,:basekeyReset]
       when /^\(p:(([[:digit:]]+),)?(([[:digit:]]+)|([\?[:alnum:]]+)(,([[:digit:]]))?)\)/
         channel=$1 ? $2.to_i : false
         subNo=false

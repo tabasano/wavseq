@@ -1,5 +1,9 @@
 require'pp'
 require 'smml'
+require 'optparse'
+opt = OptionParser.new
+opt.on('-s',"silent") {|v| $silent=true }
+opt.parse!(ARGV)
 
 # valid words check only. not valid sequence check.
 s="(gm:on)rrBo?;m(x):=tes$xtes2 ; a*321s;;comment 1 ; macro MU:=( ; test ; test2 ; ) ;
@@ -560,27 +564,29 @@ resTrue=[[:macrodefStart, "m(x)"],
  [:cmdValSep, ":"],
  [:sound, "="],
  [:parenStart, "("]]
- if d!=resTrue
+ if (d-resTrue).size>0
    puts "warning: regexp changed? =>"
-   pp d-resTrue
+   pp d-resTrue,resTrue-d
  end
 end
 
 s=MmlString.new(s)
 s=s.gsub(/\n/m){" ; "}.gsub(";;"){"##"}.split(" ; ").map{|i|i.trim("##") }.join("\n").to_mstr
 p [:r,MmlReg::RwAll] if $DEBUG
-p s
+p s if not $silent
 # m=s.mmlscan
 # p m*" ;; "
 sEvent=s.mmlEvents
-pp sEvent
+pp sEvent if not $silent
 puts
 n=s.nilEvents
-if n.size>0
-  p n
-  puts " syntax warning."
-else
-  puts " seems to be no bad word."
+if not $silent
+  if n.size>0
+    p n
+    puts " syntax warning."
+  else
+    puts " seems to be no bad word."
+  end
 end
 test = ($DEBUG || ARGV.size==0)
 if test
