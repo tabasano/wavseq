@@ -782,7 +782,7 @@ now, note type commands are :
 
   and other commands are with parentheses.
 
-```'~'``` seems likely note type, but it is compressed to preceding note as calculated note length. most commands cannot be set inside of ```'c~~~'.```
+```~``` or ```w``` seems likely note type, but it is compressed to preceding note as calculated note length. most commands cannot be set inside of ```'c~~~'.```
 
 ;; theremin like sound,
 

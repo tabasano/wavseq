@@ -185,14 +185,17 @@ module MmlReg
     puts "Regex part,arg bug",[key-@@keys]
     raise
   end
+  def self.rr key, sort=true, pre=""
+    /#{self.r(key,sort,pre)}/
+  end
   def self.rPlusPre key, pre, sort=true
     self.r(key,sort,pre)
   end
   def self.trackr
-    self.r([:hexraw,:sharp,:chord,:word,:sound,:modifier,:velocity,:tempo,:num,:octave,:note2,:note,:mod,:note?,:sound?])
+    self.r([:hexraw,:sharp,:chord,:word,:sound,:tieNote,:register,:modifier,:velocity,:tempo,:num,:octave,:note2,:note,:mod,:note?,:sound?])
   end
   def self.multipletr
-    self.r([:note2,:word,:note,:sound,:chord,:num,:sharp,:octave,:mod])
+    self.r([:note2,:word,:note,:sound,:tieNote,:register,:chord,:num,:sharp,:octave,:mod])
   end
   def self.macroDefr
     self::MacroDef
@@ -227,6 +230,8 @@ module MmlReg
     :chord,
     :velocity,
     :sound,
+    :tieNote,
+    :register,
     :tempo,
     :mod,
     :octave,
@@ -262,7 +267,9 @@ module MmlReg
   @@h[:note?]="[BE]"
   @@h[:dummyNote]="o"
   @@h[:randNote]="\\?"
-  @@h[:sound]="_[^!]+!|=|~|w"
+  @@h[:sound]="_[^!]+!|="
+  @@h[:tieNote]="~|w"
+  @@h[:register]="\\\"[[:digit:]]+"
   @@h[:sound?]="[[:alpha:]]"
   @@h[:DCmark?]="\\.[[:alpha:]]+"
   @@h[:tempo]="[><][[:digit:]]*"
@@ -1067,6 +1074,7 @@ module MidiHex
     @gateRate=100
     @nowtime=0
     @onlist=[]
+    @registerHash={}
     @waitingtime=0
     @rythmChannel=9
     @notes=Notes.new
@@ -1105,11 +1113,11 @@ module MidiHex
   end
   def self.setDefault
     @prepareSet=[
-      @tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendCentOn,@bendrange,@bendCent,@bendNow,@scalenotes,@gtune,@expressionRest,@expressionDef
+      @tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendCentOn,@bendrange,@bendCent,@bendNow,@scalenotes,@gtune,@expressionRest,@expressionDef,@registerHash,
     ]
   end
   def self.getDefault
-      @tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendCentOn,@bendrange,@bendCent,@bendNow,@scalenotes,@gtune,@expressionRest,@expressionDef=
+      @tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendCentOn,@bendrange,@bendCent,@bendNow,@scalenotes,@gtune,@expressionRest,@expressionDef,@registerHash=
       @prepareSet
   end
   def self.dumpstatus
@@ -1220,6 +1228,7 @@ module MidiHex
     @preLength=[]
     @preBefore=[]
     @preAfter=[]
+    @registered=[]
     @tracknum=tc+1
     tc+=1 if tc>=@rythmChannel # ch10 is drum kit channel
     tc=@chmax if tc>@chmax
@@ -1315,6 +1324,10 @@ module MidiHex
     return self.thereminNote(len,key,velocity,ch) if @theremin
     velocity=@preVelocity.shift if @preVelocity.size>0
     gate=@gateRate
+    if @registered.member?(:staccato)
+      @registered-=[:staccato]
+      gate=10
+    end
     velocity-=rand(@velocityFuzzy) if @velocityFuzzy>0
     velocity=[velocity,0x7f].min
     key=format("%02x",@key)
@@ -2138,6 +2151,17 @@ module MidiHex
     @lastTne[-1]=@basekey
     r
   end
+  def self.register v
+    r=@registerHash[v.to_i]
+    if r
+      @registered<<r.to_sym
+    else
+      STDERR.puts "register: no data"
+    end
+  end
+  def self.setRegister k,v
+    @registerHash[k.to_i]=v
+  end
   def self.broken v
     v=~/off/
     @broken= $& ? false : true
@@ -2340,6 +2364,12 @@ module MidiHex
         tr=num.to_f if num=~/\./
         tr*=-1 if $1=="-"
         @h<<[:basekeyPlus,tr]
+      when MmlReg.rr([:register])
+        i=~/[[:digit:]]+/
+        @h<<[:call,:register,$&]
+      when /^\(set":(.*)\)/
+        d=$1.split(",")
+        @h<<[:call,:setRegister,*d]
       when /^\(broken:(.*)\)/
         @h<<[:call,:broken,$1]
       when /^\(tne:(.*)\)/
@@ -2748,7 +2778,7 @@ def multiplet d,tbase
   r.each{|i|
     case i
     # modifier
-    when /^[-+]+[[:digit:]]*/,/^[\^`',<>]/,/^\([-+]*[[:digit:]]?\)/
+    when /^[-+]+[[:digit:]]*/,/^[\^`',<>]/,/^\([-+]*[[:digit:]]?\)/,MmlReg.rr([:register])
       mod<<i
     # note
     when /^\((\?|x|C|chord|tne):[^\)]+\)|^\^?:[^,]+,|^=|\([[:alpha:]\\-\\+]+,[^,]*\)/
@@ -2905,6 +2935,7 @@ def tie d,tbase
       end
     when "~"
       res<<[:tick,tbase] if res[-1][0]==:e
+    # add vibrato data
     when "w"
       lasttick=0
       lasttick=res[-1][1] if res[-1][0]==:tick
