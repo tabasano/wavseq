@@ -12,7 +12,7 @@
   
 > [![Gem Version](https://badge.fury.io/rb/smml.svg)](http://badge.fury.io/rb/smml)
   [![Build Status](https://travis-ci.org/tabasano/wavseq.svg?branch=master)](https://travis-ci.org/tabasano/wavseq)
-  
+
 
 
 # sequence-record.rb
