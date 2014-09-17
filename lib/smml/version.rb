@@ -1,3 +1,3 @@
 class Smml
-  VERSION = "0.1.11.4"
+  VERSION = "0.1.11.5"
 end

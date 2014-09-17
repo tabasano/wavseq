@@ -258,7 +258,7 @@ class MmlString < String
     end
   end
   def argscanMap cmd=false
-    rest=[:octave]
+    rest=[:octave,:numswing]
     @@argReg||=MmlReg.regmakeExcept(rest)
     case cmd
     when *MmlReg::ArgIsOne
@@ -425,7 +425,7 @@ resTrue=[[:macrodefStart, "m(x)"],
  [:tSep, "|||"],
  [:sharp, "(+2)"],
  [:note, "d"],
- [:sound, "~"],
+ [:tieNote, "~"],
  [:note, "f"],
  [:wordStart, nil],
  [:wordCmd, "text"],

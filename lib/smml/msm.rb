@@ -2381,17 +2381,92 @@ module MidiHex
     # Array of String or Event class instance
     rr
   end
-  def self.getswing v
-    r=v ? @swingHash[v.to_i] : false
+  def self.getswing v,hs=@swingHash
+    r=v ? hs[v.to_i] : false
     if r
       (r-v.to_i)/v.to_i
     else
       0
     end
   end
+  def self.tie d,tbase,swingHash
+    res=[]
+    # if no length word after '~' length is 1
+    li=[]
+    li0=d.scan(MmlReg::RwAll)
+    li0.size.times{|i|
+      li<<li0[i]
+      case li0[i]
+      when "~","w"
+        li<<"1" if li0[i+1] !~ /^(\*)?[[:digit:]]/
+      else
+      end
+    }
+    li.each{|i|
+      case i
+      when /^\(setSwing:(.*)\)/
+        k,v=$1.split(',')
+        swingHash[k.to_i]=v.to_f
+        res<<[:modifier,i]
+      when /^(\*)?([[:digit:].]+)(_([[:digit:]]+)j,)?/
+        tick=$1? $2.to_f : $2.to_f*tbase
+        tick+=tick*self.getswing($4,swingHash)
+        if res[-1][0]==:tick
+          res[-1][1]+=tick
+        else
+          res<<[:tick,tick]
+        end
+      when "~"
+        res<<[:tick,tbase] if res[-1][0]==:e
+      # add vibrato data
+      when "w"
+        lasttick=0
+        lasttick=res[-1][1] if res[-1][0]==:tick
+        res<<[:tick,tbase] if res[-1][0]==:e
+        m="m"
+        d=innerdata(m,["100_start#{lasttick}_vibrato"])
+        res.insert(-3,[:modifier,"(A:#{d})"])
+      when /^\([VGABLN]:[^)]+/
+        res<<[:modifier,i]
+      else
+        res<<[:e,i]
+      end
+    }
+    line=""
+    frest=0
+    (res.size-1).times{|i|
+      next if res[i][0]!=:modifier
+      next if res[i+1][0]!=:tick
+      # if tick after modifier, it must be by tie mark
+      n=i-1
+      n-=1 while res[n][0]!=:tick
+      res[n][1]+=res[i+1][1]
+      res[i+1][0]=:omit
+    }
+    res.each{|mark,data|
+      case mark
+      when :e , :modifier
+        line<<data
+      when :tick
+        tick=data.to_i
+        frest+=data-tick
+        (tick+=frest;puts "frest:#{frest}" if $DEBUG && $debuglevel>1;frest=0) if frest>1
+        line<<"*#{tick}"
+      when :omit
+        puts "# shift tick data by tie part" if $DEBUG
+      else
+        STDERR.puts "tie?"
+      end
+    }
+    p res,line if $DEBUG && $debuglevel>1
+    line
+  end
   def self.makefraze mmldata,tc
     return "" if not mmldata
     self.trackPrepare(tc)
+    p [:beforeTie,mmldata] if $DEBUG
+    mmldata=self.tie(mmldata,@tbase,@swingHash)
+    p [:afterTie,mmldata] if $DEBUG
     @systemWait=120
     @h=[]
     wait=[]
@@ -3038,79 +3113,7 @@ def nestsearch d,macro
   p "nest? #{a} #{b} #{c} #{chord}",r,macro if $DEBUG
   a||b||c||chord
 end
-def tie d,tbase
-  res=[]
-  # if no length word after '~' length is 1
-  li=[]
-  li0=d.scan(MmlReg::RwAll)
-  li0.size.times{|i|
-    li<<li0[i]
-    case li0[i]
-    when "~","w"
-      li<<"1" if li0[i+1] !~ /^(\*)?[[:digit:]]/
-    else
-    end
-  }
-  li.each{|i|
-    case i
-    when /^(\*)?([[:digit:].]+)(_[[:digit:]]+j,)?/
-      tick=$1? $2.to_f : $2.to_f*tbase
-      if res[-1][0]==:tick
-        res[-1][1]+=tick
-        if res[-1].size==2
-          res[-1]<<$3
-        else
-          res[-1][2]=$3 if $3
-        end
-      else
-        res<<[:tick,tick,$3]
-      end
-    when "~"
-      res<<[:tick,tbase,false] if res[-1][0]==:e
-    # add vibrato data
-    when "w"
-      lasttick=0
-      lasttick=res[-1][1] if res[-1][0]==:tick
-      res<<[:tick,tbase,false] if res[-1][0]==:e
-      m="m"
-      d=innerdata(m,["100_start#{lasttick}_vibrato"])
-      res.insert(-3,[:modifier,"(A:#{d})"])
-    when /^\([VGABLN]:[^)]+/
-      res<<[:modifier,i]
-    else
-      res<<[:e,i]
-    end
-  }
-  line=""
-  frest=0
-  (res.size-1).times{|i|
-    next if res[i][0]!=:modifier
-    next if res[i+1][0]!=:tick
-    # if tick after modifier, it must be by tie mark
-    n=i-1
-    n-=1 while res[n][0]!=:tick
-    res[n][1]+=res[i+1][1]
-    res[i+1][0]=:omit
-  }
-  res.each{|mark,data,jmark|
-    case mark
-    when :e , :modifier
-      line<<data
-    when :tick
-      tick=data.to_i
-      frest+=data-tick
-      (tick+=frest;puts "frest:#{frest}" if $DEBUG && $debuglevel>1;frest=0) if frest>1
-      line<<"*#{tick}"
-      line<<jmark if jmark
-    when :omit
-      puts "# shift tick data by tie part" if $DEBUG
-    else
-      STDERR.puts "tie?"
-    end
-  }
-  p res,line if $DEBUG && $debuglevel>1
-  line
-end
+
 # repeat block analysis: no relation with MIDI format
 # '(:..)' => '(lastcmd:..)'
 def repCalc line,macro,tbase
@@ -3218,7 +3221,7 @@ def repCalc line,macro,tbase
   p res if $DEBUG && $debuglevel>1
   # 空白
   res=res.split.join 
-  res=tie(res,tbase)
+  res
 end
 def loadCalc d
   if d=~/\(loadf:(.+)(,(.+))?\)/
