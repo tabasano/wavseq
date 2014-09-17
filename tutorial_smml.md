@@ -836,6 +836,26 @@ as if uncontrolled
  (broken:on) (broken:off) 
 ```
 
+;; swing
+easy way to express fuzzy swing rythm.
+
+```
+ /:a2b1/
+ (setSwing:2,2.4)(setSwing:1,0.6)/:a2,b1,/
+ (setSwing:2,1.8)(setSwing:1,1.2)/:a2,b1,/
+```
+
+just 2:1, first longer, first shorter. broken if setting part is wrong.
+
+;; register of modifiers
+
+```
+ (set":1,staccato) "1e
+```
+
+```"1``` sets modifier number 1 as staccato for note```e```. now there are no other modes. reserved for simple presetting modifier for one note.
+
+
 ## preprocess
 ;; some pre-process commands.
 set it in the top of file.
