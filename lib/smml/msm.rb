@@ -147,6 +147,103 @@ class Array
   end
 end
 )
+# MyLength.new(1,"2j")
+# num and fixed mark word, for swing rythm
+class MyLength < Numeric
+  def initialize *a
+    p [:in,a,a.size] if $DEBUG
+    a=a[0] if a.size==1
+    r=[]
+    case a
+    when String
+      a=~/\?\?([^\?]*)\?\?/
+      a=$1 if $1
+      r=a.split("+")
+    when Array
+      r=a
+    when MyLength
+      r=a.s,a.j
+    else
+      r=[a]
+    end
+    @s=Float(r[0])
+    @j=([r[1]]-[nil]).flatten||[]
+    p [:i,@s,@j,r,a]  if $DEBUG
+  end
+  def s
+    @s
+  end
+  def j
+    @j
+  end
+  def + (other)
+    p "#{@s} #{other} +!" if $DEBUG
+    o=MyLength.new(other)
+    s=@s+o.s
+    j=@j
+    j=o.j if j.size<1
+    MyLength.new(s,j)
+  end
+  def - (other)
+    p "#{@s} #{other} -!" if $DEBUG
+    o=MyLength.new(other)
+    s=@s-o.s
+    j=@j
+    MyLength.new(s,j)
+  end
+  def * (other)
+    p "#{@s} #{other} *!" if $DEBUG
+    o=MyLength.new(other)
+    s=@s*o.s
+    j=@j
+    j=o.j if j.size<1
+    MyLength.new(s,j)
+  end
+  def / (other)
+    p "#{@s} #{other} /!" if $DEBUG
+    o=MyLength.new(other)
+    s=@s/o.s
+    j=@j
+    MyLength.new(s,j)
+  end
+  def coerce(other)
+    p [:c] if $DEBUG
+    if other.kind_of?(Float)
+      return MyLength.new(other), self
+    elsif other.kind_of?(Fixnum)
+      return MyLength.new(other), self
+    elsif other.kind_of?(String)
+      return self,MyLength.new(other)
+    else
+      super
+    end
+  end
+  def round
+    MyLength.new(@s.round,@j)
+  end
+  def inspect
+    "#{@s}(#{@j})!?"
+  end
+  def to_s int=true
+    j=@j.inject(""){|s,i|s+(i||"")}
+    (int ? @s.to_i.to_s : @s.to_s)+ (j.size>0 ? "_#{j}" : "")
+  end
+  def to_f
+    self.to_s(false)
+  end
+  def to_l
+    @s
+  end
+  def to_i
+    @s.to_i
+  end
+end
+class Numeric
+  def to_myl
+    MyLength.new(self)
+  end
+end
+
 def multilineTrim l,com
   r=[]
   on=false
@@ -195,7 +292,7 @@ module MmlReg
     self.r([:hexraw,:sharp,:chord,:word,:sound,:tieNote,:register,:modifier,:velocity,:tempo,:num,:octave,:note2,:note,:mod,:note?,:sound?])
   end
   def self.multipletr
-    self.r([:note2,:word,:note,:sound,:tieNote,:register,:chord,:num,:sharp,:octave,:mod])
+    self.r([:note2,:word,:note,:sound,:tieNote,:register,:chord,:numswing,:num,:sharp,:octave,:mod])
   end
   def self.macroDefr
     self::MacroDef
@@ -235,6 +332,7 @@ module MmlReg
     :tempo,
     :mod,
     :octave,
+    :numswing,
     :num,
     :blank,
     :valueSep,
@@ -282,7 +380,8 @@ module MmlReg
   @@h[:repEnd]="\\]"
   @@h[:multipletStart]="\\/\\*?[[:digit:]\\.]*:"
   @@h[:multipletmark]="\\/"
-  @@h[:num]="[-+*]?[[:digit:]]+\\.[[:digit:]]+|[-+*]?[[:digit:]]+"
+  @@h[:numswing]="[[:digit:]],"
+  @@h[:num]="[-+*]?[[:digit:]]+_[[:digit:]]+j,|[-+*]?[[:digit:]]+\\.[[:digit:]]+|[-+*]?[[:digit:]]+"
   @@h[:hexraw]="&\\([^()]*\\)"
   @@h[:hexrawStart]="&\\("
   @@h[:keyword]="macro +"
@@ -1075,6 +1174,7 @@ module MidiHex
     @nowtime=0
     @onlist=[]
     @registerHash={}
+    @swingHash={1=>1.2,2=>1.8}
     @waitingtime=0
     @rythmChannel=9
     @notes=Notes.new
@@ -1113,11 +1213,11 @@ module MidiHex
   end
   def self.setDefault
     @prepareSet=[
-      @tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendCentOn,@bendrange,@bendCent,@bendNow,@scalenotes,@gtune,@expressionRest,@expressionDef,@registerHash,
+      @tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendCentOn,@bendrange,@bendCent,@bendNow,@scalenotes,@gtune,@expressionRest,@expressionDef,@registerHash,@swingHash
     ]
   end
   def self.getDefault
-      @tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendCentOn,@bendrange,@bendCent,@bendNow,@scalenotes,@gtune,@expressionRest,@expressionDef,@registerHash=
+      @tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendCentOn,@bendrange,@bendCent,@bendNow,@scalenotes,@gtune,@expressionRest,@expressionDef,@registerHash,@swingHash=
       @prepareSet
   end
   def self.dumpstatus
@@ -1316,7 +1416,8 @@ module MidiHex
     r<<self.bend(pos,depth.to_s,ch)
     r
   end
-  def self.oneNote len=@tbase,key=@basekey,velocity=@velocity,ch=@ch,sharp=0
+  def self.oneNote len=@tbase,key=@basekey,velocity=@velocity,ch=@ch,sharp=0,swing=false
+    len+=len*self.getswing(swing)
     bendStart=@bendNow
     ch=[ch,0x0f].min
     key+=sharp
@@ -1370,7 +1471,8 @@ module MidiHex
     end
     r
   end
-  def self.dummyNote key,len,accent=false,sharp=0
+  def self.dummyNote key,len,accent=false,sharp=0,swing=false
+    len+=len*self.getswing(swing)
     vel=@veloecity
     vel+=@accentPlus
     if key=="?"
@@ -1381,12 +1483,12 @@ module MidiHex
     len=@preLength.shift if @preLength.size>0
     self.oneNote(len,key,vel,sharp)
   end
-  def self.byKey key,len,accent=false,sharp=0
+  def self.byKey key,len,accent=false,sharp=0,swing=false
     vel=@velocity
     vel+=@accentPlus
-    self.oneNote(len,key,vel,@ch,sharp)
+    self.oneNote(len,key,vel,@ch,sharp,swing)
   end
-  def self.notekey key,length=false,accent=false,sharp=0
+  def self.notekey key,length=false,accent=false,sharp=0,swing=false
     len,velocity,ch=[@tbase,@velocity,@ch]
     velocity+=@accentPlus if accent
     len=length if length
@@ -1395,12 +1497,12 @@ module MidiHex
       key,ch=key
     end
     key=key+@basekey
-    self.oneNote(len,key,velocity,ch,sharp)
+    self.oneNote(len,key,velocity,ch,sharp,swing)
   end
-  def self.percussionNote key,len=@tbase,accent=false,sharp=0
+  def self.percussionNote key,len=@tbase,accent=false,sharp=0,swing=false
     vel=@velocity
     vel+=@accentPlus if accent
-    self.oneNote(len,key,vel,@rythmChannel,sharp)
+    self.oneNote(len,key,vel,@rythmChannel,sharp,swing)
   end
   def self.noteCalc c,last,base
     n=@notes[c]
@@ -1423,7 +1525,7 @@ module MidiHex
     end
     v
   end
-  def self.notes c,l=false,accent=false,sharp=0,sharpFloat=false
+  def self.notes c,l=false,accent=false,sharp=0,sharpFloat=false,swing=false
     if sharpFloat && (sharpFloat!=0)
       s=sharp+sharpFloat
       sharp=s.to_i
@@ -1439,11 +1541,11 @@ module MidiHex
       @bendNow=v
       v+=bendStart
       r<<self.bend(0,v) if not @theremin
-      r<<self.notekey(n,l,accent,sharp)
+      r<<self.notekey(n,l,accent,sharp,swing)
       r<<self.bend(0,bendStart) if not @theremin
       @bendNow=bendStart
     else
-      r<<self.notekey(n,l,accent,sharp)
+      r<<self.notekey(n,l,accent,sharp,swing)
 #      r<<self.bend(0,bendStart)# if bends
 #      @bendNow=bendStart
     end
@@ -1455,7 +1557,8 @@ module MidiHex
     chord=chord.orotate(1) while chord[0]<base-limit
     chord
   end
-  def self.chordName c,l=false,accent=false,sharp=0
+  def self.chordName c,l=false,accent=false,sharp=0,swing=false
+    l+=l*self.getswing(swing)
     c=~/(.)([^(]*)(\((.*)\))?/
     root=$1
     type=$2
@@ -1558,7 +1661,8 @@ module MidiHex
     cc=c.map{|i|(i-r)%12}.sort.map{|i|i+r}
     cc
   end
-  def self.chord c,l=false,accent=false,sharp=0
+  def self.chord c,l=false,accent=false,sharp=0,swing=false
+    l+=l*self.getswing(swing)
     r=[]
     sspeed=@strokespeed
     c=c.reverse if @strokeUpDown<0
@@ -1574,7 +1678,7 @@ module MidiHex
       r+=self.soundOff(i,@ch,sharp)
     }
     self.strokeUpDownReset
-    r+=self.rest(rest) if rest>0
+    r+=self.rest(rest,false,@ch) if rest>0
     r
   end
   def self.strokeUpDownReset
@@ -1583,7 +1687,7 @@ module MidiHex
   def self.setExpressionRest v
     @expressionRest=v.to_i
   end
-  def self.rest len=@tbase,ch=@ch
+  def self.rest len,swing=false,ch=@ch
     chx=format("%01x",ch)
     @nowtime+=len
     r=[]
@@ -1598,7 +1702,7 @@ module MidiHex
     r
   end
   def self.restHex len=@tbase,ch=@ch
-    r=self.rest(len,ch)
+    r=self.rest(len,false,ch)
     r[0]
   end
   # d : hex data
@@ -2112,17 +2216,18 @@ module MidiHex
     r<<self.expre(restl,e)
     r
   end
-  def self.noteExpression arg,t,accent,sharp,sharpFloat
+  def self.noteExpression arg,t,accent,sharp,sharpFloat,swing
     lexpression=@expression
     n,e=arg.split(',')
     r=[]
     r<<self.expre(0,e)
-    r<<self.notes(n,t,accent,sharp,sharpFloat)
+    r<<self.notes(n,t,accent,sharp,sharpFloat,swing)
     r<<self.expre(0,lexpression)
     r
   end
   # transition rate, note, expression
-  def self.tne arg,t,accent,sharp,sharpFloat
+  def self.tne arg,t,accent,sharp,sharpFloat,swing
+    t+=t*self.getswing(swing)
     exp=@expression
     trans,n,e=arg.split(',')
     trans=0.3 if trans.size==0
@@ -2158,6 +2263,9 @@ module MidiHex
     else
       STDERR.puts "register: no data"
     end
+  end
+  def self.setSwing k,v
+    @swingHash[k.to_i]=v.to_f
   end
   def self.setRegister k,v
     @registerHash[k.to_i]=v
@@ -2273,6 +2381,14 @@ module MidiHex
     # Array of String or Event class instance
     rr
   end
+  def self.getswing v
+    r=v ? @swingHash[v.to_i] : false
+    if r
+      (r-v.to_i)/v.to_i
+    else
+      0
+    end
+  end
   def self.makefraze mmldata,tc
     return "" if not mmldata
     self.trackPrepare(tc)
@@ -2294,8 +2410,9 @@ module MidiHex
     cmd.each{|i|
       if wait.size>0
         t=@tbase
-        i=~/^(\*)?([[:digit:]]+(\.[[:digit:]]+)?)/
+        i=~/^(\*)?([[:digit:]]+(\.[[:digit:]]+)?)(_([[:digit:]]+)j,)?/
         tickmode=$1
+        swing=$5
         t=$2.to_f if $&
         if $&
           if tickmode
@@ -2312,8 +2429,8 @@ module MidiHex
           end
         end
         wait.each{|m,c|
-          arg=[c,t,accent,sharp]
-          arg2=[c,t,accent,sharp,sharpFloat]
+          arg=[c,t,accent,sharp,swing]
+          arg2=[c,t,accent,sharp,sharpFloat,swing]
           case m
           when :percussion
             @h<<[:percussionNote,*arg]
@@ -2332,7 +2449,7 @@ module MidiHex
           when :chordName
             @h<<[:chordName,*arg]
           when :rest
-            @h<<[:rest,t]
+            @h<<[:rest,t,swing]
           end
         }
         lastwait=wait
@@ -2370,6 +2487,9 @@ module MidiHex
       when /^\(set":(.*)\)/
         d=$1.split(",")
         @h<<[:call,:setRegister,*d]
+      when /^\(setSwing:(.*)\)/
+        d=$1.split(",")
+        @h<<[:call,:setSwing,*d]
       when /^\(broken:(.*)\)/
         @h<<[:call,:broken,$1]
       when /^\(tne:(.*)\)/
@@ -2785,6 +2905,12 @@ def multiplet d,tbase
       lengths<<1
       notes<<"#{mod*""}#{i}"
       mod=[]
+    # length swing
+    when /^([[:digit:]]+),/
+      n=$1.to_i
+      s=n.to_myl
+      s+=MyLength.new(0,"#{n}j,")
+      lengths[-1]*=s
     # length
     when /^[[:digit:]]+/
       lengths[-1]*=i.to_f
@@ -2792,11 +2918,12 @@ def multiplet d,tbase
     when /^\([^\(\):,]*:.*\)/
       mod<<i
     else
-      lengths<<1
+      lengths<<1.to_myl
       notes<<"#{mod*""}#{i}"
       mod=[]
     end
   }
+  p [:multipletle,lengths] if $DEBUG
   sum=lengths.inject{|s,i|s+i}
   ls=lengths.map{|i|(i*1.0/sum*total).round} # .map{|i|i.round(dep)}
   er=(total-ls.inject{|s,i|s+i}).to_i
@@ -2926,20 +3053,25 @@ def tie d,tbase
   }
   li.each{|i|
     case i
-    when /^(\*)?([[:digit:].]+)/
+    when /^(\*)?([[:digit:].]+)(_[[:digit:]]+j,)?/
       tick=$1? $2.to_f : $2.to_f*tbase
       if res[-1][0]==:tick
         res[-1][1]+=tick
+        if res[-1].size==2
+          res[-1]<<$3
+        else
+          res[-1][2]=$3 if $3
+        end
       else
-        res<<[:tick,tick]
+        res<<[:tick,tick,$3]
       end
     when "~"
-      res<<[:tick,tbase] if res[-1][0]==:e
+      res<<[:tick,tbase,false] if res[-1][0]==:e
     # add vibrato data
     when "w"
       lasttick=0
       lasttick=res[-1][1] if res[-1][0]==:tick
-      res<<[:tick,tbase] if res[-1][0]==:e
+      res<<[:tick,tbase,false] if res[-1][0]==:e
       m="m"
       d=innerdata(m,["100_start#{lasttick}_vibrato"])
       res.insert(-3,[:modifier,"(A:#{d})"])
@@ -2960,7 +3092,7 @@ def tie d,tbase
     res[n][1]+=res[i+1][1]
     res[i+1][0]=:omit
   }
-  res.each{|mark,data|
+  res.each{|mark,data,jmark|
     case mark
     when :e , :modifier
       line<<data
@@ -2969,6 +3101,7 @@ def tie d,tbase
       frest+=data-tick
       (tick+=frest;puts "frest:#{frest}" if $DEBUG && $debuglevel>1;frest=0) if frest>1
       line<<"*#{tick}"
+      line<<jmark if jmark
     when :omit
       puts "# shift tick data by tie part" if $DEBUG
     else
