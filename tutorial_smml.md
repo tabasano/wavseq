@@ -841,11 +841,20 @@ easy way to express fuzzy swing rythm.
 
 ```
  /:a2b1/
- (setSwing:2,2.4)(setSwing:1,0.6)/:a2,b1,/
- (setSwing:2,1.8)(setSwing:1,1.2)/:a2,b1,/
+ (setSwing: 2, 2.4)(setSwing: 1, 0.6) /:a2,b1,/
+ (setSwing: 2, 1.8)(setSwing: 1, 1.2) /:a2,b1,/
+```
+series of ```ab``` ,
+just 2:1, first longer, first shorter. rythm will be broken if setting part is wrong.
+
+```
+ (setSwing: 2of3, 2.4)/:a2,b1,/
 ```
 
-just 2:1, first longer, first shorter. broken if setting part is wrong.
+same as the second line of above. key value must be integer, not float.
+'2of3' and '1of5' can be used at once, but rythm will not be what you predict.
+value for 1of3 , set by rest of 2of3, is overwitten by 1of5.
+there is no way to help it.
 
 ;; register of modifiers
 
@@ -904,4 +913,11 @@ but now blanks are removed. someday maybe fixed ?
 ```
 
 directly set local MidiHex variable, dump while compiling if the varName and value are valid.
+
+# syntax implement policy: 
+
+parenthesis command is buil with (name:value,value,...).
+sound is modifier + note + length word.
+let it not too complicated in sound part for visibility.
+especially, for other words not to hide note type words.
 

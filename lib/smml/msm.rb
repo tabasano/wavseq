@@ -2264,8 +2264,16 @@ module MidiHex
       STDERR.puts "register: no data"
     end
   end
-  def self.setSwing k,v
-    @swingHash[k.to_i]=v.to_f
+  def self.setSwing k,v,hs=@swingHash
+    v=v.to_f
+    k=~/of/
+    if $&
+      k,all=$`.to_i,$'.to_i
+      hs[k]=v
+      hs[all-k]=all-v
+    else
+      hs[k.to_i]=v
+    end
   end
   def self.setRegister k,v
     @registerHash[k.to_i]=v
@@ -2406,7 +2414,7 @@ module MidiHex
       case i
       when /^\(setSwing:(.*)\)/
         k,v=$1.split(',')
-        swingHash[k.to_i]=v.to_f
+        self.setSwing(k,v,swingHash)
         res<<[:modifier,i]
       when /^(\*)?([[:digit:].]+)(_([[:digit:]]+)j,)?/
         tick=$1? $2.to_f : $2.to_f*tbase
