@@ -89,7 +89,7 @@ syntax: ...( will be changed time after time)
     (syswait:) =when using '(gm:on)' etc., this command is needed for all other tracks to adjust wait-time.
     ||| = track separater
     /// = page separater
-          series of page seperaters insert unique '(mark:all track mark)' to allready running tracks automaticaly.
+          series of page separaters insert unique '(mark:all track mark)' to allready running tracks automaticaly.
     (mark:posname) =position name for adjustment of tracks after long rest etc.
     .DC .DS .toCODA .CODA .FINE =coda mark etc.
     .SKIP =skip mark on over second time
@@ -97,14 +97,14 @@ syntax: ...( will be changed time after time)
     _snare! =percussion sound ( search word like 'snare' (can use tone number) from percussion list if exist )
         similarly, _s!=snare, k:bassKick, o:openHighHat, c:closedHighHat, cc:CrachCymbal, h:highTom, l:lowTom as default.
         map text personaly you set must start with tone number.
-    (loadf:filename.mid,2) =load filename.mid, track 2. Track must be this only and seperated by '|||'.
+    (loadf:filename.mid,2) =load filename.mid, track 2. Track must be this only and separated by '|||'.
     W:=abc        =macro definition. One Charactor macro can be used. use prefix '$' for refering.
     macro W:=abc  =macro definition.
     fn(x):=ab$x    =macro with args. in this case, '$fn(10)' is substituded by 'ab10'. similarly,
                   '$fn(:10,20,30)' = 'ab10ab20ab30'.
                   '$fn(4:10,20,30)' = 'ab10(wait:4)ab20(wait:4)ab30'.
-    compile order is : page,track seperate => macro set and replace => repeat check => sound data make
-    ; =seperater. same to a new line
+    compile order is : page,track separate => macro set and replace => repeat check => sound data make
+    ; =separater. same to a new line
     blank =ignored
     ;; comment =ignored after ';;' of each line
     ;;;;;;     =start mark of multi-line comment. end mark is same or longer mark of ';;'. these must start from the top of line.

@@ -303,7 +303,7 @@ So '(p:guitar,2)' selects an instrument line '5 two' as the 2nd result of search
 
 ## track
 ;; in SMF, MIDI channel is 1 - 16, and drum is in 10 channel. but currently, these are automaticaly set.
-;; you don't need to think about it. simply seperate tracks with a command '|||'.
+;; you don't need to think about it. simply separate tracks with a command '|||'.
 
 ```
 (p:piano) c d e f ||| (p:organ) e f g a ||| (p:guitar) g a b c
@@ -319,7 +319,7 @@ So '(p:guitar,2)' selects an instrument line '5 two' as the 2nd result of search
 
 
 currenly track names are not used as default, and tracks continue with apprearing order. so if there are no data in some tracks in mid parts of pages,
-use blank tracks by track seperaters.
+use blank tracks by track separaters.
 
 ```
     c     ;; track 1
@@ -344,7 +344,7 @@ first two tracks are 'organ' sound by the same track names declared.
 
 
 ## page
-;; then seperate pages by three or longer one line '/'.
+;; then separate pages by three or longer one line '/'.
 ;; but this command do not adjust time potisions. it simply resets track number increment.
 
 ```
@@ -361,7 +361,7 @@ first two tracks are 'organ' sound by the same track names declared.
 cdef c2d2e2f2 c3def ||| efga e2f2g2a2 e3fga ||| gabc g2a2b2c2 g3abc
 ```
 
-;; if you want to adjust tracks, use a blank page by two lines of page seperaters. the last three 'c' will be played adjusted instead each preceding note lengths are different.
+;; if you want to adjust tracks, use a blank page by two lines of page separaters. the last three 'c' will be played adjusted instead each preceding note lengths are different.
 
 ```
 cd ||| e ||| abcde 
@@ -398,7 +398,7 @@ these are played like  this.
 ```
 
 ;; same mark names 'm' in repeated section or one track will be automaticaly substituded by 'm m@2 m@3'. to adjust, use it in other tracks.
-or use a comma as a seperater of a name and a counter; '(mark:hoge@3)' = '(mark:hoge,3)'.
+or use a comma as a separater of a name and a counter; '(mark:hoge@3)' = '(mark:hoge,3)'.
 
 ```
   a b c (mark:m) a b c (mark:m@2) a b c (mark:m@3)
@@ -410,9 +410,10 @@ search MIDI format and set valid hex data.
 
 ```
   &(00 00 00)
+  &(00,00,00)
 ```
 
-hex data must be ``` 00 01 02 ... FD FE FF ```. one byte is by two hex letters. seperaters are a blank or comma.
+hex data must be ``` 00 01 02 ... FD FE FF ```. one byte is by two hex letters. separaters are a blank or comma.
 ;; currently hex only can be used. oct/decimal may be able to use someday.
 all in SMF track data, unique formated prefix delta tick time data is needed. so if want, you can use '$delta(240)' for 240 ticks.
 the tick means a minimum time span in SMF , one beat equals to 480 ticks as default. in this case, delta time is set to half beat.
@@ -477,7 +478,7 @@ EFF:=(
 ```
 
 after parenthesis, don't set any letters without blanks.
-but now, this is for easy way of writing only, and may not be so useful. to use this multi line values, each line must be seperated.
+but now, this is for easy way of writing only, and may not be so useful. to use this multi line values, each line must be separated.
 
 ```
 $EFF[1] $EFF[2] $EFF[3] $EFF[4]
@@ -531,7 +532,7 @@ use parts split note hight, length, velocity, gate time, pre modifier; sound ele
 ```
 
 the first value of each part will used for the first note 'a'. and so on.
-inside parts, position is seperated by ',' or use dummy value 'o'.
+inside parts, position is separated by ',' or use dummy value 'o'.
 '(V:,,,60,,)' is '(V:ooo 60 oo)'. last dummy values can be omitted. in this case, 4th note 'd' velocity is set to 60.
 if 6th note don't exist, pre modifier element values are simply ignored.
 
@@ -626,7 +627,7 @@ or like this.
 ```
 
 ## compile order
-now compiling order is : page,track seperate => macro set and replace => repeat check => sound data make.
+now compiling order is : page,track separate => macro set and replace => repeat check => sound data make.
 if there are bugs, error can appear by macro definitions appear in the last step 'sound data make' for example.
 
 ## D.S. al fine
@@ -654,8 +655,8 @@ dal segno jump mark.
 
 if there is no followed number, 'abc' is repeated 2 times.
 
-## seperater
-;; ';' can be used for one line data as line seperater.
+## separater
+;; ';' can be used for one line data as line separater.
 
 ```
   $ smml -d "abc;def|||mc:=ggg;ccc$mc ddd" -o out.mid
@@ -756,7 +757,7 @@ set these modifiers before note commands.
  (loadf:filename.mid,2)
 ```
 
-load the second track data of filename.mid. when using it, the track must be itself only. seperate by '|||'.
+load the second track data of filename.mid. when using it, the track must be itself only. separate by '|||'.
 this command do not check about track data strictly. be careful.
 
 
