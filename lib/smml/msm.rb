@@ -1318,6 +1318,7 @@ module MidiHex
   # track initialize
   def self.trackPrepare tc=0
     self.getDefault
+    @dummyNoteOrg="o"
     @basekeybend=0
     @theremin=false
     @strokespeed=0
@@ -1420,6 +1421,7 @@ module MidiHex
     len+=len*self.getswing(swing)
     bendStart=@bendNow
     ch=[ch,0x0f].min
+    key=rndNote if key==@dummyNoteOrg
     key+=sharp
     @key=[[key,0x7f].min,0].max
     return self.thereminNote(len,key,velocity,ch) if @theremin
@@ -1471,13 +1473,17 @@ module MidiHex
     end
     r
   end
+  def self.rndNote
+    key=rand(0x7f)
+    key=self.note2key(@scalenotes.sample) if @scalenotes.size>0
+    key
+  end
   def self.dummyNote key,len,accent=false,sharp=0,swing=false
     len+=len*self.getswing(swing)
-    vel=@veloecity
+    vel=@velocity
     vel+=@accentPlus
     if key=="?"
-      key=rand(0x7f)
-      key=self.note2key(@scalenotes.sample) if @scalenotes.size>0
+      key=rndNote
     end
     key=@preNote.shift if @preNote.size>0
     len=@preLength.shift if @preLength.size>0
@@ -1668,6 +1674,18 @@ module MidiHex
     c=c.reverse if @strokeUpDown<0
     span=c.size
     sspeed=l/span/@strokefaster if span*sspeed>l/@strokefaster
+    tmp=[]
+    c=c.map{|i|
+      case i
+      when "?"
+        i=self.rndNote
+        i+=12 if tmp.member?(i)
+        tmp<<i
+        i
+      else
+        i
+      end
+    }
     c.each{|i|
       r+=self.soundOn(i,@velocity,@ch,sharp)
       @waitingtime+=sspeed
@@ -2728,8 +2746,8 @@ module MidiHex
         @h<<[:soundOn,i]
       when /^\(off:(.*)\)/
         @h<<[:soundOff,$1]
-      when /^\(scale:(.*)\)/
-        @h<<[:call,:scale,$1]
+      when /^\(s(cale)?:(.*)\)/
+        @h<<[:call,:scale,$2]
       when /^\(gtune:(.*)\)/
         @h<<[:call,:gtuning,$1]
       when /^\(chordcenter:(.*)\)/
@@ -2806,6 +2824,8 @@ module MidiHex
       when " "
       when "?"
         wait<<[:dummyNote,"?"]
+      when "m"
+        wait<<[:chord,["?","?","?"]]
       else
         if @notes.keys.member?(i)
           wait<<[:sound,i]
