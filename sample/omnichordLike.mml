@@ -1,0 +1,21 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+  omnichord like sound writing.
+
+  (s:a,c,e)  => (scale:a,c,e) set notes for dummy note
+  m          => multi note dummy
+  o          => single note dummy
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(tempo:200)(p:guit)(stroke:64)
+
+[
+ (s:c,e,g) mooo
+ (s:g,b,d) m/oo/oo
+ (s:f,a,c) m/oo/oo
+           m/3:oooooo/
+] 12
+
