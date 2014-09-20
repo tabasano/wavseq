@@ -547,6 +547,12 @@ class Notes < Hash
   def initialize
     @@notes.each{|k,v|self[k]=v}
   end
+  def self.n2note num
+    @@invert[num%12]
+  end
+  def self.nDisplay n
+    "#{n}[#{self.n2note(n)}]"
+  end
   def self.get last,dist=0
     last=~/(\-*)(\+*)([[:alpha:]])/
     oct=$1.size*(-1)+$2.size
@@ -1385,7 +1391,7 @@ module MidiHex
     @waitingtime=0
     @nowtime+=start
     r=[Event.new(:on)]
-    r<<Event.new(:e,start," 9#{ch} #{key} #{vel} # #{start} later, sound on only , note #{@key} velocity #{velocity}\n")
+    r<<Event.new(:e,start," 9#{ch} #{key} #{vel} # #{start} later, sound on only , note #{Notes.nDisplay(@key)} velocity #{velocity}\n")
     r
   end
   def self.soundOff key=@basekey,ch=@ch,sharp=0
@@ -1445,7 +1451,7 @@ module MidiHex
     @lenForGate=false
     @nowtime+=start
     r=[]
-    r<<Event.new(:e,start," 9#{ch} #{key} #{vel} # #{start} later, sound on note #{@key} velocity #{velocity}\n")
+    r<<Event.new(:e,start," 9#{ch} #{key} #{vel} # #{start} later, sound on note #{Notes.nDisplay(@key)} velocity #{velocity}\n")
     b=@preAfter.shift
     bends=expre=false
     if b
@@ -3086,7 +3092,7 @@ def funcApply m,name,x
     r<<fbody
   }
   sep=""
-  sep="(wait:#{interval})" if interval
+  sep="(wait:#{interval})" if interval && interval.size>0
   r*sep
 end
 def macroDef data
