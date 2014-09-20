@@ -548,10 +548,13 @@ class Notes < Hash
     @@notes.each{|k,v|self[k]=v}
   end
   def self.n2note num
-    @@invert[num%12]
+    @@invert[num%@@octave]
+  end
+  def self.n2octave num
+    num/@@octave-1
   end
   def self.nDisplay n
-    "#{n}[#{self.n2note(n)}]"
+    "#{n}[#{self.n2octave(n)}#{self.n2note(n)}]"
   end
   def self.get last,dist=0
     last=~/(\-*)(\+*)([[:alpha:]])/

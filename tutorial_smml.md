@@ -906,7 +906,7 @@ text implement to MIDI file.
 but now blanks are removed. someday maybe fixed ?
 
 
-## test, debug etc.
+## test, debug etc. for developers
 
 ```
   (setInt: varName,10)
@@ -918,8 +918,13 @@ directly set local MidiHex variable, dump while compiling if the varName and val
 
 # syntax implement policy: 
 
-parenthesis command is buil with (name:value,value,...).
+
+parenthesis command is buil with (name:value,value,...). names often used are shorter, or leave it as it is as possible.
+
+
 sound is modifier + note + length word.
+
+
 let it not too complicated in sound part for visibility.
 especially, for other words not to hide note type words.
 
