@@ -574,8 +574,9 @@ etc.
 if a scale has been defined as below, random notes will be selected from its scale notes.
 
 ```
- (scale:a,b,c,d,e)
- (scale:a,+2,+3,+5,+7,+9,+11)
+ (scale:a,b,c,d,e)             ;; series of note names
+ (scale:a,+2,+3,+5,+7,+9,+11)  ;; first note and plus values to add to first note
+ (scale:+5)                    ;; shift all values from preceding scale. after above scale, this will be '(scale:d, ...)'.
 ```
 
 still incompleted to use.

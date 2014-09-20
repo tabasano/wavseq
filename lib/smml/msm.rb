@@ -580,6 +580,9 @@ class ScaleNotes < Array
       @@mode[s[i+1]]=tmp
     }
   end
+  def move s
+    initialize(self.map{|i|Notes.get(i,s)})
+  end
   def keys
     @@mode.keys
   end
@@ -2035,13 +2038,20 @@ module MidiHex
   end
   # todo: use scale name
   def self.scale s
-    @scalenotes.reset
     s=s.split(",")
     first=s.first
     mode=s[1]
-    if @scalenotes.keys.member?(:"#{mode}")
+    if s.size==1
+      first=~/^[-+]/
+      if $&
+        shift=first.to_i
+        @scalenotes=@scalenotes.move(shift)
+      end
+    elsif @scalenotes.keys.member?(:"#{mode}")
+      @scalenotes.reset
       @scalenotes.setmode(first,:"#{mode}")
     else
+      @scalenotes.reset
       s.each{|i|
         note=i
         note=Notes.get(first,i) if i=~/^[-+]+[[:digit:]]+$/

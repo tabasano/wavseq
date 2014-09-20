@@ -10,12 +10,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(tempo:200)(p:guit)(stroke:64)
+(tempo:200)(p:guit)(stroke:0.13)
 
 [
  (s:c,e,g) mooo
- (s:g,b,d) m/oo/oo
- (s:f,a,c) m/oo/oo
+ (s:-5)    m/:oo/oo
+ (s:-2)    /:mo/ooo
            m/3:oooooo/
 ] 12
 
+(dumpVar:strokespeed)
