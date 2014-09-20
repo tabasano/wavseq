@@ -363,7 +363,7 @@ module MmlReg
   @@h[:velocity]="v[[:digit:]]+"
   @@h[:note]="[abcdefgACDFGr]|\\{[[:digit:]]+\\}"
   @@h[:note?]="[BE]"
-  @@h[:dummyNote]="o"
+  @@h[:dummyNote]="o|m"
   @@h[:randNote]="\\?"
   @@h[:sound]="_[^!]+!|="
   @@h[:tieNote]="~|w"
@@ -2161,9 +2161,10 @@ module MidiHex
     when "+"
       @strokeUpDown=1
     else
-      s=s.to_i
+      s=(s=~/\./ ? s.to_f : s.to_i)
       @strokeUpDown= s<0 ? -1 : 1
       @strokespeed=s.abs
+      @strokespeed=(s.abs*@tbase).to_i if s.class==Float
     end
   end
   def self.setTheremin flag
