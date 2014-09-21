@@ -1,6 +1,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-  omnichord like sound writing.
+  omnichord-like sound writing.
 
   (s:a,c,e)  => (scale:a,c,e) set notes for dummy note
   m          => multi note dummy

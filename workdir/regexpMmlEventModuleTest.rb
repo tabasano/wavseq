@@ -263,6 +263,8 @@ class MmlString < String
     case cmd
     when *MmlReg::ArgIsOne
       [[:oneArg,self]]
+    when *MmlReg::ArgIsName
+      self.split(',').map{|i|[:name,i]}
     else
       self.scan(@@argReg).map{|m|MmlReg.item(m,rest)}
     end

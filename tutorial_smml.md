@@ -928,3 +928,5 @@ sound is modifier + note + length word.
 let it not too complicated in sound part for visibility.
 especially, for other words not to hide note type words.
 
+
+many values in MIDI are 0-127, so values are integers except pre -/+ values that mean differences.

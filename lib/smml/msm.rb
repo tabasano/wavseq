@@ -407,6 +407,7 @@ module MmlReg
            self.r([:macrodefAStart,:macrodefStart,:macrodefA,:macrodef])
   RepStrArray=["[","]",".CODA",".DS",".DC",".FINE",".toCODA",".$",".SKIP"]
   ArgIsOne=%w[ bendCent mark p gm gs xg loadf text ]
+  ArgIsName=%w[ p dumpVar ]
   def self.event m,rest=[]
     ((@@keys-rest).map{|k|m=~/\A#{@@h[k]}\z/ ? k : nil}-[nil])[0]
   end
@@ -2322,14 +2323,18 @@ module MidiHex
     @basekeyCenter=@basekey
   end
   def self.dumpVar v
-    v=~/\A[[:alnum:]]+\z/
-    if $&
-      puts "@#{v} #{eval("@#{v}")}"
-    elsif v=="?"
-      puts self.instance_variables.map{|i|i.to_s[1..-1]}.sort
-    else
-      puts "bad name '#{v}'"
-    end
+    vars=self.instance_variables.map{|i|i.to_s[1..-1]}.sort
+    s=v.split(',')
+    s.each{|v|
+      v=~/\A[[:alnum:]]+\z/
+      if $& && vars.member?(v)
+        puts "@#{v} #{eval("@#{v}")}"
+      elsif v=="?"
+        puts vars
+      else
+        puts "bad name '#{v}'"
+      end
+    }
   end
   def self.key2bend k
     v=k.class==Float ? @bendCent*(k-k.to_i) : 0
