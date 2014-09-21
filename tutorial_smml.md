@@ -579,6 +579,7 @@ if a scale has been defined as below, random notes will be selected from its sca
  (scale:+5)                    ;; shift all values from preceding scale. after above scale, this will be '(scale:d, ...)'.
 ```
 
+shift value etc. is by a half tone.
 still incompleted to use.
 
 

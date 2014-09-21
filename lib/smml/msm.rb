@@ -1332,6 +1332,7 @@ module MidiHex
   def self.trackPrepare tc=0
     self.getDefault
     @dummyNoteOrg="o"
+    @multidummySize=3
     @basekeybend=0
     @theremin=false
     @strokespeed=0
@@ -1688,7 +1689,7 @@ module MidiHex
     span=c.size
     sspeed=l/span/@strokefaster if span*sspeed>l/@strokefaster
     tmp=[]
-    c=c.map{|i|
+    c=c.map{|i|i =="??" ? ["?"]*@multidummySize : i }.flatten.map{|i|
       case i
       when "?"
         i=self.rndNote
@@ -2330,7 +2331,7 @@ module MidiHex
       if $& && vars.member?(v)
         puts "@#{v} #{eval("@#{v}")}"
       elsif v=="?"
-        puts vars
+        puts vars*", "
       else
         puts "bad name '#{v}'"
       end
@@ -2850,7 +2851,7 @@ module MidiHex
       when "?"
         wait<<[:dummyNote,"?"]
       when "m"
-        wait<<[:chord,["?","?","?"]]
+        wait<<[:chord,["??"]]
       else
         if @notes.keys.member?(i)
           wait<<[:sound,i]
