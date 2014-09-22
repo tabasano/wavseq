@@ -151,7 +151,7 @@ end
 # num and fixed mark word, for swing rythm
 class MyLength < Numeric
   def initialize *a
-    p [:in,a,a.size] if $DEBUG
+    p [:in,a,a.size] if $DEBUG && $debuglevel>4
     a=a[0] if a.size==1
     r=[]
     case a
@@ -168,7 +168,7 @@ class MyLength < Numeric
     end
     @s=Float(r[0])
     @j=([r[1]]-[nil]).flatten||[]
-    p [:i,@s,@j,r,a]  if $DEBUG
+    p [:i,@s,@j,r,a]  if $DEBUG && $debuglevel>4
   end
   def s
     @s
@@ -363,7 +363,7 @@ module MmlReg
   @@h[:velocity]="v[[:digit:]]+"
   @@h[:note]="[abcdefgACDFGr]|\\{[[:digit:]]+\\}"
   @@h[:note?]="[BE]"
-  @@h[:dummyNote]="o|m"
+  @@h[:dummyNote]="o|m|O|M"
   @@h[:randNote]="\\?"
   @@h[:sound]="_[^!]+!|="
   @@h[:tieNote]="~|w"
@@ -1331,7 +1331,7 @@ module MidiHex
   # track initialize
   def self.trackPrepare tc=0
     self.getDefault
-    @dummyNoteOrg="o"
+    @dummyNoteOrg=["o","O"]
     @multidummySize=3
     @basekeybend=0
     @theremin=false
@@ -1435,7 +1435,7 @@ module MidiHex
     len+=len*self.getswing(swing)
     bendStart=@bendNow
     ch=[ch,0x0f].min
-    key=rndNote if key==@dummyNoteOrg
+    key=self.rndNote if @dummyNoteOrg.member?(key)
     key+=sharp
     @key=[[key,0x7f].min,0].max
     return self.thereminNote(len,key,velocity,ch) if @theremin
@@ -1487,17 +1487,29 @@ module MidiHex
     end
     r
   end
-  def self.rndNote
+  def self.resetRand
+    @lastRandNote=false
+  end
+  def self.rndNote useScale=true
     key=rand(0x7f)
-    key=self.note2key(@scalenotes.sample) if @scalenotes.size>0
+    key=self.note2key(@scalenotes.sample) if @scalenotes.size>0 && useScale
+    if @downRandDummy && @lastRandNote
+      key-=12 while key>@lastRandNote && key>12
+    elsif ! @downRandDummy && @lastRandNote
+      key+=12 while key<@lastRandNote && key<127-12
+    end
+    @lastRandNote=key
     key
   end
   def self.dummyNote key,len,accent=false,sharp=0,swing=false
     len+=len*self.getswing(swing)
     vel=@velocity
     vel+=@accentPlus
+    @downRandDummy=false
     if key=="?"
       key=rndNote
+    elsif key=="O"
+      @downRandDummy=true
     end
     key=@preNote.shift if @preNote.size>0
     len=@preLength.shift if @preLength.size>0
@@ -1684,12 +1696,13 @@ module MidiHex
   def self.chord c,l=false,accent=false,sharp=0,swing=false
     l+=l*self.getswing(swing)
     r=[]
+    c=c.map{|i|i =~/^\?/ ? ["?"]*@multidummySize : i }.flatten
     sspeed=@strokespeed
     c=c.reverse if @strokeUpDown<0
     span=c.size
     sspeed=l/span/@strokefaster if span*sspeed>l/@strokefaster
     tmp=[]
-    c=c.map{|i|i =="??" ? ["?"]*@multidummySize : i }.flatten.map{|i|
+    ns=c.map{|i|
       case i
       when "?"
         i=self.rndNote
@@ -1700,13 +1713,13 @@ module MidiHex
         i
       end
     }
-    c.each{|i|
+    ns.each{|i|
       r+=self.soundOn(i,@velocity,@ch,sharp)
       @waitingtime+=sspeed
     }
     l-=sspeed*(span-1)
     @waitingtime,rest=self.byGate(l)
-    c.each{|i|
+    ns.each{|i|
       r+=self.soundOff(i,@ch,sharp)
     }
     self.strokeUpDownReset
@@ -2845,13 +2858,17 @@ module MidiHex
         end
       when "r"
         wait<<[:rest,i]
-      when "o"
+      when "o","O"
         wait<<[:dummyNote,i]
       when " "
       when "?"
         wait<<[:dummyNote,"?"]
       when "m"
+        @h<<[:call,:resetRand]
         wait<<[:chord,["??"]]
+      when "M"
+        @h<<[:call,:resetRand]
+        wait<<[:chord,["?O"]]
       else
         if @notes.keys.member?(i)
           wait<<[:sound,i]

@@ -772,7 +772,7 @@ this command do not check about track data strictly. be careful.
 now, note type commands are :
 
 ```
-      c         ;; single note
+      c         ;; single note 'c'
       C         ;; c sharp
       (-)d      ;; single note with flat/sharp/natural modifiers
       {64}      ;; single note by absolute note number
@@ -781,11 +781,14 @@ now, note type commands are :
       {47,:0}   ;; multi note. second note is by 12 series half tone notation
       :cmaj7,   ;; chord name
       =         ;; copy of the latest note type command
+      ?         ;; random note
+      o         ;; dummy note ; use a random note if there is no substitution command
+      m         ;; multi dummy note ; similiar to  '{?,?,?}'
 ```
 
   and other commands are with parentheses.
 
-```~``` or ```w``` seems likely note type, but it is compressed to preceding note as calculated note length. most commands cannot be set inside of ```'c~~~'.```
+```~``` and ```w``` seem like note type, but it is compressed to preceding note as calculated note length. most commands cannot be set inside of ```'c~~~'.```
 
 ;; theremin like sound,
 
