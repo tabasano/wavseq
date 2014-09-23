@@ -14,16 +14,23 @@
 
 [
  (s:c,e,g) mooo
- (s:-5)    m/:oo/oo
- (s:-2)    /:mo/ooo
+ (s:g,b,d) m/:oo/oo
+ (s:f,b,c) /:mo/ooo
            m/3:oooooo/
 ] 6
 rr
 [
- (s:c,e,g) moOO
- (s:-5)    m/:oO/OO
- (s:-2)    /:mo/OOO
-           m/3:oOOOoo/
+ (scale: :c)   moOO
+ (scale: :g)   m/:oO/OO
+ (scale: :f)   /:mo/OOO
+               m/3:oOOOoo/
 ] 6
 
 (dumpVar:strokespeed)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+  chord name
+  (scale: :c7, ) = (scale:c,e,g,A) = (s::c7)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;

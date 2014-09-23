@@ -522,6 +522,72 @@ def mergeValues a,b
   }
   r
 end
+class Chord
+  def self.notes type,subtype
+    ten=[0]
+    case type
+    when "power"
+      ten+=[7]
+    when "7"
+      ten+=[4,7,10]
+    when "m7"
+      ten+=[3,7,10]
+    when "maj7"
+      ten+=[4,7,11]
+    when "mmaj7"
+      ten+=[3,7,11]
+    when "maj" # no need
+      ten+=[4,7]
+    when "m"
+      ten+=[3,7]
+    when "6"
+      ten+=[4,7,9]
+    when "m6"
+      ten+=[3,7,9]
+    when "sus4"
+      ten+=[5,7]
+    when "aug", "+"
+      ten+=[4,8]
+    when "dim"
+      ten+=[3,6]
+    when "dim7"
+      ten+=[3,6,9]
+    when ""
+      ten+=[4,7]
+    else
+      STDERR.puts "unknown chord type? #{type}"
+    end
+    if subtype
+      tention=subtype.split(',')
+      tention.each{|i|
+        case i
+        when "+5"
+          ten=ten-[7]+[8]
+        when "-5"
+          ten=ten-[7]+[6]
+        when "9"||"add9"
+          ten=ten+[14]
+        when "+9"
+          ten=ten+[15]
+        when "-9"
+          ten=ten+[13]
+        when "+11"
+          ten=ten+[6]
+        when "13"
+          ten=ten+[9]
+        when "-13"
+          ten=ten+[8]
+        end
+      }
+    end
+    ten=ten.sort
+    ten
+  end
+  def self.type c
+    c=~/([^(]*)(\((.*)\))?/
+    self.notes($1,$2)
+  end
+end
 class Notes < Hash
   @@rythmChannel=9
   @@notes={
@@ -1591,10 +1657,6 @@ module MidiHex
   end
   def self.chordName c,l=false,accent=false,sharp=0,swing=false
     l+=l*self.getswing(swing)
-    c=~/(.)([^(]*)(\((.*)\))?/
-    root=$1
-    type=$2
-    subtype=$4
     same=false
     same=(@lastchordName==c) if @lastchordName
     if same
@@ -1605,64 +1667,12 @@ module MidiHex
       end
     else
       @lastchordName=c
+      c=~/(.)([^(]*)(\((.*)\))?/
+      root=$1
+      type=$2
+      subtype=$4
       base=self.note2key(root)+sharp
-      ten=[0]
-      case type
-      when "power"
-        ten+=[7]
-      when "7"
-        ten+=[4,7,10]
-      when "m7"
-        ten+=[3,7,10]
-      when "maj7"
-        ten+=[4,7,11]
-      when "mmaj7"
-        ten+=[3,7,11]
-      when "maj" # no need
-        ten+=[4,7]
-      when "m"
-        ten+=[3,7]
-      when "6"
-        ten+=[4,7,9]
-      when "m6"
-        ten+=[3,7,9]
-      when "sus4"
-        ten+=[5,7]
-      when "aug" || "+"
-        ten+=[4,8]
-      when "dim"
-        ten+=[3,6]
-      when "dim7"
-        ten+=[3,6,9]
-      when ""
-        ten+=[4,7]
-      else
-        STDERR.puts "unknown chord type? #{type}"
-      end
-      if subtype
-        tention=subtype.split(',')
-        tention.each{|i|
-          case i
-          when "+5"
-            ten=ten-[7]+[8]
-          when "-5"
-            ten=ten-[7]+[6]
-          when "9"||"add9"
-            ten=ten+[14]
-          when "+9"
-            ten=ten+[15]
-          when "-9"
-            ten=ten+[13]
-          when "+11"
-            ten=ten+[6]
-          when "13"
-            ten=ten+[9]
-          when "-13"
-            ten=ten+[8]
-          end
-        }
-      end
-      ten=ten.sort
+      ten=Chord.notes(type,subtype)
       p "#{root} #{ten*','}" if $DEBUG
       chord=ten.sort.map{|i|base+i}
       chord=self.invert(@lastchord,chord)
@@ -2066,10 +2076,18 @@ module MidiHex
     first=s.first
     mode=s[1]
     if s.size==1
-      first=~/^[-+]/
-      if $&
+      case first
+      when /^[-+]/
         shift=first.to_i
         @scalenotes=@scalenotes.move(shift)
+      when /^:(.)(.*)/
+        @scalenotes.reset
+        base=$1
+        ten=Chord.type($2)
+        ten.each{|i|
+          note=Notes.get(base,i) # if i=~/^[-+]+[[:digit:]]+$/
+          @scalenotes<<note
+        }
       end
     elsif @scalenotes.keys.member?(:"#{mode}")
       @scalenotes.reset

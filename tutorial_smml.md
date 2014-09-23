@@ -577,6 +577,7 @@ if a scale has been defined as below, random notes will be selected from its sca
  (scale:a,b,c,d,e)             ;; series of note names
  (scale:a,+2,+3,+5,+7,+9,+11)  ;; first note and plus values to add to first note
  (scale:+5)                    ;; shift all values from preceding scale. after above scale, this will be '(scale:d, ...)'.
+ (scale: :g7, )                ;; by chord name
 ```
 
 shift value etc. is by a half tone.
