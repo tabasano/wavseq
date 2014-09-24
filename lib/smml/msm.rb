@@ -289,10 +289,10 @@ module MmlReg
     self.r(key,sort,pre)
   end
   def self.trackr
-    self.r([:hexraw,:sharp,:chord,:word,:sound,:tieNote,:register,:modifier,:velocity,:tempo,:num,:octave,:note2,:note,:mod,:note?,:sound?])
+    self.r([:hexraw,:sharp,:chord,:sword,:word,:sound,:tieNote,:register,:modifier,:velocity,:tempo,:num,:octave,:note2,:note,:mod,:note?,:sound?])
   end
   def self.multipletr
-    self.r([:note2,:word,:note,:sound,:tieNote,:register,:chord,:numswing,:num,:sharp,:octave,:mod])
+    self.r([:note2,:sword,:word,:note,:sound,:tieNote,:register,:chord,:numswing,:num,:sharp,:octave,:mod])
   end
   def self.macroDefr
     self::MacroDef
@@ -319,6 +319,7 @@ module MmlReg
     :repStart,
     :repEnd,
     :note2,
+    :sword,
     :word,
     :modifier,
     :sharp,
@@ -355,11 +356,12 @@ module MmlReg
   @@h[:repmark]="\\.FINE|\\.DS|\\.DC|\\.\\$|\\.toCODA|\\.CODA|\\.SKIP"
   @@h[:comment]="\\( *comment[^\(\)]*\\)"
   @@h[:note2]="\\( *tne *:[^\(\)]*\\)|\\( *[[:alpha:]\\-\\+]+,[^,]*\\)"
+  @@h[:sword]="\\([^\(\):,]*:[^\(\),]+\\([^\(\)]+\\)\\)"
   @@h[:word]="\\([^\(\):,]*:[^\(\)]*\\)"
   @@h[:wordStart]="\\([^\(\):]*:"
   @@h[:sharp]="\\([+-]*[[:digit:]\\.]*\\)"
   @@h[:word?]="\\([^\(\)]*\\)"
-  @@h[:chord]="\\{[^\{\}]+,[^\{\},]+\\}|:[[:alpha:]][[:alnum:]]*,"
+  @@h[:chord]="\\{[^\{\}]+,[^\{\},]+\\}|:[[:alpha:]][[:alnum:]]*\\([-+,:[:digit:]]+\\),|:[[:alpha:]][[:alnum:]]*,"
   @@h[:velocity]="v[[:digit:]]+"
   @@h[:note]="[abcdefgACDFGr]|\\{[[:digit:]]+\\}"
   @@h[:note?]="[BE]"
@@ -577,6 +579,11 @@ class Chord
           ten=ten+[9]
         when "-13"
           ten=ten+[8]
+        when /^:/
+          t=$'.to_i
+          ten=ten+[t]
+        else
+          STDERR.puts "unknown chord sub type? #{subtype}"
         end
       }
     end
@@ -585,7 +592,7 @@ class Chord
   end
   def self.type c
     c=~/([^(]*)(\((.*)\))?/
-    self.notes($1,$2)
+    self.notes($1,$3)
   end
 end
 class Notes < Hash
@@ -2080,7 +2087,7 @@ module MidiHex
       when /^[-+]/
         shift=first.to_i
         @scalenotes=@scalenotes.move(shift)
-      when /^:(.)(.*)/
+      when /^:?(.)(.*)/
         @scalenotes.reset
         base=$1
         ten=Chord.type($2)

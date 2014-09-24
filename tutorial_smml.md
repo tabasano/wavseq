@@ -173,7 +173,7 @@ cdim7
 cpower
 ```
 
-followed by
+followed by tentions comma separated.
 
 ```
 (+5)
@@ -184,6 +184,38 @@ followed by
 (+11)
 (13)
 (-13)
+```
+
+direct tention order by pre ':' with a half note distance number from chord base note.
+
+```
+ (:1,:2,:3,+5)
+```
+
+in chord name, generally numbers don't mean chromatic distance. don't confuse.
+easy way of counting distance number in chord is to count only white key ignoring black on a piano.
++5 means a sharp of 5th. if there is perfect 5th in the chord, 5th note will be deleted by '(+5)' because they don't appear together generally.
+when you want to use abnormal tentions like conbination of these, direct order can be used like 'c7(:8)' on your own risk.
+:8 expresses a note sharp of 5th by a half note expression. count all of the white and black key between c and g sharp on a piano.
+
+
+for example,
+list of chromatic scale expression is here, (when base note is 'c')
+
+```
+ :0  c
+ :1  C
+ :2  d
+ :3  D
+ :4  e
+ :5  f
+ :6  F
+ :7  g
+ :8  G
+ :9  a
+ :10 A
+ :11 b
+ :12 c (next octave)
 ```
 
 
