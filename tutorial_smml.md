@@ -583,8 +583,30 @@ in the same way,
 is same mean to above. 'o' is dummy note. note hights are substituted by '(N:..)' values.
 
 
+## scale
+
+scale values are used for random notes only now.
+
+
+definition:
+
+```
+ (scale:a,b,c,d,e)             ;; series of note names
+ (scale:d-dorian)              ;; starting note and mode name. this will be '(scale:d,e,f,g,a,b,c)'
+ (scale:a,+2,+3,+5,+7,+9,+11)  ;; first note and plus values to add to first note
+ (scale:+5)                    ;; shift all values from preceding scale. after above scale, this will be '(scale:d, ...)'.
+ (scale:g7)                    ;; by chord name
+ (scale:)                      ;; reset scale value
+```
+
+shift value is by a half tone.
+when arg size of a scale command is one, it is manipulated as a chord name, mode name, or relative shift value.
+still incompleted to use.
+
 ## dummy note
 'o' is dummy. '?' is for random note etc.
+if a scale has been defined as above, random notes will be selected from its scale notes.
+
 
 ```
  ? /2: ???? /
@@ -603,24 +625,13 @@ or maybe
 ```
 
 etc.
-if a scale has been defined as below, random notes will be selected from its scale notes.
-
-```
- (scale:a,b,c,d,e)             ;; series of note names
- (scale:a,+2,+3,+5,+7,+9,+11)  ;; first note and plus values to add to first note
- (scale:+5)                    ;; shift all values from preceding scale. after above scale, this will be '(scale:d, ...)'.
- (scale: :g7, )                ;; by chord name
-```
-
-shift value etc. is by a half tone.
-still incompleted to use.
 
 
 another random note.
 
 ```
  [ (?:56-58) ] 4        ;; use range 56 to 58, note number. in this case, 4 times repeating maybe '{56}{56}{58}{57}' etc.
- (?:a,b,40,45,90,12)        ;; select from a note number or name list.
+ (?:a,b,40,45,90,12)    ;; select from a note number or name list.
 ```
 
 ## transpose

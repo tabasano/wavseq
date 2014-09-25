@@ -117,6 +117,8 @@ syntax: ...( will be changed time after time)
       '{d,g,-b}' => multi note
       ':cmaj7,'  => chord name
     and other commands are with parentheses.
+
+    for more details, see tutorial_smml.md
 EOF
 end
 def hint
@@ -289,10 +291,10 @@ module MmlReg
     self.r(key,sort,pre)
   end
   def self.trackr
-    self.r([:hexraw,:sharp,:chord,:sword,:word,:sound,:tieNote,:register,:modifier,:velocity,:tempo,:num,:octave,:note2,:note,:mod,:note?,:sound?])
+    self.r([:hexraw,:sharp,:chord,:chword,:word,:sound,:tieNote,:register,:modifier,:velocity,:tempo,:num,:octave,:note2,:note,:mod,:note?,:sound?])
   end
   def self.multipletr
-    self.r([:note2,:sword,:word,:note,:sound,:tieNote,:register,:chord,:numswing,:num,:sharp,:octave,:mod])
+    self.r([:note2,:chword,:word,:note,:sound,:tieNote,:register,:chord,:numswing,:num,:sharp,:octave,:mod])
   end
   def self.macroDefr
     self::MacroDef
@@ -319,7 +321,7 @@ module MmlReg
     :repStart,
     :repEnd,
     :note2,
-    :sword,
+    :chword,
     :word,
     :modifier,
     :sharp,
@@ -356,7 +358,8 @@ module MmlReg
   @@h[:repmark]="\\.FINE|\\.DS|\\.DC|\\.\\$|\\.toCODA|\\.CODA|\\.SKIP"
   @@h[:comment]="\\( *comment[^\(\)]*\\)"
   @@h[:note2]="\\( *tne *:[^\(\)]*\\)|\\( *[[:alpha:]\\-\\+]+,[^,]*\\)"
-  @@h[:sword]="\\([^\(\):,]*:[^\(\),]+\\([^\(\)]+\\)\\)"
+  # parenthesis arg, chord inside etc.
+  @@h[:chword]="\\([^\(\):,]*:[^\(\),]+\\([^\(\)]+\\)\\)"
   @@h[:word]="\\([^\(\):,]*:[^\(\)]*\\)"
   @@h[:wordStart]="\\([^\(\):]*:"
   @@h[:sharp]="\\([+-]*[[:digit:]\\.]*\\)"
@@ -2077,9 +2080,8 @@ module MidiHex
     @chordCenter=[[0,@chordCenter].max,0x7f].min
     @firstchordbase=@chordCenter
   end
-  # todo: use scale name
   def self.scale s
-    s=s.split(",")
+    s=s.scan(/[^,]-[^-,]+|[-+]+[[:digit:]]+|[^()]*\([^()]+\)|[^,]+|,/)-[","]
     first=s.first
     mode=s[1]
     if s.size==1
@@ -2087,18 +2089,19 @@ module MidiHex
       when /^[-+]/
         shift=first.to_i
         @scalenotes=@scalenotes.move(shift)
+      when /^(.)-([^-]+)$/
+        f,mode=$1,$2
+        @scalenotes.reset
+        @scalenotes.setmode(f,:"#{mode}")
       when /^:?(.)(.*)/
         @scalenotes.reset
         base=$1
         ten=Chord.type($2)
         ten.each{|i|
-          note=Notes.get(base,i) # if i=~/^[-+]+[[:digit:]]+$/
+          note=Notes.get(base,i)
           @scalenotes<<note
         }
       end
-    elsif @scalenotes.keys.member?(:"#{mode}")
-      @scalenotes.reset
-      @scalenotes.setmode(first,:"#{mode}")
     else
       @scalenotes.reset
       s.each{|i|
