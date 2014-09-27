@@ -193,7 +193,7 @@ direct tention order by pre ':' with a half note distance number from chord base
 ```
 
 in chord name, generally numbers don't mean chromatic distance. don't confuse.
-easy way of counting distance number in chord is to count only white key ignoring black on a piano.
+when key is c major etc., scale not using sharps/flats , easy way of counting distance number in the chord is to count only white key ignoring black on a piano.
 +5 means a sharp of 5th. if there is perfect 5th in the chord, 5th note will be deleted by '(+5)' because they don't appear together generally.
 when you want to use abnormal tentions like conbination of these, direct order can be used like 'c7(:8)' on your own risk.
 :8 expresses a note sharp of 5th by a half note expression. count all of the white and black key between c and g sharp on a piano.
@@ -217,6 +217,11 @@ list of chromatic scale expression is here, (when base note is 'c')
  :11 b
  :12 c (next octave)
 ```
+
+as an useless example, the chord using all 12 notes of an octave is 'c(:0,:1,:2,:3,:4,:5,:6,:7,:8,:9,:10,:11)'
+
+normally important tention notes are used in high positions, but now it is not considered in chord transpose calculating.
+all notes are considered as even importances.
 
 
 ## tempo
@@ -286,6 +291,7 @@ this multi-tone passage is repeated four times. ```:0``` is 'c' and ```:1``` is 
 ```
 _snare! = = =
 ```
+
 
 ;; set instrument. automaticaly searched by even not exact name. (MIDI program change command)
 it depend on map files.
@@ -634,6 +640,27 @@ another random note.
  (?:a,b,40,45,90,12)    ;; select from a note number or name list.
 ```
 
+## tonality
+
+```
+ (tonality:d)
+ (tonality:+2)
+```
+
+set tonality 'd', d major. ('dm' as d minor, but now it doesn't work.)
+after above, 'defgabcd' will become 'deFgabCd' automaticaly by two sharps, so '+2' can be used as an argument.
+still under construction.
+
+
+```
+ (tonality:D)efgabcde
+```
+
+in above, the tonality is 'D' major, e flat major, so following e, a, and b are flat notes.
+feel strange a little bit? i think so too.
+
+
+
 ## transpose
 
 ```
@@ -962,19 +989,19 @@ but now blanks are removed. someday maybe fixed ?
   (dumpVar: varName)
 ```
 
-directly set local MidiHex variable, dump while compiling if the varName and value are valid.
+directly set local MidiHex variable, dump while compiling if the varName (with noe method) and value are valid.
+
 
 # syntax implement policy: 
 
 
 parenthesis command is buil with (name:value,value,...). names often used are shorter, or leave it as it is as possible.
 
-
 sound is modifier + note + length word.
-
 
 let it not too complicated in sound part for visibility.
 especially, for other words not to hide note type words.
 
-
 many values in MIDI are 0-127, so values are integers except pre -/+ values that mean differences.
+
+a priority matter is how to catch up with sound which come to mind and to write down it quickly.

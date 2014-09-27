@@ -650,6 +650,69 @@ class Notes < Hash
     pre+@@invert[num%@@octave]
   end
 end
+class Tonality
+  def initialize key="c"
+    @sharp=[:f,:c,:g,:d,:a,:e,:b]
+    @flat=@sharp.reverse
+    @cycle=[:c,:f,:A,:D,:G,:C,:F,:b,:e,:a,:d,:g,:c]
+    @cf={}
+    @cs={}
+    @ccount={}
+    @sfnow={}
+    7.times{|n|
+      i=@cycle[n]
+      @cycle.index(i).times{|s|
+        @cf[i]=[] if ! @cf[i]
+        @cf[i]<<@flat[s]
+      }
+    }
+    7.times{|n|
+      i=@cycle.reverse[n]
+      @cycle.reverse.index(i).times{|s|
+        @cs[i]=[] if ! @cs[i]
+        @cs[i]<<@sharp[s]
+      }
+    }
+    7.times{|i|@ccount[i]=@cycle.reverse[i]}
+    7.times{|i|@ccount[-i]=@cycle[i]}
+    self.set(key)
+  end
+  def sharp t
+    @cs[t.to_sym]
+  end
+  def flat t
+    @cf[t.to_sym]
+  end
+  def tonalitycheck t,mode=false
+    t=@ccount[t.to_i] if t=~/^[-+[:digit:]]/
+    t=t.to_sym
+    cf=mode ? (@cf[t]||[]) : (@cf[t]||[]).size
+    cs=mode ? (@cs[t]||[]) : (@cs[t]||[]).size
+    case @cycle.index(t)
+    when 0...7
+      [:flat,cf]
+    else
+      [:sharp,cs]
+    end
+  end
+  def set t
+    @key=t
+    @sfnow={}
+    r=tonalitycheck(t,true)
+    r[1].each{|i|@sfnow[i]=r[0]}
+  end
+  def getSharp n
+    n=n.to_sym
+    case @sfnow[n]
+    when :sharp then  1
+    when :flat  then -1
+    else              0
+    end
+  end
+  def dump
+    p self
+  end
+end
 class ScaleNotes < Array
   def setSampleRate c
     @samplerate=c
@@ -1247,6 +1310,7 @@ module MidiHex
   # initialize
   def self.prepare bpm=120,tbase=480,vel=0x40,oct=:near,vfuzzy=2,strict=false
     @ready=true
+    @tonality=Tonality.new("c")
     @bendHalfMax=BendHalf
     @strictmode=strict
     @autopan= strict ? false : true
@@ -1302,11 +1366,11 @@ module MidiHex
   end
   def self.setDefault
     @prepareSet=[
-      @tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendCentOn,@bendrange,@bendCent,@bendNow,@scalenotes,@gtune,@expressionRest,@expressionDef,@registerHash,@swingHash
+      @tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendCentOn,@bendrange,@bendCent,@bendNow,@scalenotes,@gtune,@expressionRest,@expressionDef,@registerHash,@swingHash,@tonality
     ]
   end
   def self.getDefault
-      @tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendCentOn,@bendrange,@bendCent,@bendNow,@scalenotes,@gtune,@expressionRest,@expressionDef,@registerHash,@swingHash=
+      @tbase,@ch,@velocity,@expression,@velocityFuzzy,@basekey,@gateRate,@bendCentOn,@bendrange,@bendCent,@bendNow,@scalenotes,@gtune,@expressionRest,@expressionDef,@registerHash,@swingHash,@tonality=
       @prepareSet
   end
   def self.dumpstatus
@@ -1314,6 +1378,9 @@ module MidiHex
       val=self.instance_variable_get(i)
       p [i, val] if "#{val}".size<100
     }
+  end
+  def self.setTonality n
+    @tonality.set(n)
   end
   def self.setmidiname name
     @midiname=name
@@ -1455,6 +1522,15 @@ module MidiHex
     r=len-l
     l,r=len,0 if len<lenforgate
     [l,r]
+  end
+  def self.notesharp note,sharp
+    s=0
+    if sharp!=0
+      s=sharp
+    else
+      s=@tonality.getSharp(note)
+    end
+    s
   end
   def self.soundOn key=@basekey,velocity=@velocity,ch=@ch,sharp=0
     key=self.note2key(key) if key.class==String
@@ -1614,6 +1690,7 @@ module MidiHex
   end
   def self.noteCalc c,last,base
     n=@notes[c]
+    n+=self.notesharp(c,0)
     if @octmode==:near && n.class != Array
       if last
         n+=12 if last-n>6
@@ -2029,7 +2106,7 @@ module MidiHex
     k=if tone=~/^_/
         [self.percussionGet(tone),@rythmChannel]
       elsif @notes.keys.member?(i)
-        @basekey+oct*12+@notes[i]
+        @basekey+oct*12+@notes[i]+self.notesharp(i,0)
       else
         i.to_i
       end
@@ -2368,8 +2445,8 @@ module MidiHex
     vars=self.instance_variables.map{|i|i.to_s[1..-1]}.sort
     s=v.split(',')
     s.each{|v|
-      v=~/\A[[:alnum:]]+\z/
-      if $& && vars.member?(v)
+      v=~/\A([[:alnum:]]+)[[:alnum:].]*\z/
+      if $& && vars.member?($1)
         puts "@#{v} #{eval("@#{v}")}"
       elsif v=="?"
         puts vars*", "
@@ -2652,6 +2729,8 @@ module MidiHex
       when MmlReg.rr([:register])
         i=~/[[:digit:]]+/
         @h<<[:call,:register,$&]
+      when /^\(tonality:(.*)\)/
+        @h<<[:call,:setTonality,$1]
       when /^\(set":(.*)\)/
         d=$1.split(",")
         @h<<[:call,:setRegister,*d]
