@@ -657,7 +657,7 @@ class Tonality
     @cycle=[:c,:f,:A,:D,:G,:C,:F,:b,:e,:a,:d,:g,:c]
     @cf={}
     @cs={}
-    @ccount={}
+    @bymarkcount={}
     @sfnow={}
     7.times{|n|
       i=@cycle[n]
@@ -673,8 +673,8 @@ class Tonality
         @cs[i]<<@sharp[s]
       }
     }
-    7.times{|i|@ccount[i]=@cycle.reverse[i]}
-    7.times{|i|@ccount[-i]=@cycle[i]}
+    7.times{|i|@bymarkcount[i]=@cycle.reverse[i]}
+    7.times{|i|@bymarkcount[-i]=@cycle[i]}
     self.set(key)
   end
   def sharp t
@@ -683,11 +683,16 @@ class Tonality
   def flat t
     @cf[t.to_sym]
   end
-  def tonalitycheck t,mode=false
-    t=@ccount[t.to_i] if t=~/^[-+[:digit:]]/
+  def tonalitycheck t,sfnote=false
+    t=@bymarkcount[t.to_i] if t=~/^[-+[:digit:]]/
+    if t=~/m$/
+      # use relative major tonality data
+      t=$`.to_sym
+      t=@cycle[(@cycle.index(t)+3)%12]
+    end
     t=t.to_sym
-    cf=mode ? (@cf[t]||[]) : (@cf[t]||[]).size
-    cs=mode ? (@cs[t]||[]) : (@cs[t]||[]).size
+    cf=sfnote ? (@cf[t]||[]) : (@cf[t]||[]).size
+    cs=sfnote ? (@cs[t]||[]) : (@cs[t]||[]).size
     case @cycle.index(t)
     when 0...7
       [:flat,cf]
@@ -710,7 +715,7 @@ class Tonality
     end
   end
   def dump
-    p self
+    [:now_cf_cs,[@sfnow,@cf,@cs].map{|i|i.map{|k,v|"#{k} #{v.class==Array ? v.sort : v}"}}]
   end
 end
 class ScaleNotes < Array

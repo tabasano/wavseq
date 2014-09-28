@@ -647,7 +647,7 @@ another random note.
  (tonality:+2)
 ```
 
-set tonality 'd', d major. ('dm' as d minor, but now it doesn't work.)
+set tonality 'd', d major. 'dm' as d minor.
 after above, 'defgabcd' will become 'deFgabCd' automaticaly by two sharps, so '+2' can be used as an argument.
 still under construction.
 
@@ -997,7 +997,7 @@ directly set local MidiHex variable, dump while compiling if the varName (with n
 
 parenthesis command is buil with (name:value,value,...). names often used are shorter, or leave it as it is as possible.
 
-sound is modifier + note + length word.
+sound is modifier + note + length word. modifiers are effective for one note only against premodifier etc.,  parenthesis commands, are for permanent effects. 
 
 let it not too complicated in sound part for visibility.
 especially, for other words not to hide note type words.
