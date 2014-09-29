@@ -600,6 +600,7 @@ class Chord
 end
 class Notes < Hash
   @@rythmChannel=9
+  @@defaultbase="c"
   @@notes={
     "c"=>0,
     "C"=>1,
@@ -625,10 +626,17 @@ class Notes < Hash
     @@notes.each{|k,v|self[k]=v}
   end
   def self.offset a,b="c"
-    (@@notes[a]-@@notes[b])
+    r=@@notes[a]-@@notes[b]
+    if r>6
+      r-=12
+    elsif r<-6
+      r+=12
+    else
+    end
+    r
   end
   def self.n2note num,base="c"
-    offset=(@@notes[base]-@@notes["c"])%12
+    offset=self.offset(base,@@defaultbase)
     num+=offset
     @@invert[num%@@octave]
   end
@@ -657,6 +665,7 @@ class Notes < Hash
 end
 class Tonality
   def initialize key="c"
+    @scalenotesize=7
     @naturalscale=[*"a".."g"]
     @sharp=[:f,:c,:g,:d,:a,:e,:b]
     @flat=@sharp.reverse
@@ -690,17 +699,21 @@ class Tonality
   def flat t
     @cf[t.to_sym]
   end
-  def setArabic t
-    sc=@arabic.map{|i|Notes.n2note(i,t)}
+  def setBySharp t,scale
+    return if scale.size>@scalenotesize
+    sc=scale.map{|i|Notes.n2note(i,t)}
     offset=Notes.offset(t)
     @naturalscale=@naturalscale.rotate while @naturalscale[0]!=t.downcase
     r=[]
-    7.times{|i|
+    @scalenotesize.times{|i|
       a=Notes.offset(sc[i],@naturalscale[i])
       @sfnow[@naturalscale[i].to_sym]=a if a!=0
       r<<a
     }
     r
+  end
+  def setArabic base
+    setBySharp(base,@arabic)
   end
   def tonalitycheck t,sfnote=false
     t=@bymarkcount[t.to_i] if t=~/^[-+[:digit:]]/
@@ -724,6 +737,10 @@ class Tonality
     @sfnow={}
     if t=~/ *arabic/
       setArabic($`)
+    elsif t=~/,/
+      base,*sc=t.split(',')
+      sc=sc.map{|i|i.to_i}
+      setBySharp(base,sc)
     else
       r=tonalitycheck(t,true)
       r[1].each{|i|@sfnow[i]=r[0]}
