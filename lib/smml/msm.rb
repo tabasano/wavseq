@@ -624,7 +624,12 @@ class Notes < Hash
   def initialize
     @@notes.each{|k,v|self[k]=v}
   end
-  def self.n2note num
+  def self.offset a,b="c"
+    (@@notes[a]-@@notes[b])
+  end
+  def self.n2note num,base="c"
+    offset=(@@notes[base]-@@notes["c"])%12
+    num+=offset
     @@invert[num%@@octave]
   end
   def self.n2octave num
@@ -652,8 +657,10 @@ class Notes < Hash
 end
 class Tonality
   def initialize key="c"
+    @naturalscale=[*"a".."g"]
     @sharp=[:f,:c,:g,:d,:a,:e,:b]
     @flat=@sharp.reverse
+    @arabic=[0,1,4,5,7,8,10]
     @cycle=[:c,:f,:A,:D,:G,:C,:F,:b,:e,:a,:d,:g,:c]
     @cf={}
     @cs={}
@@ -683,6 +690,18 @@ class Tonality
   def flat t
     @cf[t.to_sym]
   end
+  def setArabic t
+    sc=@arabic.map{|i|Notes.n2note(i,t)}
+    offset=Notes.offset(t)
+    @naturalscale=@naturalscale.rotate while @naturalscale[0]!=t.downcase
+    r=[]
+    7.times{|i|
+      a=Notes.offset(sc[i],@naturalscale[i])
+      @sfnow[@naturalscale[i].to_sym]=a if a!=0
+      r<<a
+    }
+    r
+  end
   def tonalitycheck t,sfnote=false
     t=@bymarkcount[t.to_i] if t=~/^[-+[:digit:]]/
     if t=~/m$/
@@ -703,12 +722,17 @@ class Tonality
   def set t
     @key=t
     @sfnow={}
-    r=tonalitycheck(t,true)
-    r[1].each{|i|@sfnow[i]=r[0]}
+    if t=~/ *arabic/
+      setArabic($`)
+    else
+      r=tonalitycheck(t,true)
+      r[1].each{|i|@sfnow[i]=r[0]}
+    end
   end
   def getSharp n
     n=n.to_sym
     case @sfnow[n]
+    when -2..2  then @sfnow[n]
     when :sharp then  1
     when :flat  then -1
     else              0
