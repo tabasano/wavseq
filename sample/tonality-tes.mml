@@ -1,0 +1,40 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+  tonality
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(tempo:200)(p:guit)
+
+(tonality:c)cdefgabc-
+(:C) defgabcd-
+(:d) defgabcd-
+(:D) efgabcde-
+(:e) efgabcde-
+(:f) fgabcdef-
+(:F) gabcdefg-
+(:g) gabcdefg-
+(:G) abcdefga-
+(:a) abcdefga-
+(:A) bcdefgab-
+(:b) bcdefgab-
+rr -
+(:am) agfedcba+
+(:Am) bagfedcb+
+(:bm) bagfedcb+
+(:cm) cbagfedc+
+(:Cm) cbagfedc+
+(:dm) dcbagfed+
+(:Dm) edcbagfe+
+(:em) edcbagfe+
+(:fm) fedcbagf+
+(:Fm) fedcbagf+
+(:gm) gfedcbag+
+(:Gm) gfedcbag+
+rr
+(:a arabic) abcdefga-
+(:b arabic) bcdefgab-
+(:c arabic) cdefgabc-
+rr
+(tonality:e,0,2,4,6,8,10,12) efgabcd-
