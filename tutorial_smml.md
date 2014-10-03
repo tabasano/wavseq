@@ -1005,3 +1005,30 @@ especially, for other words not to hide note type words.
 many values in MIDI are 0-127, so values are integers except pre -/+ values that mean differences.
 
 a priority matter is how to catch up with sound which come to mind and to write down it quickly.
+
+
+# prologue
+
+one of my neibourhood, who cann't play or write music, said that oh i remember this piano piece i had listened once only you played last time, i am great, great, great?
+people can remind or make sounds in their mind easily but it is difficult to write it down except trained.
+i play the piano and other instruments, but it took another long time to learn writing down music.
+
+
+at first i felt like starting write music again in a computer, windows pc. i searched softwares.
+midi is best for me, i thought. cherry is good. i tried it by my pc keyboard.
+soon i felt uncomfortable. it is too ...
+i plays the piano that has midi out/in. for me, i thought it is better to use a stand alone midi sequencer with connecting my e-piano as a keyboard.
+i got and tried QY70 etc.
+it was useful. 
+a little bit later, again, i felt uncomfortable. it is too much ...
+set chords, select preset tracks, set melodies, then soon i was able to listen music. great. too much useful, i don't need to complete details.
+dont need to study or make jazz, latin, ethnic patterns. only to do is to select preset ones.
+to play the piano is not too difficult, but to play with click sounds is not comfortable. it is not interesting work.
+it is better than midi event writing with a pc keyboard. but it must be another way to write music for me and some people who don't wanna be machines.
+MML is best for writing music easily, if able to sing do-re-mi.
+let's say good-bye to irritate click sounds, mouses and pianos?! lol
+
+
+but i feel that it is too ... too much difficult to read general MMLs and understand and remind sounds ... sometimes.
+what can we do? forget music? become a machine? change MML? change the world?
+

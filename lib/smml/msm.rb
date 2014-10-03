@@ -3431,8 +3431,11 @@ def repCalc line,macro,tbase
       pointDS=countertmp
     when ";"
       current=""
-    when /^\(([^\)]+):$/
-      lastcmd=$1 if $1 != "C"
+    when /^\((\^)?([^\)]+):$/
+      mark,cmd=$1,$2
+      # (reUsedCmd:arg)  (^onceOnlyCmd:arg)
+      lastcmd=cmd if ! mark && cmd != "C"
+      current="(#{cmd}:"
     when "(:"
       current="(#{lastcmd}:"
     else
