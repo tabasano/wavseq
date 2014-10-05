@@ -255,6 +255,14 @@ is the same to
 
 minus value is for to stroke up. currently, up value affects once only as it simulates playing the guitar. 
 
+
+to skip cmd for repetition, use pre '^'.
+
+```
+(stroke:4) {a,b,c} = = (^skipCmd:..) (:-)  = = = 
+```
+
+
 ## sharp, flat
 ;; note name etc. is case sencitive, so each of 12 notes in one octave can be expressed by one charactor. 
 ;; but in other cases,
@@ -1017,14 +1025,18 @@ i play the piano and other instruments, but it took another long time to learn w
 at first i felt like starting write music again in a computer, windows pc. i searched softwares.
 midi is best for me, i thought. cherry is good. i tried it by my pc keyboard.
 soon i felt uncomfortable. it is too ...
+
+
 i plays the piano that has midi out/in. for me, i thought it is better to use a stand alone midi sequencer with connecting my e-piano as a keyboard.
 i got and tried QY70 etc.
 it was useful. 
 a little bit later, again, i felt uncomfortable. it is too much ...
+
+
 set chords, select preset tracks, set melodies, then soon i was able to listen music. great. too much useful, i don't need to complete details.
 dont need to study or make jazz, latin, ethnic patterns. only to do is to select preset ones.
 to play the piano is not too difficult, but to play with click sounds is not comfortable. it is not interesting work.
-it is better than midi event writing with a pc keyboard. but it must be another way to write music for me and some people who don't wanna be machines.
+it is better than midi event writing with a pc keyboard. but there must be another way to write music for me and some people who don't wanna be machines.
 MML is best for writing music easily, if able to sing do-re-mi.
 let's say good-bye to irritate click sounds, mouses and pianos?! lol
 
