@@ -863,6 +863,8 @@ now, note type commands are :
       ?         ;; random note
       o         ;; dummy note ; use a random note if there is no substitution command
       m         ;; multi dummy note ; similiar to  '{?,?,?}'
+      n         ;; next up note   ; cnnn => cdef
+      N         ;; next down note ; cNNN => cbag
 ```
 
   and other commands are with parentheses.

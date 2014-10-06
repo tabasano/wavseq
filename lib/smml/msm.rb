@@ -368,7 +368,7 @@ module MmlReg
   @@h[:velocity]="v[[:digit:]]+"
   @@h[:note]="[abcdefgACDFGr]|\\{[[:digit:]]+\\}"
   @@h[:note?]="[BE]"
-  @@h[:dummyNote]="o|m|O|M"
+  @@h[:dummyNote]="o|m|O|M|n|N"
   @@h[:randNote]="\\?"
   @@h[:sound]="_[^!]+!|="
   @@h[:tieNote]="~|w"
@@ -624,6 +624,22 @@ class Notes < Hash
   @@octave=12
   def initialize
     @@notes.each{|k,v|self[k]=v}
+  end
+  def self.up n
+    case n
+    when "a".."f"
+      n.succ
+    when "g"
+      "a"
+    else
+      n
+    end
+  end
+  def self.down n
+    case n
+    when "a".."g"
+      @@invert[(@@notes[n]-1)%12].downcase
+    end
   end
   def self.offset a,b="c"
     r=@@notes[a]-@@notes[b]
@@ -1704,9 +1720,10 @@ module MidiHex
     vel=@velocity
     vel+=@accentPlus
     @downRandDummy=false
-    if key=="?"
+    case key
+    when "?"
       key=rndNote
-    elsif key=="O"
+    when "O"
       @downRandDummy=true
     end
     key=@preNote.shift if @preNote.size>0
@@ -1736,7 +1753,12 @@ module MidiHex
   end
   def self.noteCalc c,last,base
     n=@notes[c]
-    n+=self.notesharp(c,0)
+    case n
+    when Fixnum
+      n+=self.notesharp(c,0)
+    when Array
+    else
+    end
     if @octmode==:near && n.class != Array
       if last
         n+=12 if last-n>6
@@ -1763,6 +1785,14 @@ module MidiHex
       sharpFloat=s-sharp
     end
     bendStart=@bendNow
+    c=case c
+    when "n"
+      Notes.up(@lastnoteName)
+    when "N"
+      Notes.down(@lastnoteName)
+    else
+      c
+    end
     @lastnoteName=c
     @basekey=@basekeyCenter+12*(rand(5)-2) if @broken
     n,@lastnote,@basekey=self.noteCalc(c,@lastnote,@basekey)
@@ -3022,6 +3052,8 @@ module MidiHex
       when "M"
         @h<<[:call,:resetRand]
         wait<<[:chord,["?O"]]
+      when "n","N"
+        wait<<[:sound,i]
       else
         if @notes.keys.member?(i)
           wait<<[:sound,i]
