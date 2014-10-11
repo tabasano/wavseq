@@ -625,7 +625,8 @@ class Notes < Hash
   def initialize
     @@notes.each{|k,v|self[k]=v}
   end
-  def self.up n
+  def self.up n,type
+    return self.down(n) if type==:down || (type==:random && rand(2)==1)
     case n
     when "a".."f"
       n.succ
@@ -1500,6 +1501,20 @@ module MidiHex
     cent= @bendCentOn ? 100.0 : 1
     @bendCent=@bendHalfMax/@bendrange/cent
   end
+  
+  def self.nType v
+    @nType=
+      case v
+      when /^ra?nd/
+        :random
+      when /^up/
+        :up
+      when /^down/
+        :down
+      else
+        :up
+      end
+  end
   def self.vibratoType m
     @vibratoType=
        case m
@@ -1536,6 +1551,7 @@ module MidiHex
   # track initialize
   def self.trackPrepare tc=0
     self.getDefault
+    @nType=:up
     @dummyNoteOrg=["o","O"]
     @multidummySize=3
     @basekeybend=0
@@ -1786,13 +1802,13 @@ module MidiHex
     end
     bendStart=@bendNow
     c=case c
-    when "n"
-      Notes.up(@lastnoteName)
-    when "N"
-      Notes.down(@lastnoteName)
-    else
-      c
-    end
+      when "n"
+        Notes.up(@lastnoteName,@nType)
+      when "N"
+        Notes.down(@lastnoteName)
+      else
+        c
+      end
     @lastnoteName=c
     @basekey=@basekeyCenter+12*(rand(5)-2) if @broken
     n,@lastnote,@basekey=self.noteCalc(c,@lastnote,@basekey)
@@ -2857,6 +2873,8 @@ module MidiHex
         @h<<[:call,:preBefore,s]
       when /^\(roll:(.*)\)/
         @shiftbase=$1.to_i
+      when /^\(nType:(.*)\)/
+        @h<<[:call,:nType,$1]
       when /^\(vibratoType:(.*)\)/
         @h<<[:call,:vibratoType,$1]
       when /^\(vibrato:(.*)\)/
