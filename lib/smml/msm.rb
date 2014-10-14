@@ -2514,11 +2514,15 @@ module MidiHex
       STDERR.puts "register: no data"
     end
   end
-  def self.setSwing k,v,hs=@swingHash
-    v=v.to_f
+  def self.setSwing k,value,hs=@swingHash
+    v=value.to_f
     k=~/of/
     if $&
       k,all=$`.to_i,$'.to_i
+      if value=~/%/
+        percent=$`.to_f
+        v=all*1.0*percent/100
+      end
       hs[k]=v
       hs[all-k]=all-v
     else

@@ -931,17 +931,23 @@ easy way to express fuzzy swing rythm.
  (setSwing: 2, 2.4)(setSwing: 1, 0.6) /:a2,b1,/
  (setSwing: 2, 1.8)(setSwing: 1, 1.2) /:a2,b1,/
 ```
+
 series of ```ab``` ,
 just 2:1, first longer, first shorter. rythm will be broken if setting part is wrong.
 
 ```
  (setSwing: 2of3, 2.4)/:a2,b1,/
+ (setSwing: 2of3, 80%)/:a2,b1,/
 ```
 
-same as the second line of above. key value must be integer, not float.
+the first line is the same as the second line of above. key value must be integer, not float.
 '2of3' and '1of5' can be used at once, but rythm will not be what you predict.
 value for 1of3 , set by rest of 2of3, is overwitten by 1of5.
 there is no way to help it.
+
+
+the second line sets values by percent ; 1of3:2of3 => 20%of3:80%of3 => 0.6:2.4.
+
 
 ;; register of modifiers
 
