@@ -2522,10 +2522,20 @@ module MidiHex
       if value=~/%/
         percent=$`.to_f
         v=all*1.0*percent/100
+      elsif value=~/rest/
+        v=all-hs[all-k]
       end
       hs[k]=v
       hs[all-k]=all-v
     else
+      case value
+      when /shorter([[:digit:]]+)?/
+        rate=0.9**($1 ? $1.to_i : 1)
+        v=k.to_i*rate
+      when /longer([[:digit:]]+)?/
+        rate=1.1**($1 ? $1.to_i : 1)
+        v=k.to_i*rate
+      end
       hs[k.to_i]=v
     end
   end
@@ -3235,7 +3245,7 @@ end
 def multiplet d,tbase
   d=~/\/((\*)?([[:digit:].]+)?:)?(.*)\//
   tickmode=$2
-  i=$4
+  nbody=$4
   rate=$3 ? $3.to_f : 1
   rate=1 if rate==0
   if tickmode
@@ -3244,7 +3254,7 @@ def multiplet d,tbase
     total=tbase*rate
   end
   regex=MmlReg.multipletr
-  r=i.scan(/#{regex}|./)
+  r=nbody.scan(/#{regex}|./)
   lengths=[]
   notes=[]
   mod=[]
@@ -3266,6 +3276,7 @@ def multiplet d,tbase
       lengths[-1]*=s
     # length
     when /^[[:digit:]]+/
+      STDERR.puts "multiptet: syntax error (:) ?" if not lengths[-1]
       lengths[-1]*=i.to_f
     when " "
     when /^\([^\(\):,]*:.*\)/
