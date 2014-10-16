@@ -1551,6 +1551,8 @@ module MidiHex
   # track initialize
   def self.trackPrepare tc=0
     self.getDefault
+    @chordStack=[]
+    @chordStackNum=0
     @nType=:up
     @dummyNoteOrg=["o","O"]
     @multidummySize=3
@@ -1834,8 +1836,20 @@ module MidiHex
     chord=chord.orotate(1) while chord[0]<base-limit
     chord
   end
+  def self.setChordStack s
+    @chordStack=s.split(",")
+  end
+  def self.cstack c
+    if @chordStack.size>0
+      c=@chordStack[@chordStackNum]
+      @chordStackNum+=1
+      @chordStackNum%=@chordStack.size
+    end
+    c
+  end
   def self.chordName c,l=false,accent=false,sharp=0,swing=false
     l+=l*self.getswing(swing)
+    c=self.cstack(c) if c=="N"
     same=false
     same=(@lastchordName==c) if @lastchordName
     if same
@@ -2840,6 +2854,8 @@ module MidiHex
       when /^\(set":(.*)\)/
         d=$1.split(",")
         @h<<[:call,:setRegister,*d]
+      when /^\(cStack:(.*)\)/
+        @h<<[:call,:setChordStack,$1]
       when /^\(setSwing:(.*)\)/
         d=$1.split(",")
         @h<<[:call,:setSwing,*d]
