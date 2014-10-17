@@ -1849,7 +1849,12 @@ module MidiHex
   end
   def self.chordName c,l=false,accent=false,sharp=0,swing=false
     l+=l*self.getswing(swing)
-    c=self.cstack(c) if c=="N"
+    case c
+    when "N"
+      c=self.cstack(c)
+    when "="
+      c=@lastchordName
+    end
     same=false
     same=(@lastchordName==c) if @lastchordName
     if same
@@ -3083,6 +3088,7 @@ module MidiHex
         last=@h[-1]
         @h<<[:comment,"= same sound"]
         if lastwait.size>0
+          lastwait[0][1]="=" if lastwait[-1]==[:chordName, "N"]
           wait+=lastwait
         else
           @h<<last
