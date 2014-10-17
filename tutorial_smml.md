@@ -256,7 +256,7 @@ is the same to
 minus value is for to stroke up. currently, up value affects once only as it simulates playing the guitar. 
 
 
-to skip cmd for repetition, use pre '^'.
+to skip cmd for repetition, use pre '^'. so '(:-)' in an example below means '(stroke:-)'
 
 ```
 (stroke:4) {a,b,c} = = (^skipCmd:..) (:-)  = = = 
@@ -648,6 +648,22 @@ another random note.
  (?:a,b,40,45,90,12)    ;; select from a note number or name list.
 ```
 
+
+'n' as next note, case by case.
+
+```
+ ennn                     ;; upside next note   ; efga
+ eNNN                     ;; downside next note ; edcb
+ (cStack:f,g,c):N,:N,:N,  ;; next chord in chordStack ; :f,:g,:c,
+```
+
+to change 'n', next note type, to up/down/random in scale, use
+
+```
+ (nType:up)
+```
+
+
 ## tonality
 
 ```
@@ -946,7 +962,16 @@ value for 1of3 , set by rest of 2of3, is overwitten by 1of5.
 there is no way to help it.
 
 
-the second line sets values by percent ; 1of3:2of3 => 20%of3:80%of3 => 0.6:2.4.
+the second line sets values by percentage ; 1of3:2of3 => 20%of3:80%of3 => 0.6:2.4.
+
+
+```
+ (setSwing: 1, shorter)(setSwing: 2of3, rest)   ;; after that,  /:a1,b2,/ => /:a0.9b2.1/
+ (setSwing: 1, shorter2)(setSwing: 2of3, rest)  ;; now value is 0.9**2, 0.81, and so on.
+ (setSwing: 1, longer)(setSwing: 2of3, rest)    ;; /:a1,b2,/ => /:a1.1b1.9/
+```
+
+set 1 shorter/longer then set 2of3 the rest of it.
 
 
 ;; register of modifiers
