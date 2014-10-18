@@ -116,6 +116,7 @@ if you don't, smml sets panpot values automatically.
 ```
 
 ;; a melody goes near up/down side note without octave commands as default.
+after '(near:off)', near-mode is off.
 
 ```
 [ cdefgab ] 4

@@ -1424,6 +1424,10 @@ module MidiHex
     self.loadPercussionMap(pfile)
     self.dumpstatus if $DEBUG && $debuglevel>3
   end
+  def self.setOctaveNear v
+    v= v ? :near : :fixed
+    @octmode=v
+  end
   def setBendRangeMax v
     @bendrangemax=v
   end
@@ -1725,9 +1729,9 @@ module MidiHex
   def self.rndNote useScale=true
     key=rand(0x7f)
     key=self.note2key(@scalenotes.sample) if @scalenotes.size>0 && useScale
-    if @downRandDummy && @lastRandNote
+    if @updown==:down && @lastRandNote
       key-=12 while key>@lastRandNote && key>12
-    elsif ! @downRandDummy && @lastRandNote
+    elsif @updown==:up && @lastRandNote
       key+=12 while key<@lastRandNote && key<127-12
     end
     @lastRandNote=key
@@ -1737,12 +1741,16 @@ module MidiHex
     len+=len*self.getswing(swing)
     vel=@velocity
     vel+=@accentPlus
-    @downRandDummy=false
     case key
     when "?"
       key=rndNote
+      @updown=:no
+    when "o"
+      @updown=:up
     when "O"
-      @downRandDummy=true
+      @updown=:down
+    else
+      @updown=:no
     end
     key=@preNote.shift if @preNote.size>0
     len=@preLength.shift if @preLength.size>0
@@ -2908,6 +2916,10 @@ module MidiHex
         @h<<[:call,:preBefore,s]
       when /^\(roll:(.*)\)/
         @shiftbase=$1.to_i
+      when /^\(near:(.*)\)/
+        sw=false
+        sw=true if $1=~/^on/
+        @h<<[:call,:setOctaveNear,sw]
       when /^\(nType:(.*)\)/
         @h<<[:call,:nType,$1]
       when /^\(vibratoType:(.*)\)/
