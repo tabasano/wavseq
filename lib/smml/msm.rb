@@ -368,7 +368,7 @@ module MmlReg
   @@h[:velocity]="v[[:digit:]]+"
   @@h[:note]="[abcdefgACDFGr]|\\{[[:digit:]]+\\}"
   @@h[:note?]="[BE]"
-  @@h[:dummyNote]="o|m|O|M|n|N"
+  @@h[:dummyNote]="o|m|O|M|n|N|x"
   @@h[:randNote]="\\?"
   @@h[:sound]="_[^!]+!|="
   @@h[:tieNote]="~|w"
@@ -1413,6 +1413,7 @@ module MidiHex
     @scalenotes=ScaleNotes.new.reset
     @gtune=guitarTuning
     self.setDefault
+    @dummymarknotenum=0
     @chmax=15
     @bendrangemax=24
     file="midi-programChange-list.txt"
@@ -1558,7 +1559,7 @@ module MidiHex
     @chordStack=[]
     @chordStackNum=0
     @nType=:up
-    @dummyNoteOrg=["o","O"]
+    @dummyNoteOrg=["o","O","x"]
     @multidummySize=3
     @basekeybend=0
     @theremin=false
@@ -1667,10 +1668,17 @@ module MidiHex
     r<<self.bend(pos,depth.to_s,ch)
     r
   end
+  def self.predummyword
+    "sound"
+  end
+  def self.dummymarknote n,preword=self.predummyword
+    "__#{preword}_#{n}__"
+  end
   def self.oneNote len=@tbase,key=@basekey,velocity=@velocity,ch=@ch,sharp=0,swing=false
     len+=len*self.getswing(swing)
     bendStart=@bendNow
     ch=[ch,0x0f].min
+    dummymark=(key=="x")
     key=self.rndNote if @dummyNoteOrg.member?(key)
     key+=sharp
     @key=[[key,0x7f].min,0].max
@@ -1683,7 +1691,11 @@ module MidiHex
     end
     velocity-=rand(@velocityFuzzy) if @velocityFuzzy>0
     velocity=[velocity,0x7f].min
-    key=format("%02x",@key)
+    keydata=format("%02x",@key)
+    if dummymark
+      @dummymarknotenum+=1
+      keydata=self.dummymarknote(@dummymarknotenum)
+    end
     ch=format("%01x",ch)
     vel=format("%02x",velocity)
     start=@waitingtime
@@ -1692,7 +1704,7 @@ module MidiHex
     @lenForGate=false
     @nowtime+=start
     r=[]
-    r<<Event.new(:e,start," 9#{ch} #{key} #{vel} # #{start} later, sound on note #{Notes.nDisplay(@key)} velocity #{velocity}\n")
+    r<<Event.new(:e,start," 9#{ch} #{keydata} #{vel} # #{start} later, sound on note #{Notes.nDisplay(@key)} velocity #{velocity}\n")
     b=@preAfter.shift
     bends=expre=false
     if b
@@ -1713,13 +1725,13 @@ module MidiHex
       }
     end
     @nowtime+=slen
-    r<<Event.new(:e,slen," 8#{ch} #{key} 00 # #{slen}(gate:#{@gateRate})- #{len.to_i}(#{len.round(2)})ticks later, sound off [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]\n")
+    r<<Event.new(:e,slen," 8#{ch} #{keydata} 00 # #{slen}(gate:#{@gateRate})- #{len.to_i}(#{len.round(2)})ticks later, sound off [#{(@nowtime/@tbase).to_i}, #{@nowtime%@tbase}]\n")
     r<<self.bend(0,bendStart) if bends
     @bendNow=bendStart
     r<<self.expre(0,127) if expre
     if rest>0
       @nowtime+=rest
-      r<<Event.new(:end,rest," 8#{ch} #{key} 00  # #{rest} len-gate\n")
+      r<<Event.new(:end,rest," 8#{ch} #{keydata} 00  # #{rest} len-gate\n")
     end
     r
   end
@@ -3107,11 +3119,9 @@ module MidiHex
         end
       when "r"
         wait<<[:rest,i]
-      when "o","O"
+      when "o","O","?","x"
         wait<<[:dummyNote,i]
       when " "
-      when "?"
-        wait<<[:dummyNote,"?"]
       when "m"
         @h<<[:call,:resetRand]
         wait<<[:chord,["??"]]
@@ -3709,7 +3719,7 @@ class Smml
       @mx.trackMake(t,tc-1)
     }.flatten
     puts alla if $DEBUG
-    all=alla.map{|i|i.commentoff("","#")}*""
+    all=alla.map{|i|i.commentoff("","#").gsub(/__#{@mx.predummyword}_[[:digit:]]+__/){"7F"}}*""
     array=[all.split.join]
     @binary = array.pack( "H*" )
   end
