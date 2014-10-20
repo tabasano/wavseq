@@ -1978,6 +1978,9 @@ module MidiHex
     r=self.rest(len,false,ch)
     r[0]
   end
+  def self.intermediate d
+    Event.new(:raw," $#{d.gsub(","){":"}} # #{d}\n")
+  end
   # d : hex data
   def self.metaEvent d,type=1
     t=format("%02X",type)
@@ -2874,6 +2877,8 @@ module MidiHex
       when MmlReg.rr([:register])
         i=~/[[:digit:]]+/
         @h<<[:call,:register,$&]
+      when /^\(i:(.*)\)/
+        @h<<[:intermediate,$1]
       when /^\(tonality:(.*)\)/
         @h<<[:call,:setTonality,$1]
       when /^\(set":(.*)\)/
@@ -3711,7 +3716,22 @@ class Smml
       @htracks[tc]=[@mx.restHex,@mx.makefraze(track,tc), @mx.lastrest].flatten
     }
   end
-  def pack
+  def intermediate d
+    r=d.
+        commentoff("","#").
+        gsub(/__#{@mx.predummyword}_[[:digit:]]+__/){"7F"}.
+        gsub(/\$([^ ]+)/){
+         k=$1
+         case k
+         when /^raw:([^ ]+)/ then $1
+         when /^text:([^ ]+)/ then txt2hex($1)
+         when /^delta:([^ ]+)/ then varlenHex($1)
+         else "  "
+         end
+       }
+    r
+  end
+  def prepack
     @header=@mx.header(1, @tracknum, @tbase)
     tc=0
     alla=[@header]+@htracks.map{|t|
@@ -3719,14 +3739,26 @@ class Smml
       @mx.trackMake(t,tc-1)
     }.flatten
     puts alla if $DEBUG
-    all=alla.map{|i|i.commentoff("","#").gsub(/__#{@mx.predummyword}_[[:digit:]]+__/){"7F"}}*""
-    array=[all.split.join]
+    @hexstr=alla.map{|i|intermediate(i)}*""
+  end
+  def pack
+    array=[@hexstr.split.join]
     @binary = array.pack( "H*" )
+  end
+  def intermediateCheck file
+    first=(File.readlines(file)-["","\n"])[0]
+    first=~/^# *! *intermediate/
   end
   def make test=false,fz=false
     init(test,fz)
-    setmacro
-    settracks
+    if intermediateCheck(@infile)
+      @hexstr=intermediate(File.read(@infile))
+      @rawdatas=[]
+    else
+      setmacro
+      settracks
+      prepack
+    end
     pack
   end
   def save outfile=@mx.getmidiname

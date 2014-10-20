@@ -1034,6 +1034,14 @@ but now blanks are removed. someday maybe fixed ?
 directly set local MidiHex variable, dump while compiling if the varName (with noe method) and value are valid.
 
 
+intermediate code implement test. midi format will be broken because it is for test mode only. only to use intermediate code texts later.
+
+```
+  (i:raw,6677)    ;; as raw hex
+  (i:delta,123)   ;; use deltaTime method
+  (i:text,aiueo)  ;; text to hex
+```
+
 # syntax implement policy: 
 
 
