@@ -3716,7 +3716,25 @@ class Smml
       @htracks[tc]=[@mx.restHex,@mx.makefraze(track,tc), @mx.lastrest].flatten
     }
   end
-  def intermediate d
+  # delete lines before intermediate start mark
+  def droppre s
+    if s.select{|i|i=~/^# *!intermediate/}.size>0
+      flag=false
+      s.map{|i|
+        i=~/^# *!intermediate/
+        flag=true if $&
+        flag ? i : nil
+      }-[nil]
+    else
+      s
+    end
+  end
+  def intermediate d,mode=:data
+    if mode==:file
+      s=File.readlines(d)
+      d=droppre(s)*""
+    end
+    puts d if $DEBUG
     r=d.
         commentoff("","#").
         gsub(/__#{@mx.predummyword}_[[:digit:]]+__/){"7F"}.
@@ -3738,7 +3756,8 @@ class Smml
       tc+=1
       @mx.trackMake(t,tc-1)
     }.flatten
-    puts alla if $DEBUG
+    c="#! intermediate code start"
+    puts c,alla if $DEBUG
     @hexstr=alla.map{|i|intermediate(i)}*""
   end
   def pack
@@ -3746,13 +3765,13 @@ class Smml
     @binary = array.pack( "H*" )
   end
   def intermediateCheck file
-    first=(File.readlines(file)-["","\n"])[0]
+    first=file ? (File.readlines(file).select{|i|i=~/^# *!/})[0] : ""
     first=~/^# *! *intermediate/
   end
   def make test=false,fz=false
     init(test,fz)
     if intermediateCheck(@infile)
-      @hexstr=intermediate(File.read(@infile))
+      @hexstr=intermediate(@infile,:file)
       @rawdatas=[]
     else
       setmacro

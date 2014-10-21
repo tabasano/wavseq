@@ -1042,6 +1042,18 @@ intermediate code implement test. midi format will be broken because it is for t
   (i:text,aiueo)  ;; text to hex
 ```
 
+
+when an inputfile includes a line starting with "#! intermediate", it is manipulated as intermediate code.
+option "-D" will dump it.
+
+```
+ all data is ignored before mark like this
+ ...
+
+#! intermediate code start
+00 01 # etc. hex data
+```
+
 # syntax implement policy: 
 
 
