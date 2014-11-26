@@ -5,4 +5,4 @@ cat mml2smml.mml
 hexdump gem.mid -C | head -n 7
 ruby -rubygems workdir/regexpMmlEventModuleTest.rb
 cd doremi
-ruby -r hex2midi -e "puts DOREMI_STUDY_VERSION, File.read('ans.txt')"
+ruby -r ./hex2midi -e "puts DOREMI_STUDY_VERSION, File.read('ans.txt')"
